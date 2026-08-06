@@ -1,0 +1,465 @@
+<title>Painel de Gestão — Estacionamento</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy:#142A4B;
+    --lime:#DBFF00;
+    --gray:#676767;
+    --bg:#F5F6F8;
+    --card:#FFFFFF;
+    --border:#E4E7EC;
+    --danger:#C0392B;
+    --ok:#1E8E4F;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:'Poppins',sans-serif;
+    background:var(--bg);
+    color:var(--gray);
+  }
+  header{
+    background:var(--navy);
+    color:#fff;
+    padding:20px 32px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:8px;
+  }
+  header .brand{font-weight:700;font-size:20px;letter-spacing:.5px;}
+  header .brand span{color:var(--lime);}
+  header .subtitle{font-size:13px;color:#B9C2D6;}
+  header a{color:#B9C2D6;font-size:13px;}
+  .chaves-bar{
+    background:#0F2038;
+    color:#B9C2D6;
+    padding:10px 32px;
+    display:flex;
+    align-items:center;
+    gap:16px;
+    flex-wrap:wrap;
+    font-size:12px;
+  }
+  .chaves-bar strong{color:#fff;font-weight:600;}
+  .chaves-bar input{
+    width:220px;
+    padding:5px 8px;
+    border-radius:6px;
+    border:1px solid #2C3E5C;
+    background:#16294A;
+    color:#fff;
+    font-size:12px;
+    font-family:'Courier New',monospace;
+  }
+  main{
+    max-width:1200px;
+    margin:0 auto;
+    padding:28px 20px 60px;
+    display:flex;
+    flex-direction:column;
+    gap:24px;
+  }
+  .card{
+    background:var(--card);
+    border:1px solid var(--border);
+    border-radius:14px;
+    padding:24px;
+  }
+  .card h2{
+    margin:0 0 4px;
+    color:var(--navy);
+    font-size:18px;
+  }
+  .card .desc{
+    font-size:13px;
+    margin-bottom:18px;
+    color:var(--gray);
+  }
+  .grid-form{
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));
+    gap:12px;
+    align-items:end;
+  }
+  label{
+    display:block;
+    font-size:12px;
+    font-weight:600;
+    color:var(--navy);
+    margin:0 0 4px;
+  }
+  input, select{
+    width:100%;
+    padding:9px 11px;
+    border:1px solid var(--border);
+    border-radius:8px;
+    font-family:inherit;
+    font-size:13px;
+    color:var(--navy);
+    background:#fff;
+  }
+  button.action{
+    background:var(--lime);
+    color:var(--navy);
+    border:none;
+    padding:10px 16px;
+    border-radius:8px;
+    font-family:inherit;
+    font-weight:700;
+    font-size:13px;
+    cursor:pointer;
+  }
+  button.action:hover{filter:brightness(0.95);}
+  button.secundario{
+    background:#fff;
+    color:var(--navy);
+    border:1px solid var(--navy);
+    padding:6px 12px;
+    border-radius:6px;
+    font-family:inherit;
+    font-weight:600;
+    font-size:12px;
+    cursor:pointer;
+    margin-right:6px;
+  }
+  table{
+    width:100%;
+    border-collapse:collapse;
+    font-size:13px;
+    margin-top:14px;
+  }
+  th, td{
+    text-align:left;
+    padding:8px 10px;
+    border-bottom:1px solid var(--border);
+  }
+  th{color:var(--navy);font-size:12px;text-transform:uppercase;letter-spacing:.03em;}
+  .badge{
+    display:inline-block;
+    padding:2px 8px;
+    border-radius:20px;
+    font-size:11px;
+    font-weight:600;
+  }
+  .badge.ativo{background:#EAF7EE;color:var(--ok);}
+  .badge.inativo{background:#FBEAEA;color:var(--danger);}
+  .badge.credenciado{background:#EAF2FB;color:var(--navy);}
+  .badge.mensalista{background:#FFF6DA;color:#8A6D00;}
+  .msg{font-size:13px;margin-top:10px;}
+  .msg.ok{color:var(--ok);}
+  .msg.err{color:var(--danger);}
+  .resumo{
+    display:flex;
+    gap:24px;
+    flex-wrap:wrap;
+    margin-top:16px;
+  }
+  .resumo .item{
+    background:var(--bg);
+    border-radius:10px;
+    padding:14px 18px;
+    min-width:160px;
+  }
+  .resumo .item .valor{font-size:20px;font-weight:700;color:var(--navy);}
+  .resumo .item .label{font-size:12px;color:var(--gray);}
+  .filtros{display:flex;gap:10px;flex-wrap:wrap;align-items:end;margin-bottom:6px;}
+  .filtros label{margin-bottom:4px;}
+  .filtros > div{min-width:200px;}
+  .empty{color:#9AA3B2;font-size:13px;}
+</style>
+
+<header>
+  <div>
+    <div class="brand">PARK<span>·</span>GESTÃO</div>
+    <div class="subtitle">Cadastro de credenciados/mensalistas e relatórios</div>
+  </div>
+  <a href="/">← voltar ao painel de testes dos totens</a>
+</header>
+
+<div class="chaves-bar">
+  <strong>Chave de gestão:</strong>
+  <input id="chave-gestao" placeholder="X-API-Key">
+</div>
+
+<main>
+  <section class="card">
+    <h2>Cadastrar credenciado / mensalista</h2>
+    <div class="desc">O identificador facial é o que a câmera do totem retorna ao reconhecer a pessoa — aqui, para teste, pode ser qualquer texto único.</div>
+    <div class="grid-form">
+      <div>
+        <label>Nome</label>
+        <input id="c-nome" placeholder="Nome completo">
+      </div>
+      <div>
+        <label>Tipo</label>
+        <select id="c-tipo">
+          <option value="credenciado">Credenciado (100% liberado)</option>
+          <option value="mensalista">Mensalista (paga R$200 / 30 dias)</option>
+        </select>
+      </div>
+      <div>
+        <label>Identificador facial</label>
+        <input id="c-identificador" placeholder="ex: FACE-001">
+      </div>
+      <div>
+        <label>Documento (opcional)</label>
+        <input id="c-documento" placeholder="CPF">
+      </div>
+      <div>
+        <label>Placa (opcional)</label>
+        <input id="c-placa" placeholder="ABC1D23">
+      </div>
+      <div>
+        <label>Empresa/vínculo (opcional)</label>
+        <input id="c-empresa" placeholder="ex: Loja Parceira">
+      </div>
+      <div>
+        <button class="action" id="btn-cadastrar" style="width:100%;">Cadastrar</button>
+      </div>
+    </div>
+    <div class="msg" id="msg-cadastro"></div>
+  </section>
+
+  <section class="card">
+    <h2>Credenciados cadastrados</h2>
+    <div class="desc">Mensalistas vencidos aparecem com validade em vermelho — use "Renovar" para dar mais 30 dias.</div>
+    <table>
+      <thead>
+        <tr>
+          <th>Nome</th><th>Tipo</th><th>Identificador facial</th><th>Placa</th>
+          <th>Status</th><th>Validade</th><th>Ações</th>
+        </tr>
+      </thead>
+      <tbody id="tabela-credenciados"></tbody>
+    </table>
+    <div class="empty" id="credenciados-vazio" style="display:none;">Nenhum credenciado cadastrado ainda.</div>
+  </section>
+
+  <section class="card">
+    <h2>Relatório de tickets</h2>
+    <div class="filtros">
+      <div><label>De</label><input type="datetime-local" id="rt-inicio"></div>
+      <div><label>Até</label><input type="datetime-local" id="rt-fim"></div>
+      <div><button class="action" id="btn-relatorio-tickets">Buscar</button></div>
+    </div>
+    <table>
+      <thead>
+        <tr><th>Código</th><th>Entrada</th><th>Saída</th><th>Status</th><th>Permanência</th><th>Valor</th></tr>
+      </thead>
+      <tbody id="tabela-tickets"></tbody>
+    </table>
+    <div class="empty" id="tickets-vazio" style="display:none;">Nenhum ticket no período.</div>
+  </section>
+
+  <section class="card">
+    <h2>Conciliação financeira</h2>
+    <div class="filtros">
+      <div><label>De</label><input type="datetime-local" id="rf-inicio"></div>
+      <div><label>Até</label><input type="datetime-local" id="rf-fim"></div>
+      <div><button class="action" id="btn-relatorio-financeiro">Buscar</button></div>
+    </div>
+    <div class="resumo" id="resumo-financeiro"></div>
+  </section>
+
+  <section class="card">
+    <h2>Auditoria — tentativas de cupom fiscal duplicado</h2>
+    <div class="desc">Toda vez que alguém tenta validar um cupom cuja chave já foi usada em outro ticket, fica registrado aqui.</div>
+    <button class="action" id="btn-auditoria">Atualizar</button>
+    <table>
+      <thead>
+        <tr><th>Chave de acesso NFC-e</th><th>Ticket da tentativa</th><th>Ticket original</th><th>Quando</th></tr>
+      </thead>
+      <tbody id="tabela-auditoria"></tbody>
+    </table>
+    <div class="empty" id="auditoria-vazio" style="display:none;">Nenhuma tentativa registrada.</div>
+  </section>
+</main>
+
+<script>
+const CHAVE_GESTAO_PADRAO_DEV = 'dev-gestao-troque-em-producao';
+const inputChave = document.getElementById('chave-gestao');
+inputChave.value = localStorage.getItem('pk_gestao') || CHAVE_GESTAO_PADRAO_DEV;
+inputChave.addEventListener('change', () => localStorage.setItem('pk_gestao', inputChave.value));
+
+async function api(metodo, url, body){
+  const opts = { method: metodo, headers: { 'X-API-Key': inputChave.value } };
+  if (body){
+    opts.headers['Content-Type'] = 'application/json';
+    opts.body = JSON.stringify(body);
+  }
+  const resp = await fetch(url, opts);
+  const data = await resp.json();
+  if (!resp.ok) throw new Error(data.detail || 'Erro desconhecido');
+  return data;
+}
+
+function fmtData(iso){
+  if (!iso) return '—';
+  return new Date(iso).toLocaleString('pt-BR');
+}
+
+function badgeTipo(tipo){
+  return `<span class="badge ${tipo}">${tipo}</span>`;
+}
+
+function badgeStatus(ativo){
+  return ativo ? '<span class="badge ativo">ativo</span>' : '<span class="badge inativo">inativo</span>';
+}
+
+async function carregarCredenciados(){
+  const tbody = document.getElementById('tabela-credenciados');
+  const vazio = document.getElementById('credenciados-vazio');
+  try{
+    const lista = await api('GET', '/gestao/credenciados');
+    tbody.innerHTML = '';
+    vazio.style.display = lista.length ? 'none' : 'block';
+    const agora = new Date();
+    lista.forEach(c => {
+      const vencido = c.tipo === 'mensalista' && (!c.data_validade || new Date(c.data_validade) < agora);
+      const validadeHtml = c.tipo === 'mensalista'
+        ? `<span style="color:${vencido ? 'var(--danger)' : 'var(--ok)'}">${fmtData(c.data_validade)}</span>`
+        : '—';
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${c.nome}</td>
+        <td>${badgeTipo(c.tipo)}</td>
+        <td><code>${c.identificador_facial}</code></td>
+        <td>${c.placa || '—'}</td>
+        <td>${badgeStatus(c.ativo)}</td>
+        <td>${validadeHtml}</td>
+        <td>
+          ${c.tipo === 'mensalista' ? `<button class="secundario" onclick="renovar(${c.id})">Renovar</button>` : ''}
+          <button class="secundario" onclick="alternarAtivo(${c.id}, ${c.ativo})">${c.ativo ? 'Desativar' : 'Ativar'}</button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }catch(e){
+    tbody.innerHTML = '';
+    document.getElementById('msg-cadastro').textContent = e.message;
+  }
+}
+
+async function renovar(id){
+  const valor = prompt('Valor da renovação (R$):', '200.00');
+  if (valor === null) return;
+  try{
+    await api('POST', `/gestao/credenciados/${id}/renovar`, { valor: parseFloat(valor), forma_pagamento: 'pix' });
+    carregarCredenciados();
+  }catch(e){
+    alert(e.message);
+  }
+}
+
+async function alternarAtivo(id, ativoAtual){
+  try{
+    await api('PATCH', `/gestao/credenciados/${id}`, { ativo: !ativoAtual });
+    carregarCredenciados();
+  }catch(e){
+    alert(e.message);
+  }
+}
+
+document.getElementById('btn-cadastrar').addEventListener('click', async () => {
+  const msg = document.getElementById('msg-cadastro');
+  msg.className = 'msg';
+  msg.textContent = '';
+  try{
+    const payload = {
+      nome: document.getElementById('c-nome').value,
+      tipo: document.getElementById('c-tipo').value,
+      identificador_facial: document.getElementById('c-identificador').value,
+      documento: document.getElementById('c-documento').value || null,
+      placa: document.getElementById('c-placa').value || null,
+      empresa_vinculo: document.getElementById('c-empresa').value || null,
+    };
+    await api('POST', '/gestao/credenciados', payload);
+    msg.className = 'msg ok';
+    msg.textContent = 'Cadastrado com sucesso.';
+    ['c-nome','c-identificador','c-documento','c-placa','c-empresa'].forEach(id => document.getElementById(id).value = '');
+    carregarCredenciados();
+  }catch(e){
+    msg.className = 'msg err';
+    msg.textContent = e.message;
+  }
+});
+
+function query(inicio, fim){
+  const params = new URLSearchParams();
+  if (inicio) params.set('inicio', new Date(inicio).toISOString());
+  if (fim) params.set('fim', new Date(fim).toISOString());
+  return params.toString();
+}
+
+document.getElementById('btn-relatorio-tickets').addEventListener('click', async () => {
+  const tbody = document.getElementById('tabela-tickets');
+  const vazio = document.getElementById('tickets-vazio');
+  const inicio = document.getElementById('rt-inicio').value;
+  const fim = document.getElementById('rt-fim').value;
+  try{
+    const lista = await api('GET', `/gestao/relatorio/tickets?${query(inicio, fim)}`);
+    tbody.innerHTML = '';
+    vazio.style.display = lista.length ? 'none' : 'block';
+    lista.forEach(t => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><code>${t.codigo_barras}</code></td>
+        <td>${fmtData(t.data_hora_entrada)}</td>
+        <td>${fmtData(t.data_hora_saida)}</td>
+        <td>${t.status}</td>
+        <td>${t.tempo_permanencia_minutos ?? '—'} min</td>
+        <td>R$ ${t.valor_calculado.toFixed(2)}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }catch(e){
+    alert(e.message);
+  }
+});
+
+document.getElementById('btn-relatorio-financeiro').addEventListener('click', async () => {
+  const resumo = document.getElementById('resumo-financeiro');
+  const inicio = document.getElementById('rf-inicio').value;
+  const fim = document.getElementById('rf-fim').value;
+  try{
+    const r = await api('GET', `/gestao/relatorio/financeiro?${query(inicio, fim)}`);
+    let html = `
+      <div class="item"><div class="valor">R$ ${r.total_arrecadado.toFixed(2)}</div><div class="label">Total arrecadado</div></div>
+      <div class="item"><div class="valor">${r.quantidade_transacoes}</div><div class="label">Transações</div></div>
+    `;
+    Object.entries(r.por_forma_pagamento).forEach(([forma, valor]) => {
+      html += `<div class="item"><div class="valor">R$ ${valor.toFixed(2)}</div><div class="label">${forma}</div></div>`;
+    });
+    resumo.innerHTML = html;
+  }catch(e){
+    alert(e.message);
+  }
+});
+
+document.getElementById('btn-auditoria').addEventListener('click', async () => {
+  const tbody = document.getElementById('tabela-auditoria');
+  const vazio = document.getElementById('auditoria-vazio');
+  try{
+    const lista = await api('GET', '/gestao/relatorio/cupons-duplicados');
+    tbody.innerHTML = '';
+    vazio.style.display = lista.length ? 'none' : 'block';
+    lista.forEach(a => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><code>${a.chave_acesso_nfce}</code></td>
+        <td><code>${a.codigo_barras_tentativa}</code></td>
+        <td>#${a.ticket_original_id ?? '—'}</td>
+        <td>${fmtData(a.data_hora)}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }catch(e){
+    alert(e.message);
+  }
+});
+
+carregarCredenciados();
+</script>

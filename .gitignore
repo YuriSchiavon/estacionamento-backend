@@ -1,0 +1,23 @@
+# Ambiente Python
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Banco de dados local (dados de teste, não versionar)
+*.db
+
+# Segredos -- nunca versionar, use .env.example como modelo
+.env
+
+# Logs locais
+server.log
+*.log
+
+# Editores / SO
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Configuração local do Claude Code (específica desta máquina/sessão)
+.claude/settings.local.json

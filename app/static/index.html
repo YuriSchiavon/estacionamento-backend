@@ -1,0 +1,505 @@
+<title>Painel de Testes — Controle de Acesso</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy:#142A4B;
+    --lime:#DBFF00;
+    --gray:#676767;
+    --bg:#F5F6F8;
+    --card:#FFFFFF;
+    --border:#E4E7EC;
+    --danger:#C0392B;
+    --ok:#1E8E4F;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:'Poppins',sans-serif;
+    background:var(--bg);
+    color:var(--gray);
+  }
+  header{
+    background:var(--navy);
+    color:#fff;
+    padding:20px 32px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:8px;
+  }
+  header .brand{
+    font-weight:700;
+    font-size:20px;
+    letter-spacing:.5px;
+  }
+  header .brand span{color:var(--lime);}
+  header .subtitle{
+    font-size:13px;
+    color:#B9C2D6;
+  }
+  main{
+    max-width:1100px;
+    margin:0 auto;
+    padding:28px 20px 60px;
+    display:grid;
+    grid-template-columns:1.3fr 1fr;
+    gap:24px;
+  }
+  @media (max-width:860px){
+    main{grid-template-columns:1fr;}
+  }
+  .tabs{
+    display:flex;
+    gap:6px;
+    margin-bottom:16px;
+    flex-wrap:wrap;
+  }
+  .tab-btn{
+    border:1px solid var(--border);
+    background:#fff;
+    color:var(--navy);
+    padding:10px 14px;
+    border-radius:8px;
+    font-family:inherit;
+    font-weight:600;
+    font-size:13px;
+    cursor:pointer;
+  }
+  .tab-btn.active{
+    background:var(--navy);
+    color:var(--lime);
+    border-color:var(--navy);
+  }
+  .panel{
+    background:var(--card);
+    border:1px solid var(--border);
+    border-radius:14px;
+    padding:24px;
+    display:none;
+  }
+  .panel.active{display:block;}
+  .panel h2{
+    margin:0 0 4px;
+    color:var(--navy);
+    font-size:18px;
+  }
+  .panel .desc{
+    font-size:13px;
+    margin-bottom:18px;
+    color:var(--gray);
+  }
+  label{
+    display:block;
+    font-size:12px;
+    font-weight:600;
+    color:var(--navy);
+    margin:12px 0 4px;
+  }
+  input,select{
+    width:100%;
+    padding:10px 12px;
+    border:1px solid var(--border);
+    border-radius:8px;
+    font-family:inherit;
+    font-size:14px;
+    color:var(--navy);
+    background:#fff;
+  }
+  button.action{
+    margin-top:20px;
+    background:var(--lime);
+    color:var(--navy);
+    border:none;
+    padding:12px 18px;
+    border-radius:8px;
+    font-family:inherit;
+    font-weight:700;
+    font-size:14px;
+    cursor:pointer;
+    width:100%;
+  }
+  button.action:hover{filter:brightness(0.95);}
+  button.action:disabled{opacity:.6;cursor:default;}
+  .result{
+    margin-top:18px;
+    border-radius:10px;
+    padding:16px;
+    font-size:13px;
+    display:none;
+  }
+  .result.show{display:block;}
+  .result.ok{background:#EAF7EE;border:1px solid var(--ok);color:#155C33;}
+  .result.err{background:#FBEAEA;border:1px solid var(--danger);color:#7C2318;}
+  .result .row{display:flex;justify-content:space-between;padding:3px 0;}
+  .result .row b{color:inherit;}
+  .ticket-code{
+    font-family:'Courier New',monospace;
+    font-weight:700;
+    font-size:16px;
+    letter-spacing:1px;
+    background:var(--navy);
+    color:var(--lime);
+    padding:8px 10px;
+    border-radius:6px;
+    display:inline-block;
+    margin-top:4px;
+  }
+  .side h3{
+    color:var(--navy);
+    font-size:14px;
+    margin:0 0 12px;
+  }
+  .log-card{
+    background:var(--card);
+    border:1px solid var(--border);
+    border-radius:14px;
+    padding:20px;
+    max-height:640px;
+    overflow-y:auto;
+  }
+  .log-entry{
+    border-left:3px solid var(--lime);
+    padding:8px 12px;
+    margin-bottom:10px;
+    background:var(--bg);
+    border-radius:0 8px 8px 0;
+    font-size:12px;
+  }
+  .log-entry.err{border-left-color:var(--danger);}
+  .log-entry .meta{
+    display:flex;
+    justify-content:space-between;
+    color:var(--navy);
+    font-weight:600;
+    margin-bottom:2px;
+  }
+  .log-entry .time{color:#9AA3B2;font-weight:400;}
+  .empty{color:#9AA3B2;font-size:13px;}
+  .hint{
+    font-size:12px;
+    color:#9AA3B2;
+    margin-top:6px;
+  }
+  .chaves-bar{
+    background:#0F2038;
+    color:#B9C2D6;
+    padding:10px 32px;
+    display:flex;
+    align-items:center;
+    gap:16px;
+    flex-wrap:wrap;
+    font-size:12px;
+  }
+  .chaves-bar strong{color:#fff;font-weight:600;}
+  .chaves-bar label{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    color:#B9C2D6;
+    margin:0;
+    font-weight:400;
+    font-size:12px;
+  }
+  .chaves-bar input{
+    width:190px;
+    padding:5px 8px;
+    border-radius:6px;
+    border:1px solid #2C3E5C;
+    background:#16294A;
+    color:#fff;
+    font-size:12px;
+    font-family:'Courier New',monospace;
+  }
+</style>
+
+<header>
+  <div>
+    <div class="brand">PARK<span>·</span>DEMO</div>
+    <div class="subtitle">Painel de testes do fluxo de controle de acesso</div>
+  </div>
+  <div class="subtitle">Ambiente local — dados de teste (SQLite)</div>
+</header>
+
+<div class="chaves-bar">
+  <strong>Chaves de API dos totens:</strong>
+  <label>Entrada <input id="chave-entrada" placeholder="X-API-Key"></label>
+  <label>Validação <input id="chave-validacao" placeholder="X-API-Key"></label>
+  <label>Saída <input id="chave-saida" placeholder="X-API-Key"></label>
+</div>
+
+<main>
+  <div>
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="entrada">1. Totem de Entrada</button>
+      <button class="tab-btn" data-tab="loja">2. Autoatendimento (cupom)</button>
+      <button class="tab-btn" data-tab="saida">3. Cancela de Saída</button>
+      <button class="tab-btn" data-tab="pagamento">4. Pagamento</button>
+      <button class="tab-btn" data-tab="facial">5. Acesso Facial</button>
+    </div>
+
+    <section class="panel active" id="panel-entrada">
+      <h2>Totem de Entrada</h2>
+      <div class="desc">Simula o motorista chegando e pressionando o botão para retirar o ticket na cancela de entrada.</div>
+      <button class="action" id="btn-entrada">Emitir ticket</button>
+      <div class="result" id="result-entrada"></div>
+    </section>
+
+    <section class="panel" id="panel-loja">
+      <h2>Autoatendimento — Validar Cupom Fiscal</h2>
+      <div class="desc">Simula a leitura do QR code da NFC-e no totem da loja, vinculando o cupom ao ticket do cliente.</div>
+      <label>Código de barras do ticket</label>
+      <input id="loja-codigo" placeholder="ex: A1B2C3D4E5F6G7H8">
+      <label>Chave de acesso da NFC-e</label>
+      <input id="loja-chave" placeholder="chave de 44 dígitos (aqui pode ser qualquer texto único)">
+      <label>Valor da compra (R$)</label>
+      <input id="loja-valor" type="number" step="0.01" placeholder="ex: 95.00">
+      <label>CNPJ do estabelecimento (opcional)</label>
+      <input id="loja-cnpj" placeholder="opcional">
+      <button class="action" id="btn-loja">Validar cupom</button>
+      <div class="result" id="result-loja"></div>
+    </section>
+
+    <section class="panel" id="panel-saida">
+      <h2>Cancela de Saída</h2>
+      <div class="desc">Simula a leitura do ticket na cancela: calcula a permanência, aplica a tolerância e decide se libera.</div>
+      <label>Código de barras do ticket</label>
+      <input id="saida-codigo" placeholder="ex: A1B2C3D4E5F6G7H8">
+      <button class="action" id="btn-saida">Verificar saída</button>
+      <div class="result" id="result-saida"></div>
+    </section>
+
+    <section class="panel" id="panel-pagamento">
+      <h2>Totem de Pagamento</h2>
+      <div class="desc">Simula o pagamento de um ticket que excedeu a tolerância e ficou aguardando cobrança.</div>
+      <label>Código de barras do ticket</label>
+      <input id="pag-codigo" placeholder="ex: A1B2C3D4E5F6G7H8">
+      <label>Forma de pagamento</label>
+      <select id="pag-forma">
+        <option value="pix">PIX</option>
+        <option value="cartao">Cartão</option>
+        <option value="dinheiro">Dinheiro</option>
+      </select>
+      <label>Valor (R$)</label>
+      <input id="pag-valor" type="number" step="0.01" placeholder="ex: 24.00">
+      <button class="action" id="btn-pagamento">Registrar pagamento</button>
+      <div class="result" id="result-pagamento"></div>
+    </section>
+
+    <section class="panel" id="panel-facial">
+      <h2>Acesso Facial — Credenciados e Mensalistas</h2>
+      <div class="desc">Simula o totem reconhecendo o rosto de um credenciado ou mensalista e liberando entrada/saída sem ticket. Cadastre credenciados no <a href="/gestao" target="_blank">painel de gestão</a>.</div>
+      <label>Identificador facial (retornado pela câmera do totem)</label>
+      <input id="facial-identificador" placeholder="ex: FACE-001">
+      <div style="display:flex; gap:10px; margin-top:16px;">
+        <button class="action" id="btn-facial-entrada" style="margin-top:0;">Entrada</button>
+        <button class="action" id="btn-facial-saida" style="margin-top:0;">Saída</button>
+      </div>
+      <div class="result" id="result-facial"></div>
+    </section>
+
+    <div class="hint">Dica: emita um ticket na aba 1 — o código dele é preenchido automaticamente nas outras abas.</div>
+  </div>
+
+  <div class="side">
+    <h3>Histórico da sessão</h3>
+    <div class="log-card" id="log">
+      <div class="empty">Nenhuma ação ainda. Emita um ticket para começar.</div>
+    </div>
+  </div>
+</main>
+
+<script>
+const API = "";
+let ultimoCodigo = null;
+
+function fmtTime(){
+  return new Date().toLocaleTimeString('pt-BR');
+}
+
+function log(titulo, ok, detalhe){
+  const el = document.getElementById('log');
+  if (el.querySelector('.empty')) el.innerHTML = '';
+  const entry = document.createElement('div');
+  entry.className = 'log-entry' + (ok ? '' : ' err');
+  entry.innerHTML = `<div class="meta"><span>${titulo}</span><span class="time">${fmtTime()}</span></div><div>${detalhe}</div>`;
+  el.prepend(entry);
+}
+
+function showResult(id, ok, html){
+  const el = document.getElementById(id);
+  el.className = 'result show ' + (ok ? 'ok' : 'err');
+  el.innerHTML = html;
+}
+
+function setCodigo(codigo){
+  ultimoCodigo = codigo;
+  ['loja-codigo','saida-codigo','pag-codigo'].forEach(id => {
+    document.getElementById(id).value = codigo;
+  });
+}
+
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('panel-' + btn.dataset.tab).classList.add('active');
+  });
+});
+
+const CAMPOS_CHAVE = {
+  entrada: 'chave-entrada',
+  validacao: 'chave-validacao',
+  saida: 'chave-saida',
+};
+const CHAVES_PADRAO_DEV = {
+  entrada: 'dev-entrada-troque-em-producao',
+  validacao: 'dev-validacao-troque-em-producao',
+  saida: 'dev-saida-troque-em-producao',
+};
+
+Object.entries(CAMPOS_CHAVE).forEach(([totem, id]) => {
+  const input = document.getElementById(id);
+  input.value = localStorage.getItem('pk_' + totem) || CHAVES_PADRAO_DEV[totem];
+  input.addEventListener('change', () => localStorage.setItem('pk_' + totem, input.value));
+});
+
+async function chamarApi(metodo, url, totem, body){
+  const opts = { method: metodo, headers: { 'X-API-Key': document.getElementById(CAMPOS_CHAVE[totem]).value } };
+  if (body){
+    opts.headers['Content-Type'] = 'application/json';
+    opts.body = JSON.stringify(body);
+  }
+  const resp = await fetch(API + url, opts);
+  const data = await resp.json();
+  if (!resp.ok){
+    throw new Error(data.detail || 'Erro desconhecido');
+  }
+  return data;
+}
+
+document.getElementById('btn-entrada').addEventListener('click', async () => {
+  const btn = document.getElementById('btn-entrada');
+  btn.disabled = true;
+  try{
+    const t = await chamarApi('POST', '/entrada', 'entrada');
+    setCodigo(t.codigo_barras);
+    showResult('result-entrada', true, `
+      <div class="row"><span>Ticket criado</span><b>#${t.id}</b></div>
+      <div class="row"><span>Entrada</span><b>${new Date(t.data_hora_entrada).toLocaleString('pt-BR')}</b></div>
+      <div>Código de barras impresso:</div>
+      <div class="ticket-code">${t.codigo_barras}</div>
+    `);
+    log('Ticket emitido', true, `Código <b>${t.codigo_barras}</b> gerado no totem de entrada.`);
+  }catch(e){
+    showResult('result-entrada', false, e.message);
+    log('Falha ao emitir ticket', false, e.message);
+  }finally{
+    btn.disabled = false;
+  }
+});
+
+document.getElementById('btn-loja').addEventListener('click', async () => {
+  const btn = document.getElementById('btn-loja');
+  btn.disabled = true;
+  try{
+    const payload = {
+      codigo_barras: document.getElementById('loja-codigo').value,
+      chave_acesso_nfce: document.getElementById('loja-chave').value,
+      valor_compra: parseFloat(document.getElementById('loja-valor').value || '0'),
+      cnpj_estabelecimento: document.getElementById('loja-cnpj').value || null,
+    };
+    const t = await chamarApi('POST', '/loja/validar-cupom', 'validacao', payload);
+    showResult('result-loja', true, `
+      <div class="row"><span>Cupom vinculado ao ticket</span><b>${t.codigo_barras}</b></div>
+      <div class="row"><span>Status atual</span><b>${t.status}</b></div>
+    `);
+    log('Cupom validado', true, `Cupom de R$ ${payload.valor_compra.toFixed(2)} vinculado ao ticket <b>${t.codigo_barras}</b>.`);
+  }catch(e){
+    showResult('result-loja', false, e.message);
+    log('Falha ao validar cupom', false, e.message);
+  }finally{
+    btn.disabled = false;
+  }
+});
+
+document.getElementById('btn-saida').addEventListener('click', async () => {
+  const btn = document.getElementById('btn-saida');
+  btn.disabled = true;
+  try{
+    const codigo = document.getElementById('saida-codigo').value;
+    const r = await chamarApi('GET', '/saida/verificar/' + encodeURIComponent(codigo), 'saida');
+    showResult('result-saida', r.liberar_cancela, `
+      <div class="row"><span>${r.liberar_cancela ? 'CANCELA LIBERADA' : 'AGUARDANDO PAGAMENTO'}</span></div>
+      <div class="row"><span>Motivo</span><b>${r.motivo}</b></div>
+      <div class="row"><span>Permanência</span><b>${r.tempo_permanencia_minutos} min</b></div>
+      <div class="row"><span>Tolerância aplicada</span><b>${r.tolerancia_aplicada_minutos} min</b></div>
+      <div class="row"><span>Valor calculado</span><b>R$ ${r.valor_calculado.toFixed(2)}</b></div>
+    `);
+    log('Verificação de saída', r.liberar_cancela, `${r.motivo} — ticket <b>${r.codigo_barras}</b>.`);
+    if (r.valor_calculado > 0){
+      document.getElementById('pag-codigo').value = r.codigo_barras;
+      document.getElementById('pag-valor').value = r.valor_calculado.toFixed(2);
+    }
+  }catch(e){
+    showResult('result-saida', false, e.message);
+    log('Falha na verificação de saída', false, e.message);
+  }finally{
+    btn.disabled = false;
+  }
+});
+
+document.getElementById('btn-pagamento').addEventListener('click', async () => {
+  const btn = document.getElementById('btn-pagamento');
+  btn.disabled = true;
+  try{
+    const payload = {
+      codigo_barras: document.getElementById('pag-codigo').value,
+      forma_pagamento: document.getElementById('pag-forma').value,
+      valor: parseFloat(document.getElementById('pag-valor').value || '0'),
+    };
+    const t = await chamarApi('POST', '/saida/pagamento', 'saida', payload);
+    showResult('result-pagamento', true, `
+      <div class="row"><span>Pagamento registrado</span><b>${payload.forma_pagamento}</b></div>
+      <div class="row"><span>Status atual</span><b>${t.status}</b></div>
+      <div class="row"><span>Valor pago</span><b>R$ ${payload.valor.toFixed(2)}</b></div>
+    `);
+    log('Pagamento registrado', true, `R$ ${payload.valor.toFixed(2)} via ${payload.forma_pagamento} — ticket <b>${t.codigo_barras}</b>.`);
+  }catch(e){
+    showResult('result-pagamento', false, e.message);
+    log('Falha ao registrar pagamento', false, e.message);
+  }finally{
+    btn.disabled = false;
+  }
+});
+
+async function acessoFacial(totem, url, botaoId, resultId){
+  const btn = document.getElementById(botaoId);
+  btn.disabled = true;
+  try{
+    const payload = { identificador_facial: document.getElementById('facial-identificador').value };
+    const r = await chamarApi('POST', url, totem, payload);
+    showResult(resultId, r.liberar_cancela, `
+      <div class="row"><span>${r.liberar_cancela ? 'CANCELA LIBERADA' : 'ACESSO BLOQUEADO'}</span></div>
+      <div class="row"><span>Nome</span><b>${r.credenciado_nome}</b></div>
+      <div class="row"><span>Tipo</span><b>${r.tipo}</b></div>
+      <div class="row"><span>Motivo</span><b>${r.motivo}</b></div>
+    `);
+    log(totem === 'entrada' ? 'Entrada facial' : 'Saída facial', r.liberar_cancela, `${r.credenciado_nome} (${r.tipo}) — ${r.motivo}`);
+  }catch(e){
+    showResult(resultId, false, e.message);
+    log('Falha no acesso facial', false, e.message);
+  }finally{
+    btn.disabled = false;
+  }
+}
+
+document.getElementById('btn-facial-entrada').addEventListener('click', () => {
+  acessoFacial('entrada', '/credenciados/entrada', 'btn-facial-entrada', 'result-facial');
+});
+document.getElementById('btn-facial-saida').addEventListener('click', () => {
+  acessoFacial('saida', '/credenciados/saida', 'btn-facial-saida', 'result-facial');
+});
+</script>
