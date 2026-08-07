@@ -273,6 +273,7 @@
 <script>
 const API = "";
 let sessao = null;
+const PAPEIS_COM_ACESSO_A_OPERACAO = ['operador', 'totem_entrada', 'totem_validacao', 'totem_saida'];
 
 function carregarSessao(){
   const salva = localStorage.getItem('sessao_operacao');
@@ -298,6 +299,12 @@ function mostrarTela(){
 }
 
 carregarSessao();
+if (sessao && !PAPEIS_COM_ACESSO_A_OPERACAO.includes(sessao.papel)){
+  // Sessão salva de uma conta sem acesso (ex: sessão antiga, de antes
+  // dessa checagem existir) -- descarta sem tentar carregar a tela.
+  sessao = null;
+  localStorage.removeItem('sessao_operacao');
+}
 mostrarTela();
 
 document.querySelectorAll('.toggle-senha').forEach(btn => {
@@ -322,6 +329,13 @@ document.getElementById('btn-login').addEventListener('click', async () => {
     });
     const data = await resp.json();
     if (!resp.ok) throw new Error(data.detail || 'Login inválido');
+    if (!PAPEIS_COM_ACESSO_A_OPERACAO.includes(data.papel)){
+      // Login válido, mas essa conta não opera por aqui (ex: dono/gerente
+      // de operações/supervisor usam o Painel Gerencial). Revoga o token
+      // já emitido, já que não vamos usar.
+      try{ await fetch(API + '/auth/logout', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ token: data.token }) }); }catch(_){}
+      throw new Error('Esta conta não tem acesso à tela de Operação. Contas de gestão devem usar o Painel Gerencial (/gestao).');
+    }
     sessao = data;
     salvarSessao();
     mostrarTela();

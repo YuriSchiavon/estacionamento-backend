@@ -657,6 +657,8 @@ document.querySelectorAll('.toggle-senha').forEach(btn => {
   });
 });
 
+const PAPEIS_COM_ACESSO_AO_PAINEL = ['dono', 'gerente_operacoes', 'supervisor'];
+
 document.getElementById('btn-login').addEventListener('click', async () => {
   const msg = document.getElementById('login-msg');
   msg.className = 'msg';
@@ -672,6 +674,13 @@ document.getElementById('btn-login').addEventListener('click', async () => {
     });
     const data = await resp.json();
     if (!resp.ok) throw new Error(data.detail || 'Login inválido');
+    if (!PAPEIS_COM_ACESSO_AO_PAINEL.includes(data.papel)){
+      // Login era válido, mas essa conta não é de gestão -- não deixa
+      // "entrar" (mesmo que cada chamada de API depois desse 403 sozinha).
+      // Revoga o token já emitido, já que não vamos usar.
+      try{ await fetch('/auth/logout', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ token: data.token }) }); }catch(_){}
+      throw new Error('Esta conta não tem acesso ao painel gerencial. Se for uma conta de operador, use a tela de Operação (/operacao).');
+    }
     sessao = data;
     salvarSessao();
     iniciarApp();
@@ -1351,5 +1360,11 @@ async function iniciarApp(){
 }
 
 carregarSessaoSalva();
-if (sessao) iniciarApp();
+if (sessao && !PAPEIS_COM_ACESSO_AO_PAINEL.includes(sessao.papel)){
+  // Sessão salva de uma conta sem acesso (ex: sessão antiga, de antes
+  // dessa checagem existir) -- descarta sem tentar carregar o painel.
+  encerrarSessao();
+}else if (sessao){
+  iniciarApp();
+}
 </script>
