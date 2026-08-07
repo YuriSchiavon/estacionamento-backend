@@ -1,0 +1,138 @@
+<title>MY PARK — Controle de Acesso</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy:#142A4B;
+    --lime:#DBFF00;
+    --gray:#676767;
+    --bg:#F5F6F8;
+    --card:#FFFFFF;
+    --border:#E4E7EC;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:'Poppins',sans-serif;
+    background:var(--bg);
+    color:var(--gray);
+  }
+  header{
+    background:var(--navy);
+    color:#fff;
+    padding:28px 32px;
+  }
+  header .brand{
+    font-weight:700;
+    font-size:24px;
+    letter-spacing:.5px;
+  }
+  header .brand span{color:var(--lime);}
+  header .subtitle{
+    font-size:13px;
+    color:#B9C2D6;
+    margin-top:4px;
+  }
+  main{
+    max-width:1000px;
+    margin:0 auto;
+    padding:36px 20px 60px;
+  }
+  h2.section{
+    color:var(--navy);
+    font-size:15px;
+    margin:32px 0 14px;
+  }
+  h2.section:first-child{margin-top:0;}
+  .grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));
+    gap:16px;
+  }
+  a.card{
+    display:block;
+    background:var(--card);
+    border:1px solid var(--border);
+    border-radius:14px;
+    padding:22px;
+    text-decoration:none;
+    color:inherit;
+    transition:box-shadow .15s, transform .15s;
+  }
+  a.card:hover{
+    box-shadow:0 6px 18px rgba(20,42,75,.1);
+    transform:translateY(-2px);
+  }
+  a.card .titulo{
+    color:var(--navy);
+    font-weight:700;
+    font-size:16px;
+    margin-bottom:6px;
+  }
+  a.card .desc{
+    font-size:13px;
+    line-height:1.5;
+  }
+  a.card.destaque{
+    background:var(--navy);
+  }
+  a.card.destaque .titulo{color:var(--lime);}
+  a.card.destaque .desc{color:#B9C2D6;}
+  .sub-links{
+    margin-top:10px;
+    font-size:12px;
+  }
+  .sub-links a{
+    color:var(--navy);
+    font-weight:600;
+    text-decoration:none;
+  }
+  .sub-links a:hover{text-decoration:underline;}
+</style>
+
+<header>
+  <div class="brand">MY PARK<span>·</span>ACESSO</div>
+  <div class="subtitle">Software de controle de acesso do estacionamento</div>
+</header>
+
+<main>
+  <h2 class="section">Painéis</h2>
+  <div class="grid">
+    <a class="card destaque" href="/gestao">
+      <div class="titulo">Painel Gerencial</div>
+      <div class="desc">Configuração da unidade, credenciados, mensalistas, estabelecimentos conveniados, usuários e relatórios de auditoria. Login de dono/gerente.</div>
+    </a>
+    <a class="card" href="/operacao">
+      <div class="titulo">Operação</div>
+      <div class="desc">Tela única para quem opera o dia a dia num estacionamento assistido: emitir ticket, validar cupom, verificar saída, pagamento e liberação manual. Login de operador (CPF + senha).</div>
+    </a>
+  </div>
+
+  <h2 class="section">Telas dos totens (equipamento físico)</h2>
+  <div class="grid">
+    <a class="card" href="/totem/entrada">
+      <div class="titulo">Totem de Entrada</div>
+      <div class="desc">Botão único — retira o ticket na cancela de entrada.</div>
+    </a>
+    <a class="card" href="/totem/saida">
+      <div class="titulo">Totem de Saída</div>
+      <div class="desc">Leitura do ticket na cancela, com opção de validar o cupom fiscal ali mesmo.</div>
+    </a>
+    <a class="card" href="/totem/pagamento">
+      <div class="titulo">Totem de Pagamento</div>
+      <div class="desc">Consulta o valor devido e registra o pagamento.</div>
+    </a>
+  </div>
+
+  <h2 class="section">Ambiente de desenvolvimento</h2>
+  <div class="grid">
+    <a class="card" href="/simulador-totens">
+      <div class="titulo">Simulador de Totens</div>
+      <div class="desc">Os 5 totens numa página só, com histórico da sessão — útil para testar sem o equipamento físico.</div>
+    </a>
+    <a class="card" href="/docs">
+      <div class="titulo">Documentação da API</div>
+      <div class="desc">Interface Swagger com todos os endpoints, para integrar com o driver de cada equipamento.</div>
+    </a>
+  </div>
+</main>

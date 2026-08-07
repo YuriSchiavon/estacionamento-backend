@@ -12,7 +12,7 @@ outra -- nunca confiamos em unidade_id vindo do cliente quando o usuário
 já está preso a uma.
 """
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -26,9 +26,9 @@ from .security import (
     escopo_unidade,
     exigir_gestao,
     exigir_liberacao_manual,
+    exigir_operacao,
     exigir_totem_entrada,
     exigir_totem_saida,
-    exigir_totem_validacao,
 )
 from .tempo import agora_utc
 
@@ -60,7 +60,12 @@ def criar_unidade(payload: schemas.UnidadeIn, db: Session = Depends(get_db), usu
     if usuario.papel != models.PapelUsuario.dono:
         raise HTTPException(403, "Só o dono pode cadastrar novas unidades")
 
-    unidade = models.Unidade(nome=payload.nome, tolerancia_padrao_minutos=payload.tolerancia_padrao_minutos)
+    unidade = models.Unidade(
+        nome=payload.nome,
+        tolerancia_padrao_minutos=payload.tolerancia_padrao_minutos,
+        valor_mensalidade=payload.valor_mensalidade,
+        dias_validade_mensalidade=payload.dias_validade_mensalidade,
+    )
     db.add(unidade)
     db.flush()
 
@@ -347,7 +352,7 @@ def remover_regra_tolerancia(
 @router.get("/gestao/relatorio/tickets", response_model=List[schemas.TicketOut])
 def relatorio_tickets(
     inicio: Optional[datetime] = None, fim: Optional[datetime] = None, unidade_id: Optional[int] = None,
-    db: Session = Depends(get_db), usuario: models.Usuario = Depends(exigir_gestao),
+    db: Session = Depends(get_db), usuario: models.Usuario = Depends(exigir_operacao),
 ):
     escopo = escopo_unidade(usuario, unidade_id)
     query = db.query(models.Ticket)
@@ -422,6 +427,7 @@ def liberar_manualmente(
         cancela=payload.cancela,
         motivo=motivo,
         ticket_id=ticket.id if ticket else None,
+        usuario_nome=usuario.nome,
     )
     db.add(liberacao)
     db.commit()
@@ -477,9 +483,11 @@ def limpar_patio(
 
         liberacao = models.LiberacaoManual(
             unidade_id=unidade_id,
-            cancela=payload.cancela,
+            cancela=None,
+            via_limpeza_patio=True,
             motivo=f"Limpeza de pátio: {motivo}",
             ticket_id=ticket.id,
+            usuario_nome=usuario.nome,
         )
         db.add(liberacao)
         liberacoes.append(liberacao)
@@ -511,7 +519,9 @@ def excluir_ticket(
     if ticket.credenciado_id is not None:
         raise HTTPException(409, "Ticket de credenciado/mensalista não é excluído por aqui")
 
-    exclusao = models.ExclusaoTicket(unidade_id=ticket.unidade_id, codigo_barras=ticket.codigo_barras, motivo=motivo)
+    exclusao = models.ExclusaoTicket(
+        unidade_id=ticket.unidade_id, codigo_barras=ticket.codigo_barras, motivo=motivo, usuario_nome=usuario.nome,
+    )
     db.add(exclusao)
 
     if ticket.cupom_fiscal:
@@ -531,3 +541,162 @@ def relatorio_exclusoes_tickets(
     if escopo is not None:
         query = query.filter_by(unidade_id=escopo)
     return query.order_by(models.ExclusaoTicket.data_hora.desc()).all()
+
+
+# ---------------------------------------------------------------------
+# AUDITORIA UNIFICADA -- junta liberação manual, exclusão de ticket e
+# tentativa de cupom duplicado numa lista só, com filtro por tipo. Os
+# endpoints individuais acima continuam existindo (nada mais depende só
+# deles), mas o painel usa esta aqui como a aba principal de auditoria.
+# ---------------------------------------------------------------------
+@router.get("/gestao/relatorio/auditoria", response_model=List[schemas.AuditoriaEvento])
+def relatorio_auditoria(
+    tipo: Optional[Literal["liberacao_manual", "exclusao_ticket", "cupom_duplicado"]] = None,
+    inicio: Optional[datetime] = None, fim: Optional[datetime] = None, unidade_id: Optional[int] = None,
+    db: Session = Depends(get_db), usuario: models.Usuario = Depends(exigir_gestao),
+):
+    escopo = escopo_unidade(usuario, unidade_id)
+    eventos: List[schemas.AuditoriaEvento] = []
+
+    if tipo in (None, "liberacao_manual"):
+        query = db.query(models.LiberacaoManual)
+        if escopo is not None:
+            query = query.filter_by(unidade_id=escopo)
+        if inicio:
+            query = query.filter(models.LiberacaoManual.data_hora >= inicio)
+        if fim:
+            query = query.filter(models.LiberacaoManual.data_hora <= fim)
+        for liberacao in query.all():
+            if liberacao.via_limpeza_patio:
+                titulo = "Limpeza de pátio"
+            elif liberacao.cancela:
+                titulo = f"Liberação manual (cancela de {liberacao.cancela.value})"
+            else:
+                titulo = "Liberação manual"
+            eventos.append(schemas.AuditoriaEvento(
+                tipo="liberacao_manual",
+                descricao=f"{titulo}: {liberacao.motivo}",
+                unidade_id=liberacao.unidade_id,
+                usuario_nome=liberacao.usuario_nome,
+                data_hora=liberacao.data_hora,
+                detalhes={
+                    "ticket_id": liberacao.ticket_id,
+                    "cancela": liberacao.cancela.value if liberacao.cancela else None,
+                    "via_limpeza_patio": liberacao.via_limpeza_patio,
+                },
+            ))
+
+    if tipo in (None, "exclusao_ticket"):
+        query = db.query(models.ExclusaoTicket)
+        if escopo is not None:
+            query = query.filter_by(unidade_id=escopo)
+        if inicio:
+            query = query.filter(models.ExclusaoTicket.data_hora >= inicio)
+        if fim:
+            query = query.filter(models.ExclusaoTicket.data_hora <= fim)
+        for exclusao in query.all():
+            eventos.append(schemas.AuditoriaEvento(
+                tipo="exclusao_ticket",
+                descricao=f"Ticket {exclusao.codigo_barras} excluído: {exclusao.motivo}",
+                unidade_id=exclusao.unidade_id,
+                usuario_nome=exclusao.usuario_nome,
+                data_hora=exclusao.data_hora,
+                detalhes={"codigo_barras": exclusao.codigo_barras},
+            ))
+
+    if tipo in (None, "cupom_duplicado"):
+        query = db.query(models.TentativaCupomDuplicado)
+        if escopo is not None:
+            query = query.filter_by(unidade_id=escopo)
+        if inicio:
+            query = query.filter(models.TentativaCupomDuplicado.data_hora >= inicio)
+        if fim:
+            query = query.filter(models.TentativaCupomDuplicado.data_hora <= fim)
+        for tentativa in query.all():
+            eventos.append(schemas.AuditoriaEvento(
+                tipo="cupom_duplicado",
+                descricao=f"Cupom já usado -- tentativa no ticket {tentativa.codigo_barras_tentativa}",
+                unidade_id=tentativa.unidade_id,
+                usuario_nome=None,
+                data_hora=tentativa.data_hora,
+                detalhes={
+                    "chave_acesso_nfce": tentativa.chave_acesso_nfce,
+                    "ticket_original_id": tentativa.ticket_original_id,
+                },
+            ))
+
+    eventos.sort(key=lambda e: e.data_hora, reverse=True)
+    return eventos
+
+
+# ---------------------------------------------------------------------
+# USUÁRIOS -- criação avulsa pelo painel (além da criação automática
+# junto de uma unidade nova). Dono cria qualquer papel pra qualquer
+# unidade (menos outro dono, que não tem unidade); gerente só cria
+# operador pra própria unidade.
+# ---------------------------------------------------------------------
+@router.post("/gestao/usuarios", response_model=schemas.UsuarioCriadoResponse)
+def criar_usuario_avulso(
+    payload: schemas.UsuarioIn, db: Session = Depends(get_db), usuario: models.Usuario = Depends(exigir_gestao)
+):
+    papel = models.PapelUsuario(payload.papel)
+
+    if usuario.papel == models.PapelUsuario.dono:
+        if papel == models.PapelUsuario.dono:
+            unidade_id = None
+        else:
+            if not payload.unidade_id:
+                raise HTTPException(422, "Informe a unidade_id para esse papel")
+            unidade_id = payload.unidade_id
+    else:
+        if papel != models.PapelUsuario.operador:
+            raise HTTPException(403, "Seu usuário só pode criar contas de operador")
+        unidade_id = usuario.unidade_id
+
+    if papel == models.PapelUsuario.operador:
+        cpf = (payload.cpf or "").strip()
+        if not cpf.isdigit() or len(cpf) != 11:
+            raise HTTPException(422, "Informe um CPF válido (11 dígitos, sem pontuação) para o operador")
+        username_base = cpf
+    else:
+        username_base = slugify(payload.nome)
+
+    username = username_disponivel(db, username_base)
+    senha = gerar_senha_temporaria()
+    novo_usuario = criar_usuario(
+        db, username, senha, payload.nome, papel,
+        unidade_id=unidade_id, pode_liberar_manualmente=payload.pode_liberar_manualmente,
+    )
+    db.commit()
+    db.refresh(novo_usuario)
+    return schemas.UsuarioCriadoResponse(usuario=novo_usuario, senha=senha)
+
+
+@router.get("/gestao/usuarios", response_model=List[schemas.UsuarioOut])
+def listar_usuarios(
+    unidade_id: Optional[int] = None, db: Session = Depends(get_db), usuario: models.Usuario = Depends(exigir_gestao)
+):
+    escopo = escopo_unidade(usuario, unidade_id)
+    query = db.query(models.Usuario)
+    if escopo is not None:
+        query = query.filter_by(unidade_id=escopo)
+    return query.order_by(models.Usuario.nome).all()
+
+
+@router.patch("/gestao/usuarios/{usuario_id}", response_model=schemas.UsuarioOut)
+def atualizar_usuario(
+    usuario_id: int, payload: schemas.UsuarioUpdate, db: Session = Depends(get_db),
+    usuario: models.Usuario = Depends(exigir_gestao),
+):
+    alvo = db.get(models.Usuario, usuario_id)
+    if not alvo:
+        raise HTTPException(404, "Usuário não encontrado")
+    if usuario.papel != models.PapelUsuario.dono:
+        if alvo.unidade_id != usuario.unidade_id or alvo.papel != models.PapelUsuario.operador:
+            raise HTTPException(404, "Usuário não encontrado")
+
+    for campo, valor in payload.model_dump(exclude_unset=True).items():
+        setattr(alvo, campo, valor)
+    db.commit()
+    db.refresh(alvo)
+    return alvo

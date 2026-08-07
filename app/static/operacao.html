@@ -1,0 +1,478 @@
+<title>Operação — Controle de Acesso</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy:#142A4B;
+    --lime:#DBFF00;
+    --gray:#676767;
+    --bg:#F5F6F8;
+    --card:#FFFFFF;
+    --border:#E4E7EC;
+    --danger:#C0392B;
+    --ok:#1E8E4F;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:'Poppins',sans-serif;
+    background:var(--bg);
+    color:var(--gray);
+  }
+  header{
+    background:var(--navy);
+    color:#fff;
+    padding:20px 32px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:8px;
+  }
+  header .brand{font-weight:700;font-size:20px;letter-spacing:.5px;}
+  header .brand span{color:var(--lime);}
+  header .subtitle{font-size:13px;color:#B9C2D6;}
+  .quem-esta-logado{display:flex;align-items:center;gap:14px;font-size:13px;color:#B9C2D6;}
+  .quem-esta-logado b{color:#fff;}
+  .btn-sair{
+    background:transparent;
+    border:1px solid #2C3E5C;
+    color:#B9C2D6;
+    padding:6px 12px;
+    border-radius:6px;
+    font-family:inherit;
+    font-size:12px;
+    cursor:pointer;
+  }
+  main{max-width:760px;margin:0 auto;padding:28px 20px 60px;}
+  .login-card{
+    max-width:380px;
+    margin:80px auto;
+    background:var(--card);
+    border:1px solid var(--border);
+    border-radius:14px;
+    padding:32px;
+  }
+  .login-card h2{color:var(--navy);margin:0 0 4px;font-size:18px;}
+  .login-card .desc{font-size:13px;margin-bottom:18px;}
+  .tabs{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap;}
+  .tab-btn{
+    border:1px solid var(--border);
+    background:#fff;
+    color:var(--navy);
+    padding:10px 14px;
+    border-radius:8px;
+    font-family:inherit;
+    font-weight:600;
+    font-size:13px;
+    cursor:pointer;
+  }
+  .tab-btn.active{background:var(--navy);color:var(--lime);border-color:var(--navy);}
+  .panel{
+    background:var(--card);
+    border:1px solid var(--border);
+    border-radius:14px;
+    padding:24px;
+    display:none;
+  }
+  .panel.active{display:block;}
+  .panel h2{margin:0 0 4px;color:var(--navy);font-size:18px;}
+  .panel .desc{font-size:13px;margin-bottom:18px;color:var(--gray);}
+  label{display:block;font-size:12px;font-weight:600;color:var(--navy);margin:12px 0 4px;}
+  input,select{
+    width:100%;
+    padding:10px 12px;
+    border:1px solid var(--border);
+    border-radius:8px;
+    font-family:inherit;
+    font-size:14px;
+    color:var(--navy);
+    background:#fff;
+  }
+  button.action{
+    margin-top:20px;
+    background:var(--lime);
+    color:var(--navy);
+    border:none;
+    padding:12px 18px;
+    border-radius:8px;
+    font-family:inherit;
+    font-weight:700;
+    font-size:14px;
+    cursor:pointer;
+    width:100%;
+  }
+  button.action:hover{filter:brightness(0.95);}
+  button.action:disabled{opacity:.6;cursor:default;}
+  .result{margin-top:18px;border-radius:10px;padding:16px;font-size:13px;display:none;}
+  .result.show{display:block;}
+  .result.ok{background:#EAF7EE;border:1px solid var(--ok);color:#155C33;}
+  .result.err{background:#FBEAEA;border:1px solid var(--danger);color:#7C2318;}
+  .result .row{display:flex;justify-content:space-between;padding:3px 0;}
+  .ticket-code{
+    font-family:'Courier New',monospace;
+    font-weight:700;
+    font-size:16px;
+    letter-spacing:1px;
+    background:var(--navy);
+    color:var(--lime);
+    padding:8px 10px;
+    border-radius:6px;
+    display:inline-block;
+    margin-top:4px;
+  }
+  .erro-login{color:var(--danger);font-size:13px;margin-top:10px;display:none;}
+  .lista-tickets{margin-top:16px;font-size:13px;}
+  .lista-tickets .item{
+    border-bottom:1px solid var(--border);
+    padding:8px 0;
+    display:flex;
+    justify-content:space-between;
+  }
+  .lista-tickets .item b{color:var(--navy);font-family:'Courier New',monospace;}
+</style>
+
+<header>
+  <div>
+    <div class="brand">MY PARK<span>·</span>OPERAÇÃO</div>
+    <div class="subtitle">Estacionamento assistido — ações do dia a dia</div>
+  </div>
+  <div class="quem-esta-logado" id="quem-logado" style="display:none;">
+    <span>Logado como <b id="nome-logado"></b></span>
+    <button class="btn-sair" id="btn-sair">Sair</button>
+  </div>
+</header>
+
+<div class="login-card" id="tela-login">
+  <h2>Entrar</h2>
+  <div class="desc">Use o usuário e senha da sua conta de operador.</div>
+  <label>Usuário</label>
+  <input id="login-user" placeholder="ex: 12345678900 (CPF)">
+  <label>Senha</label>
+  <input id="login-senha" type="password">
+  <button class="action" id="btn-login">Entrar</button>
+  <div class="erro-login" id="erro-login"></div>
+</div>
+
+<main id="tela-operacao" style="display:none;">
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="entrada">Emitir Ticket</button>
+    <button class="tab-btn" data-tab="loja">Validar Cupom</button>
+    <button class="tab-btn" data-tab="saida">Verificar Saída</button>
+    <button class="tab-btn" data-tab="pagamento">Pagamento</button>
+    <button class="tab-btn" data-tab="liberacao" id="tab-liberacao" style="display:none;">Liberação Manual</button>
+    <button class="tab-btn" data-tab="consulta">Consultar Ticket</button>
+  </div>
+
+  <section class="panel active" id="panel-entrada">
+    <h2>Emitir Ticket</h2>
+    <div class="desc">Cliente chegou na entrada e precisa do ticket.</div>
+    <button class="action" id="btn-entrada">Emitir ticket</button>
+    <div class="result" id="result-entrada"></div>
+  </section>
+
+  <section class="panel" id="panel-loja">
+    <h2>Validar Cupom Fiscal</h2>
+    <div class="desc">Vincula o cupom (chave da NFC-e) ao ticket do cliente para aplicar a tolerância.</div>
+    <label>Código de barras do ticket</label>
+    <input id="loja-codigo" placeholder="ex: A1B2C3D4E5F6G7H8">
+    <label>Chave de acesso da NFC-e (44 dígitos)</label>
+    <input id="loja-chave" maxlength="44">
+    <label>Valor da compra (R$)</label>
+    <input id="loja-valor" type="number" step="0.01">
+    <button class="action" id="btn-loja">Validar cupom</button>
+    <div class="result" id="result-loja"></div>
+  </section>
+
+  <section class="panel" id="panel-saida">
+    <h2>Verificar Saída</h2>
+    <div class="desc">Lê o ticket na saída, calcula a permanência e decide se libera. Se ainda não tiver cupom, dá para validar aqui mesmo antes de verificar.</div>
+    <label>Código de barras do ticket</label>
+    <input id="saida-codigo" placeholder="ex: A1B2C3D4E5F6G7H8">
+    <button class="action" id="btn-saida">Verificar saída</button>
+    <div class="result" id="result-saida"></div>
+  </section>
+
+  <section class="panel" id="panel-pagamento">
+    <h2>Registrar Pagamento</h2>
+    <div class="desc">Para tickets que excederam a tolerância e ficaram aguardando cobrança.</div>
+    <label>Código de barras do ticket</label>
+    <input id="pag-codigo" placeholder="ex: A1B2C3D4E5F6G7H8">
+    <label>Forma de pagamento</label>
+    <select id="pag-forma">
+      <option value="pix">PIX</option>
+      <option value="cartao">Cartão</option>
+      <option value="dinheiro">Dinheiro</option>
+    </select>
+    <label>Valor (R$)</label>
+    <input id="pag-valor" type="number" step="0.01">
+    <button class="action" id="btn-pagamento">Registrar pagamento</button>
+    <div class="result" id="result-pagamento"></div>
+  </section>
+
+  <section class="panel" id="panel-liberacao">
+    <h2>Liberação Manual</h2>
+    <div class="desc">Abre a cancela na mão quando o fluxo normal falhou. Justificativa obrigatória, fica registrada na auditoria com o seu nome.</div>
+    <label>Cancela</label>
+    <select id="lib-cancela">
+      <option value="entrada">Entrada</option>
+      <option value="saida">Saída</option>
+    </select>
+    <label>Código de barras do ticket (opcional)</label>
+    <input id="lib-codigo" placeholder="deixe em branco se não houver ticket">
+    <label>Motivo</label>
+    <input id="lib-motivo" placeholder="ex: leitor de código com defeito">
+    <button class="action" id="btn-liberacao">Liberar manualmente</button>
+    <div class="result" id="result-liberacao"></div>
+  </section>
+
+  <section class="panel" id="panel-consulta">
+    <h2>Consultar Ticket</h2>
+    <div class="desc">Busca pelos tickets da sua unidade pelo código de barras.</div>
+    <label>Código de barras (ou parte dele)</label>
+    <input id="consulta-codigo" placeholder="ex: A1B2C3">
+    <button class="action" id="btn-consulta">Buscar</button>
+    <div class="lista-tickets" id="lista-consulta"></div>
+  </section>
+</main>
+
+<script>
+const API = "";
+let sessao = null;
+
+function carregarSessao(){
+  const salva = localStorage.getItem('sessao_operacao');
+  if (salva) sessao = JSON.parse(salva);
+}
+
+function salvarSessao(){
+  localStorage.setItem('sessao_operacao', JSON.stringify(sessao));
+}
+
+function mostrarTela(){
+  if (sessao){
+    document.getElementById('tela-login').style.display = 'none';
+    document.getElementById('tela-operacao').style.display = 'block';
+    document.getElementById('quem-logado').style.display = 'flex';
+    document.getElementById('nome-logado').textContent = `${sessao.nome} (${sessao.papel})`;
+    document.getElementById('tab-liberacao').style.display = sessao.pode_liberar_manualmente ? 'inline-block' : 'none';
+  }else{
+    document.getElementById('tela-login').style.display = 'block';
+    document.getElementById('tela-operacao').style.display = 'none';
+    document.getElementById('quem-logado').style.display = 'none';
+  }
+}
+
+carregarSessao();
+mostrarTela();
+
+document.getElementById('btn-login').addEventListener('click', async () => {
+  const username = document.getElementById('login-user').value;
+  const senha = document.getElementById('login-senha').value;
+  const erro = document.getElementById('erro-login');
+  erro.style.display = 'none';
+  try{
+    const resp = await fetch(API + '/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, senha }),
+    });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.detail || 'Login inválido');
+    sessao = data;
+    salvarSessao();
+    mostrarTela();
+  }catch(e){
+    erro.textContent = e.message;
+    erro.style.display = 'block';
+  }
+});
+
+document.getElementById('btn-sair').addEventListener('click', async () => {
+  try{ await fetch(API + '/auth/logout', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token: sessao.token }),
+  }); }catch(e){}
+  sessao = null;
+  localStorage.removeItem('sessao_operacao');
+  mostrarTela();
+});
+
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('panel-' + btn.dataset.tab).classList.add('active');
+  });
+});
+
+function showResult(id, ok, html){
+  const el = document.getElementById(id);
+  el.className = 'result show ' + (ok ? 'ok' : 'err');
+  el.innerHTML = html;
+}
+
+function setCodigo(codigo){
+  ['loja-codigo','saida-codigo','pag-codigo','consulta-codigo'].forEach(id => {
+    document.getElementById(id).value = codigo;
+  });
+}
+
+async function chamarApi(metodo, url, body){
+  if (!sessao) throw new Error('Faça login antes de usar esta ação.');
+  const opts = { method: metodo, headers: { 'Authorization': `Bearer ${sessao.token}` } };
+  if (body){
+    opts.headers['Content-Type'] = 'application/json';
+    opts.body = JSON.stringify(body);
+  }
+  const resp = await fetch(API + url, opts);
+  const data = await resp.json();
+  if (resp.status === 401){
+    sessao = null;
+    localStorage.removeItem('sessao_operacao');
+    mostrarTela();
+    throw new Error('Sessão expirada, faça login novamente.');
+  }
+  if (!resp.ok) throw new Error(data.detail || 'Erro desconhecido');
+  return data;
+}
+
+document.getElementById('btn-entrada').addEventListener('click', async () => {
+  const btn = document.getElementById('btn-entrada');
+  btn.disabled = true;
+  try{
+    const t = await chamarApi('POST', '/entrada');
+    setCodigo(t.codigo_barras);
+    showResult('result-entrada', true, `
+      <div class="row"><span>Ticket criado</span><b>#${t.id}</b></div>
+      <div>Código de barras impresso:</div>
+      <div class="ticket-code">${t.codigo_barras}</div>
+    `);
+  }catch(e){
+    showResult('result-entrada', false, e.message);
+  }finally{
+    btn.disabled = false;
+  }
+});
+
+document.getElementById('btn-loja').addEventListener('click', async () => {
+  const btn = document.getElementById('btn-loja');
+  btn.disabled = true;
+  try{
+    const payload = {
+      codigo_barras: document.getElementById('loja-codigo').value,
+      chave_acesso_nfce: document.getElementById('loja-chave').value,
+      valor_compra: parseFloat(document.getElementById('loja-valor').value || '0'),
+    };
+    const t = await chamarApi('POST', '/loja/validar-cupom', payload);
+    showResult('result-loja', true, `
+      <div class="row"><span>Cupom vinculado ao ticket</span><b>${t.codigo_barras}</b></div>
+      <div class="row"><span>Status atual</span><b>${t.status}</b></div>
+    `);
+  }catch(e){
+    showResult('result-loja', false, e.message);
+  }finally{
+    btn.disabled = false;
+  }
+});
+
+document.getElementById('btn-saida').addEventListener('click', async () => {
+  const btn = document.getElementById('btn-saida');
+  btn.disabled = true;
+  try{
+    const codigo = document.getElementById('saida-codigo').value;
+    const r = await chamarApi('GET', '/saida/verificar/' + encodeURIComponent(codigo));
+    showResult('result-saida', r.liberar_cancela, `
+      <div class="row"><span>${r.liberar_cancela ? 'CANCELA LIBERADA' : 'AGUARDANDO PAGAMENTO'}</span></div>
+      <div class="row"><span>Motivo</span><b>${r.motivo}</b></div>
+      <div class="row"><span>Permanência</span><b>${r.tempo_permanencia_minutos} min</b></div>
+      <div class="row"><span>Tolerância aplicada</span><b>${r.tolerancia_aplicada_minutos} min</b></div>
+      <div class="row"><span>Valor calculado</span><b>R$ ${r.valor_calculado.toFixed(2)}</b></div>
+    `);
+    if (r.valor_calculado > 0){
+      document.getElementById('pag-codigo').value = r.codigo_barras;
+      document.getElementById('pag-valor').value = r.valor_calculado.toFixed(2);
+    }
+  }catch(e){
+    showResult('result-saida', false, e.message);
+  }finally{
+    btn.disabled = false;
+  }
+});
+
+document.getElementById('btn-pagamento').addEventListener('click', async () => {
+  const btn = document.getElementById('btn-pagamento');
+  btn.disabled = true;
+  try{
+    const payload = {
+      codigo_barras: document.getElementById('pag-codigo').value,
+      forma_pagamento: document.getElementById('pag-forma').value,
+      valor: parseFloat(document.getElementById('pag-valor').value || '0'),
+    };
+    const t = await chamarApi('POST', '/saida/pagamento', payload);
+    showResult('result-pagamento', true, `
+      <div class="row"><span>Pagamento registrado</span><b>${payload.forma_pagamento}</b></div>
+      <div class="row"><span>Status atual</span><b>${t.status}</b></div>
+    `);
+  }catch(e){
+    showResult('result-pagamento', false, e.message);
+  }finally{
+    btn.disabled = false;
+  }
+});
+
+document.getElementById('btn-liberacao').addEventListener('click', async () => {
+  const btn = document.getElementById('btn-liberacao');
+  btn.disabled = true;
+  try{
+    const codigo = document.getElementById('lib-codigo').value.trim();
+    const payload = {
+      cancela: document.getElementById('lib-cancela').value,
+      motivo: document.getElementById('lib-motivo').value,
+    };
+    if (codigo){
+      const tickets = await chamarApi('GET', '/gestao/relatorio/tickets');
+      const alvo = tickets.find(t => t.codigo_barras === codigo);
+      if (!alvo) throw new Error('Ticket não encontrado');
+      payload.ticket_id = alvo.id;
+    }
+    const r = await chamarApi('POST', '/gestao/liberacao-manual', payload);
+    showResult('result-liberacao', true, `
+      <div class="row"><span>Liberação registrada</span><b>#${r.id}</b></div>
+      <div class="row"><span>Motivo</span><b>${r.motivo}</b></div>
+    `);
+    document.getElementById('lib-codigo').value = '';
+    document.getElementById('lib-motivo').value = '';
+  }catch(e){
+    showResult('result-liberacao', false, e.message);
+  }finally{
+    btn.disabled = false;
+  }
+});
+
+document.getElementById('btn-consulta').addEventListener('click', async () => {
+  const btn = document.getElementById('btn-consulta');
+  btn.disabled = true;
+  const lista = document.getElementById('lista-consulta');
+  try{
+    const filtro = document.getElementById('consulta-codigo').value.trim().toUpperCase();
+    const tickets = await chamarApi('GET', '/gestao/relatorio/tickets');
+    const encontrados = tickets.filter(t => t.codigo_barras.toUpperCase().includes(filtro));
+    if (encontrados.length === 0){
+      lista.innerHTML = '<div class="item">Nenhum ticket encontrado.</div>';
+    }else{
+      lista.innerHTML = encontrados.slice(0, 20).map(t => `
+        <div class="item">
+          <span><b>${t.codigo_barras}</b> — entrada ${new Date(t.data_hora_entrada).toLocaleString('pt-BR')}</span>
+          <span>${t.status}</span>
+        </div>
+      `).join('');
+    }
+  }catch(e){
+    lista.innerHTML = `<div class="item">${e.message}</div>`;
+  }finally{
+    btn.disabled = false;
+  }
+});
+</script>

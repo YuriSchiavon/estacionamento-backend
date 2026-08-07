@@ -114,12 +114,17 @@ def test_limpar_patio_finaliza_tickets_abertos(client):
     ticket_1 = _emitir_ticket(client)
     ticket_2 = _emitir_ticket(client)
 
+    # Sem campo "cancela" -- limpeza de pátio não abre nada fisicamente.
     resp = client.post("/gestao/liberacao-manual/limpar-patio", json={
-        "cancela": "saida",
         "motivo": "Falha geral no sistema às 18h",
     })
     assert resp.status_code == 200
-    assert len(resp.json()) == 2
+    liberacoes = resp.json()
+    assert len(liberacoes) == 2
+    for liberacao in liberacoes:
+        assert liberacao["cancela"] is None
+        assert liberacao["via_limpeza_patio"] is True
+        assert liberacao["usuario_nome"] == "Usuário de Teste"
 
     relatorio = client.get("/gestao/relatorio/tickets").json()
     codigos = {ticket_1["codigo_barras"], ticket_2["codigo_barras"]}
@@ -134,9 +139,7 @@ def test_limpar_patio_nao_mexe_em_ticket_de_credenciado(client):
     })
     client.post("/credenciados/entrada", json={"identificador_facial": "FACE-C"})
 
-    resp = client.post("/gestao/liberacao-manual/limpar-patio", json={
-        "cancela": "saida", "motivo": "teste",
-    })
+    resp = client.post("/gestao/liberacao-manual/limpar-patio", json={"motivo": "teste"})
     assert resp.status_code == 200
     assert resp.json() == []  # ticket de credenciado não é afetado
 
@@ -149,6 +152,7 @@ def test_excluir_ticket_avulso(client):
     })
     assert resp.status_code == 200
     assert resp.json()["codigo_barras"] == ticket["codigo_barras"]
+    assert resp.json()["usuario_nome"] == "Usuário de Teste"
 
     relatorio = client.get("/gestao/relatorio/tickets").json()
     assert all(t["id"] != ticket["id"] for t in relatorio)
@@ -156,6 +160,7 @@ def test_excluir_ticket_avulso(client):
     auditoria = client.get("/gestao/relatorio/exclusoes-tickets").json()
     assert len(auditoria) == 1
     assert auditoria[0]["codigo_barras"] == ticket["codigo_barras"]
+    assert auditoria[0]["usuario_nome"] == "Usuário de Teste"
 
 
 def test_excluir_ticket_com_pagamento_e_rejeitado(client, db_session):

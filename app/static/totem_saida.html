@@ -1,0 +1,307 @@
+<title>Totem de Saída</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy:#142A4B;
+    --lime:#DBFF00;
+    --danger:#C0392B;
+    --ok:#1E8E4F;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    font-family:'Poppins',sans-serif;
+    background:var(--navy);
+    color:#fff;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    min-height:100vh;
+    padding:24px;
+  }
+  .marca{position:fixed;top:20px;left:24px;font-weight:700;font-size:14px;letter-spacing:.5px;color:#B9C2D6;}
+  .marca span{color:var(--lime);}
+  .config-link{position:fixed;top:20px;right:24px;font-size:12px;color:#6A7A9C;text-decoration:none;}
+  .login-box{
+    width:100%;
+    max-width:340px;
+    background:#0F2038;
+    border:1px solid #24365A;
+    border-radius:16px;
+    padding:32px;
+  }
+  .login-box h1{font-size:18px;margin:0 0 6px;}
+  .login-box p{font-size:13px;color:#B9C2D6;margin:0 0 20px;}
+  label{display:block;font-size:12px;font-weight:600;color:#B9C2D6;margin:14px 0 6px;}
+  input{
+    width:100%;
+    padding:12px 14px;
+    border-radius:8px;
+    border:1px solid #2C3E5C;
+    background:#16294A;
+    color:#fff;
+    font-family:inherit;
+    font-size:15px;
+  }
+  .erro{color:#FF8A75;font-size:13px;margin-top:12px;display:none;}
+  .kiosk{width:100%;max-width:460px;}
+  .kiosk .instrucao{font-size:15px;color:#B9C2D6;margin-bottom:18px;text-align:center;}
+  input.codigo{
+    font-family:'Courier New',monospace;
+    font-size:22px;
+    text-align:center;
+    letter-spacing:2px;
+    padding:16px;
+  }
+  button.verificar{
+    margin-top:16px;
+    background:var(--lime);
+    color:var(--navy);
+    border:none;
+    border-radius:12px;
+    padding:18px;
+    font-family:inherit;
+    font-weight:800;
+    font-size:18px;
+    cursor:pointer;
+    width:100%;
+  }
+  button.verificar:disabled{opacity:.5;cursor:default;}
+  .resultado{
+    margin-top:24px;
+    border-radius:14px;
+    padding:20px;
+    display:none;
+    text-align:center;
+  }
+  .resultado.show{display:block;}
+  .resultado.ok{background:#123522;border:1px solid var(--ok);}
+  .resultado.err{background:#3A1A16;border:1px solid var(--danger);}
+  .resultado .status{font-weight:800;font-size:20px;margin-bottom:10px;}
+  .resultado.ok .status{color:#5FE39A;}
+  .resultado.err .status{color:#FF8A75;}
+  .resultado .linha{display:flex;justify-content:space-between;font-size:13px;padding:3px 0;color:#B9C2D6;}
+  .resultado .linha b{color:#fff;}
+  .cupom-box{
+    margin-top:18px;
+    background:#0F2038;
+    border:1px solid #24365A;
+    border-radius:12px;
+    padding:18px;
+    display:none;
+  }
+  .cupom-box.show{display:block;}
+  .cupom-box h3{margin:0 0 4px;font-size:14px;color:var(--lime);}
+  .cupom-box p{margin:0 0 14px;font-size:12px;color:#B9C2D6;}
+  button.validar-cupom{
+    margin-top:14px;
+    background:transparent;
+    border:1px solid var(--lime);
+    color:var(--lime);
+    padding:12px;
+    border-radius:8px;
+    font-family:inherit;
+    font-weight:700;
+    font-size:14px;
+    cursor:pointer;
+    width:100%;
+  }
+  .trocar-conta{
+    margin-top:28px;
+    font-size:12px;
+    color:#6A7A9C;
+    background:none;
+    border:none;
+    cursor:pointer;
+    text-decoration:underline;
+    display:block;
+    margin-left:auto;
+    margin-right:auto;
+  }
+</style>
+
+<div class="marca">MY PARK<span>·</span>SAÍDA</div>
+<a class="config-link" href="/" id="link-inicio" style="display:none;">início</a>
+
+<div class="login-box" id="tela-login">
+  <h1>Configurar totem</h1>
+  <p>Faça login uma vez com a conta desta cancela de saída. Fica salvo neste equipamento.</p>
+  <label>Usuário</label>
+  <input id="login-user" placeholder="usuário do totem">
+  <label>Senha</label>
+  <input id="login-senha" type="password">
+  <button class="verificar" id="btn-login" style="margin-top:14px;">Entrar</button>
+  <div class="erro" id="erro-login"></div>
+</div>
+
+<div class="kiosk" id="tela-kiosk" style="display:none;">
+  <div class="instrucao">Aproxime o ticket do leitor ou digite o código</div>
+  <input class="codigo" id="saida-codigo" placeholder="CÓDIGO DO TICKET" autofocus>
+  <button class="verificar" id="btn-saida">VERIFICAR</button>
+
+  <div class="resultado" id="resultado">
+    <div class="status" id="resultado-status"></div>
+    <div class="linha"><span>Motivo</span><b id="resultado-motivo"></b></div>
+    <div class="linha"><span>Permanência</span><b id="resultado-permanencia"></b></div>
+    <div class="linha"><span>Valor</span><b id="resultado-valor"></b></div>
+  </div>
+
+  <div class="cupom-box" id="cupom-box">
+    <h3>Ainda não validou o cupom?</h3>
+    <p>Se o cliente tem um cupom fiscal de estabelecimento conveniado, valide aqui antes de sair — a tolerância é recalculada na hora.</p>
+    <label>Chave de acesso da NFC-e (44 dígitos)</label>
+    <input id="cupom-chave" maxlength="44">
+    <label>Valor da compra (R$)</label>
+    <input id="cupom-valor" type="number" step="0.01">
+    <button class="validar-cupom" id="btn-validar-cupom">Validar cupom e reverificar</button>
+    <div class="erro" id="erro-cupom"></div>
+  </div>
+
+  <button class="trocar-conta" id="btn-trocar">trocar conta deste totem</button>
+</div>
+
+<script>
+const API = "";
+const CHAVE_SESSAO = 'sessao_totem_saida';
+let sessao = null;
+
+function carregarSessao(){
+  const salva = localStorage.getItem(CHAVE_SESSAO);
+  if (salva) sessao = JSON.parse(salva);
+}
+
+function mostrarTela(){
+  const logado = !!sessao;
+  document.getElementById('tela-login').style.display = logado ? 'none' : 'block';
+  document.getElementById('tela-kiosk').style.display = logado ? 'block' : 'none';
+  document.getElementById('link-inicio').style.display = logado ? 'none' : 'block';
+}
+
+carregarSessao();
+mostrarTela();
+
+document.getElementById('btn-login').addEventListener('click', async () => {
+  const username = document.getElementById('login-user').value;
+  const senha = document.getElementById('login-senha').value;
+  const erro = document.getElementById('erro-login');
+  erro.style.display = 'none';
+  try{
+    const resp = await fetch(API + '/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, senha }),
+    });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.detail || 'Login inválido');
+    sessao = data;
+    localStorage.setItem(CHAVE_SESSAO, JSON.stringify(sessao));
+    mostrarTela();
+  }catch(e){
+    erro.textContent = e.message;
+    erro.style.display = 'block';
+  }
+});
+
+document.getElementById('btn-trocar').addEventListener('click', async () => {
+  if (sessao){
+    try{ await fetch(API + '/auth/logout', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: sessao.token }),
+    }); }catch(e){}
+  }
+  sessao = null;
+  localStorage.removeItem(CHAVE_SESSAO);
+  mostrarTela();
+});
+
+async function chamarApi(metodo, url, body){
+  const opts = { method: metodo, headers: { 'Authorization': `Bearer ${sessao.token}` } };
+  if (body){
+    opts.headers['Content-Type'] = 'application/json';
+    opts.body = JSON.stringify(body);
+  }
+  const resp = await fetch(API + url, opts);
+  const data = await resp.json();
+  if (resp.status === 401){
+    sessao = null;
+    localStorage.removeItem(CHAVE_SESSAO);
+    mostrarTela();
+    throw new Error('Sessão expirada');
+  }
+  if (!resp.ok) throw new Error(data.detail || 'Erro desconhecido');
+  return data;
+}
+
+function exibirResultado(r){
+  const resultado = document.getElementById('resultado');
+  resultado.className = 'resultado show ' + (r.liberar_cancela ? 'ok' : 'err');
+  document.getElementById('resultado-status').textContent = r.liberar_cancela ? 'CANCELA LIBERADA' : 'AGUARDANDO PAGAMENTO';
+  document.getElementById('resultado-motivo').textContent = r.motivo;
+  document.getElementById('resultado-permanencia').textContent = `${r.tempo_permanencia_minutos} min`;
+  document.getElementById('resultado-valor').textContent = `R$ ${r.valor_calculado.toFixed(2)}`;
+
+  const cupomBox = document.getElementById('cupom-box');
+  if (!r.liberar_cancela && r.valor_calculado > 0){
+    cupomBox.className = 'cupom-box show';
+  }else{
+    cupomBox.className = 'cupom-box';
+  }
+}
+
+async function verificarSaida(){
+  const codigo = document.getElementById('saida-codigo').value.trim();
+  if (!codigo) return;
+  const r = await chamarApi('GET', '/saida/verificar/' + encodeURIComponent(codigo));
+  exibirResultado(r);
+  return r;
+}
+
+document.getElementById('btn-saida').addEventListener('click', async () => {
+  const btn = document.getElementById('btn-saida');
+  btn.disabled = true;
+  try{
+    await verificarSaida();
+  }catch(e){
+    const resultado = document.getElementById('resultado');
+    resultado.className = 'resultado show err';
+    document.getElementById('resultado-status').textContent = e.message;
+    document.getElementById('resultado-motivo').textContent = '';
+    document.getElementById('resultado-permanencia').textContent = '';
+    document.getElementById('resultado-valor').textContent = '';
+    document.getElementById('cupom-box').className = 'cupom-box';
+  }finally{
+    btn.disabled = false;
+  }
+});
+
+document.getElementById('saida-codigo').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') document.getElementById('btn-saida').click();
+});
+
+document.getElementById('btn-validar-cupom').addEventListener('click', async () => {
+  const btn = document.getElementById('btn-validar-cupom');
+  const erro = document.getElementById('erro-cupom');
+  erro.style.display = 'none';
+  btn.disabled = true;
+  try{
+    const codigo = document.getElementById('saida-codigo').value.trim();
+    const payload = {
+      codigo_barras: codigo,
+      chave_acesso_nfce: document.getElementById('cupom-chave').value,
+      valor_compra: parseFloat(document.getElementById('cupom-valor').value || '0'),
+    };
+    await chamarApi('POST', '/loja/validar-cupom', payload);
+    await verificarSaida();
+    document.getElementById('cupom-chave').value = '';
+    document.getElementById('cupom-valor').value = '';
+  }catch(e){
+    erro.textContent = e.message;
+    erro.style.display = 'block';
+  }finally{
+    btn.disabled = false;
+  }
+});
+</script>

@@ -29,11 +29,16 @@ Autenticação é por **login (usuário/senha)**, não chave de API fixa:
 - **`gerente`**: preso a uma unidade só — nunca enxerga nem afeta dados de
   outra, mesmo tentando informar outro ID (o backend sempre ignora e usa a
   unidade do próprio usuário).
+- **`operador`**: estacionamento assistido — uma pessoa loga e faz na mão
+  o que o totem faria sozinho (emitir ticket, validar cupom, verificar
+  saída, pagamento, consultar ticket). Sem acesso a credenciados,
+  estabelecimentos, unidades ou usuários — isso continua exclusivo de
+  dono/gerente.
 - **`totem_entrada` / `totem_validacao` / `totem_saida`**: uma conta por
   função, por unidade — é o que cada totem físico usa para logar.
 - **`pode_liberar_manualmente`**: permissão elevada e independente do
   papel — só quem tem essa flag consegue liberar cancela manualmente ou
-  limpar o pátio, mesmo sendo dono/gerente.
+  limpar o pátio, mesmo sendo dono/gerente/operador.
 
 Login em `POST /auth/login` (usuário/senha) retorna um token opaco
 (`Authorization: Bearer <token>`), revogável na hora em `POST /auth/logout`
@@ -53,28 +58,32 @@ log (`AVISO: login do dono -> ...`) — troque depois de anotar.
 |---|---|---|
 | `POST /auth/login` | Qualquer conta | Login (usuário/senha), retorna token |
 | `POST /auth/logout` | Qualquer conta | Revoga o token na hora |
-| `POST /entrada` | Totem emissor | Cria o ticket, retorna o código de barras para impressão |
-| `POST /loja/validar-cupom` | Totem de autoatendimento (após ler o QR code) | Vincula a nota fiscal ao ticket, garantindo unicidade da chave |
-| `GET /saida/verificar/{codigo_barras}` | Totem leitor da cancela | Calcula permanência, aplica tolerância, decide se libera |
-| `POST /saida/pagamento` | Totem de pagamento | Registra pagamento quando o valor excedeu a tolerância |
+| `POST /entrada` | Totem emissor (ou operador) | Cria o ticket, retorna o código de barras para impressão |
+| `POST /loja/validar-cupom` | Totem de autoatendimento, totem de saída ou operador | Vincula a nota fiscal ao ticket, garantindo unicidade da chave. Funciona com o ticket ainda `aberto` (loja) ou já `tarifado` (revalidação na cancela de saída) |
+| `GET /saida/verificar/{codigo_barras}` | Totem leitor da cancela (ou operador) | Calcula permanência, aplica tolerância, decide se libera |
+| `POST /saida/pagamento` | Totem de pagamento (ou operador) | Registra pagamento quando o valor excedeu a tolerância |
 | `POST /credenciados/entrada` | Totem de entrada (leitura facial) | Reconhece credenciado/mensalista pelo identificador facial e libera entrada |
 | `POST /credenciados/saida` | Totem de saída (leitura facial) | Libera a saída do credenciado/mensalista reconhecido |
-| `POST /gestao/unidades` | Painel de gestão (dono) | Cadastra unidade + gera as 3 contas de totem dela |
+| `POST /gestao/unidades` | Painel de gestão (dono) | Cadastra unidade (com mensalidade/tolerância próprias) + gera as 3 contas de totem dela |
 | `GET /gestao/unidades` | Painel de gestão | Lista unidades (dono: todas; gerente: só a própria) |
-| `PATCH /gestao/unidades/{id}` | Painel de gestão | Edita nome/tolerância padrão/ativa-desativa |
+| `PATCH /gestao/unidades/{id}` | Painel de gestão | Edita nome/tolerância padrão/mensalidade/ativa-desativa |
+| `POST /gestao/usuarios` | Painel de gestão | Cria uma conta avulsa (dono: qualquer papel/unidade; gerente: só operador da própria unidade) |
+| `GET /gestao/usuarios` | Painel de gestão | Lista usuários (escopado por unidade) |
+| `PATCH /gestao/usuarios/{id}` | Painel de gestão | Ativa/desativa e alterna `pode_liberar_manualmente` |
 | `POST /gestao/credenciados` | Painel de gestão | Cadastra um credenciado ou mensalista |
 | `GET /gestao/credenciados` | Painel de gestão | Lista credenciados/mensalistas |
 | `PATCH /gestao/credenciados/{id}` | Painel de gestão | Edita dados / ativa / desativa |
-| `POST /gestao/credenciados/{id}/renovar` | Painel de gestão | Registra pagamento de mensalidade (+30 dias) |
-| `GET /gestao/relatorio/tickets` | Painel de gestão | Lista tickets por período |
+| `POST /gestao/credenciados/{id}/renovar` | Painel de gestão | Registra pagamento de mensalidade (valor/dias configurados na unidade, ou um valor pontual informado) |
+| `GET /gestao/relatorio/tickets` | Painel de gestão ou operador | Lista tickets por período |
 | `GET /gestao/relatorio/conciliacao` | Painel de gestão | Diferença entre tickets impressos, pagos e liberados |
 | `GET /gestao/dashboard` | Painel de gestão | Movimento no período + pátio em tempo real |
-| `GET /gestao/relatorio/cupons-duplicados` | Painel de gestão | Auditoria de tentativas de reuso de cupom fiscal |
+| `GET /gestao/relatorio/auditoria` | Painel de gestão | Auditoria unificada: liberações manuais, limpezas de pátio, exclusões de ticket e cupons duplicados, com filtro por tipo |
+| `GET /gestao/relatorio/cupons-duplicados` | Painel de gestão | Auditoria de tentativas de reuso de cupom fiscal (também aparece em `/gestao/relatorio/auditoria`) |
 | `POST /gestao/liberacao-manual` | Painel de gestão | Libera uma cancela manualmente (fluxo automático falhou) |
-| `GET /gestao/relatorio/liberacoes-manuais` | Painel de gestão | Auditoria de liberações manuais |
-| `POST /gestao/liberacao-manual/limpar-patio` | Painel de gestão | Finaliza em massa todos os tickets em aberto de uma unidade |
+| `GET /gestao/relatorio/liberacoes-manuais` | Painel de gestão | Auditoria de liberações manuais (também aparece em `/gestao/relatorio/auditoria`) |
+| `POST /gestao/liberacao-manual/limpar-patio` | Painel de gestão | Finaliza em massa todos os tickets em aberto de uma unidade — não abre cancela nenhuma |
 | `POST /gestao/tickets/{id}/excluir` | Painel de gestão | Exclui um ticket avulso (sem pagamento registrado) |
-| `GET /gestao/relatorio/exclusoes-tickets` | Painel de gestão | Auditoria de exclusões de ticket |
+| `GET /gestao/relatorio/exclusoes-tickets` | Painel de gestão | Auditoria de exclusões de ticket (também aparece em `/gestao/relatorio/auditoria`) |
 | `POST /gestao/estabelecimentos` | Painel de gestão | Cadastra um estabelecimento conveniado |
 | `GET /gestao/estabelecimentos` | Painel de gestão | Lista estabelecimentos e suas regras de tolerância |
 | `PATCH /gestao/estabelecimentos/{id}` | Painel de gestão | Edita dados / ativa / desativa |
@@ -111,19 +120,23 @@ desse estabelecimento vai validar de verdade.
 
 Existe pra cobrir os casos em que o fluxo automático falha (totem travou,
 ticket não foi emitido, leitor com defeito) — abre a cancela na mão, pelo
-painel de gestão, sem depender de um ticket válido existir. Também dá pra
-**limpar o pátio inteiro** de uma vez (todos os tickets em aberto de uma
-unidade) ou **excluir um ticket avulso** (duplicado por engano, sem
-pagamento registrado).
+painel de gestão ou pela tela de operação, sem depender de um ticket
+válido existir. Também dá pra **limpar o pátio inteiro** de uma vez
+(finaliza todos os tickets em aberto de uma unidade — não abre cancela
+nenhuma, só zera o que ficou preso no sistema) ou **excluir um ticket
+avulso** (duplicado por engano, sem pagamento registrado).
 
 Proteções de propósito, por ser uma ação com efeito físico real:
 
 - **Permissão elevada e separada do papel** (`pode_liberar_manualmente`)
-  — dono ou gerente sem essa flag não consegue acionar, mesmo logado.
-- **Motivo obrigatório** e **registro de auditoria** (`app/models.py`
-  `LiberacaoManual` / `ExclusaoTicket`) — toda ação fica rastreada: qual
-  cancela, por quê, quando, e o ticket relacionado (se houver — o vínculo
-  é opcional, já que às vezes o próprio ticket é o motivo da falha).
+  — dono, gerente ou operador sem essa flag não consegue acionar, mesmo
+  logado.
+- **Motivo obrigatório** e **quem fez fica registrado** (`app/models.py`
+  `LiberacaoManual` / `ExclusaoTicket` guardam `usuario_nome`) — toda ação
+  fica rastreada: qual cancela (quando aplicável), por quê, quando, quem,
+  e o ticket relacionado (se houver — o vínculo é opcional, já que às
+  vezes o próprio ticket é o motivo da falha). Tudo aparece junto em
+  `GET /gestao/relatorio/auditoria`.
 - **Limpeza de pátio nunca é "geral"** — sempre exige uma unidade
   explícita, mesmo pra dono, pra evitar limpar todas de uma vez por engano.
 
@@ -134,10 +147,14 @@ reconhecida pela câmera e libera acesso sem precisar de ticket físico.
 Dois tipos, cadastrados em `/gestao/credenciados`:
 
 - **Credenciado**: acesso 100% liberado, sempre, sem custo (ex: parceiro/convênio).
-- **Mensalista**: paga R$200,00 e tem 30 dias de acesso liberado. Ao vencer,
-  o acesso é bloqueado até renovar (`POST /gestao/credenciados/{id}/renovar`).
-  Renovar antes de vencer soma os dias à validade atual — não perde dias
-  pagos antecipadamente. Regras em `app/credenciamento.py`.
+- **Mensalista**: paga o valor e tem os dias de acesso liberado
+  **configurados por unidade** (`Unidade.valor_mensalidade` /
+  `dias_validade_mensalidade`, editável em `/gestao/unidades` — contratos
+  diferentes, preços diferentes). Ao vencer, o acesso é bloqueado até
+  renovar (`POST /gestao/credenciados/{id}/renovar`, valor opcional para
+  um ajuste pontual, ex. promoção). Renovar antes de vencer soma os dias
+  à validade atual — não perde dias pagos antecipadamente. Regras em
+  `app/credenciamento.py`.
 
 O `identificador_facial` é o valor que o SDK de reconhecimento facial do
 totem retorna ao identificar a pessoa — ainda não integrado (depende da
@@ -151,17 +168,32 @@ para recebê-lo.
 - É tolerância, não gratuidade: passou do limite, cobra a permanência inteira.
 - Chave de acesso da NFC-e é `UNIQUE` no banco — impede reuso do mesmo cupom.
 
-## Painéis
+## Páginas
 
-- **`http://localhost:8000/`** — painel de testes dos totens: login por
-  totem (entrada/validação/saída), emitir ticket, validar cupom, verificar
-  saída, registrar pagamento e simular o acesso facial de credenciados/
-  mensalistas, tudo clicando em botões.
-- **`http://localhost:8000/gestao`** — painel de gestão: login, cadastro
-  de unidades (dono), estabelecimentos conveniados, credenciados/
-  mensalistas, dashboard operacional, conciliação financeira e auditorias.
+Três tipos de superfície, cada uma com seu propósito:
+
+- **`http://localhost:8000/`** — landing: links para todas as páginas
+  abaixo.
+- **`http://localhost:8000/gestao`** — **painel gerencial** (dono/gerente):
+  cadastro de unidades (dono, com mensalidade/tolerância próprias),
+  estabelecimentos conveniados, credenciados/mensalistas, usuários,
+  dashboard operacional, conciliação financeira e auditoria unificada.
   Dono vê um seletor pra filtrar por unidade ou ver "geral"; gerente fica
   preso à própria unidade automaticamente.
+- **`http://localhost:8000/operacao`** — **login de operador** (CPF +
+  senha, unidade já presa na conta): tela única com as ações do dia a dia
+  de um estacionamento assistido — emitir ticket, validar cupom, verificar
+  saída, pagamento, liberação manual (se tiver a permissão) e consulta de
+  ticket. Sem acesso a nada de configuração.
+- **`http://localhost:8000/totem/entrada`**,
+  **`/totem/saida`**, **`/totem/pagamento`** — as telas reais de cada
+  equipamento físico: login uma vez (fica salvo no aparelho), depois só a
+  ação daquele totem. A de saída inclui "revalidar cupom" — valida o cupom
+  fiscal ali mesmo, antes ou depois da decisão de tolerância.
+- **`http://localhost:8000/simulador-totens`** — ambiente de
+  desenvolvimento: os 5 totens (entrada/validação/saída/pagamento/facial)
+  numa página só, com histórico de sessão, para testar o fluxo completo
+  sem precisar do equipamento físico.
 
 ## O que falta para virar sistema de produção (próximos passos com o Claude Code)
 
@@ -184,13 +216,18 @@ para recebê-lo.
    administrar servidor de banco) e instalar o driver correspondente
    (`psycopg2-binary` ou `pymysql`, comentados no `requirements.txt`).
 6. ~~**Testes automatizados**~~ ✅ `tests/` cobre os cenários de tolerância,
-   a tabela de tarifa, login/papéis, isolamento entre unidades, o fluxo de
-   credenciados/mensalistas e a manutenção do pátio. Rodar com
-   `python -m pytest tests/ -v` (dependências de teste em
-   `requirements-dev.txt`). 76 testes no total.
+   a tabela de tarifa, login/papéis (incluindo operador), isolamento entre
+   unidades, mensalidade configurável por unidade, revalidação de cupom no
+   totem de saída, auditoria unificada, CRUD de usuários e a manutenção do
+   pátio. Rodar com `python -m pytest tests/ -v` (dependências de teste em
+   `requirements-dev.txt`). 96 testes no total.
 7. ~~**Painel de gestão**~~ ✅ `http://localhost:8000/gestao` — unidades,
-   estabelecimentos conveniados, credenciados/mensalistas, dashboard,
-   conciliação financeira e auditorias. Ver `app/rotas_gestao.py`.
+   estabelecimentos conveniados, credenciados/mensalistas, usuários,
+   dashboard, conciliação financeira e auditoria unificada. Ver
+   `app/rotas_gestao.py`.
+8. ~~**Operação assistida e telas de totem reais**~~ ✅ login de operador
+   (`/operacao`) e as telas de cada equipamento (`/totem/entrada`,
+   `/totem/saida`, `/totem/pagamento`) — ver seção "Páginas" acima.
 
 Este protótipo não foi testado contra o ambiente de execução real (o
 ambiente usado para criá-lo não tem acesso à internet para instalar as

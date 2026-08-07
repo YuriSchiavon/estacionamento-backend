@@ -55,12 +55,17 @@ class Unidade(Base):
     # Tolerância "sem cupom", aplicada a qualquer entrada dessa unidade que
     # não vincule nenhum cupom fiscal conveniado.
     tolerancia_padrao_minutos = Column(Integer, nullable=False, default=15)
+    # Preço da mensalidade -- cada unidade define o próprio (contratos
+    # diferentes). Ver app/credenciamento.py.
+    valor_mensalidade = Column(Float, nullable=False, default=200.0)
+    dias_validade_mensalidade = Column(Integer, nullable=False, default=30)
     criado_em = Column(DateTime, default=agora_utc)
 
 
 class PapelUsuario(str, enum.Enum):
     dono = "dono"                        # vê/gerencia todas as unidades
     gerente = "gerente"                  # vê/gerencia uma unidade específica
+    operador = "operador"                # opera o dia a dia de uma unidade (estacionamento assistido)
     totem_entrada = "totem_entrada"
     totem_validacao = "totem_validacao"
     totem_saida = "totem_saida"
@@ -276,18 +281,27 @@ class Cancela(str, enum.Enum):
 class LiberacaoManual(Base):
     """Auditoria: toda liberação de cancela feita manualmente pelo painel de
     gestão (em vez do fluxo automático) fica registrada aqui -- qual cancela,
-    motivo obrigatório e quando aconteceu.
+    quem fez, motivo obrigatório e quando aconteceu.
 
     ticket_id é opcional de propósito: a liberação manual existe justamente
     para os casos em que o ticket falhou ou nem chegou a existir (ex: totem
-    travou, impressora falhou) -- não pode depender de um ticket válido."""
+    travou, impressora falhou) -- não pode depender de um ticket válido.
+
+    cancela é opcional porque a limpeza de pátio em massa (via_limpeza_patio)
+    não abre cancela nenhuma, só finaliza tickets presos -- não faz sentido
+    apontar uma cancela nesse caso."""
     __tablename__ = "liberacoes_manuais"
 
     id = Column(Integer, primary_key=True)
     unidade_id = Column(Integer, ForeignKey("unidades.id"), nullable=False)
-    cancela = Column(Enum(Cancela), nullable=False)
+    cancela = Column(Enum(Cancela), nullable=True)
     motivo = Column(String, nullable=False)
     ticket_id = Column(Integer, ForeignKey("tickets.id"), nullable=True)
+    via_limpeza_patio = Column(Boolean, default=False)
+    # Snapshot do nome de quem executou -- não é FK de propósito, pra
+    # sobreviver mesmo se a conta for desativada/excluída depois (mesmo
+    # padrão do codigo_barras em ExclusaoTicket, abaixo).
+    usuario_nome = Column(String, nullable=False)
     data_hora = Column(DateTime, default=agora_utc)
 
     ticket = relationship("Ticket")
@@ -303,4 +317,5 @@ class ExclusaoTicket(Base):
     unidade_id = Column(Integer, ForeignKey("unidades.id"), nullable=False)
     codigo_barras = Column(String, nullable=False)
     motivo = Column(String, nullable=False)
+    usuario_nome = Column(String, nullable=False)
     data_hora = Column(DateTime, default=agora_utc)

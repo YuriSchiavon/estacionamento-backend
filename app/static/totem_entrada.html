@@ -1,0 +1,234 @@
+<title>Totem de Entrada</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy:#142A4B;
+    --lime:#DBFF00;
+    --danger:#C0392B;
+    --ok:#1E8E4F;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    font-family:'Poppins',sans-serif;
+    background:var(--navy);
+    color:#fff;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    min-height:100vh;
+    padding:24px;
+  }
+  .marca{
+    position:fixed;
+    top:20px;
+    left:24px;
+    font-weight:700;
+    font-size:14px;
+    letter-spacing:.5px;
+    color:#B9C2D6;
+  }
+  .marca span{color:var(--lime);}
+  .config-link{
+    position:fixed;
+    top:20px;
+    right:24px;
+    font-size:12px;
+    color:#6A7A9C;
+    text-decoration:none;
+  }
+  .login-box{
+    width:100%;
+    max-width:340px;
+    background:#0F2038;
+    border:1px solid #24365A;
+    border-radius:16px;
+    padding:32px;
+  }
+  .login-box h1{font-size:18px;margin:0 0 6px;}
+  .login-box p{font-size:13px;color:#B9C2D6;margin:0 0 20px;}
+  label{display:block;font-size:12px;font-weight:600;color:#B9C2D6;margin:14px 0 6px;}
+  input{
+    width:100%;
+    padding:12px 14px;
+    border-radius:8px;
+    border:1px solid #2C3E5C;
+    background:#16294A;
+    color:#fff;
+    font-family:inherit;
+    font-size:15px;
+  }
+  .erro{color:#FF8A75;font-size:13px;margin-top:12px;display:none;}
+  .kiosk{
+    width:100%;
+    max-width:480px;
+    text-align:center;
+  }
+  .kiosk .instrucao{font-size:16px;color:#B9C2D6;margin-bottom:36px;}
+  button.retirar{
+    background:var(--lime);
+    color:var(--navy);
+    border:none;
+    border-radius:24px;
+    padding:56px 40px;
+    font-family:inherit;
+    font-weight:800;
+    font-size:28px;
+    cursor:pointer;
+    width:100%;
+    box-shadow:0 10px 30px rgba(219,255,0,.15);
+  }
+  button.retirar:hover{filter:brightness(0.97);}
+  button.retirar:disabled{opacity:.5;cursor:default;}
+  button.entrar-btn{
+    margin-top:10px;
+    background:var(--lime);
+    color:var(--navy);
+    border:none;
+    padding:14px;
+    border-radius:8px;
+    font-family:inherit;
+    font-weight:700;
+    font-size:15px;
+    cursor:pointer;
+    width:100%;
+  }
+  .resultado{
+    margin-top:32px;
+    display:none;
+  }
+  .resultado.show{display:block;}
+  .resultado .titulo{font-size:16px;color:var(--lime);font-weight:700;margin-bottom:12px;}
+  .ticket-code{
+    font-family:'Courier New',monospace;
+    font-weight:700;
+    font-size:26px;
+    letter-spacing:2px;
+    background:#fff;
+    color:var(--navy);
+    padding:16px;
+    border-radius:10px;
+    display:block;
+  }
+  .resultado.err .titulo{color:#FF8A75;}
+  .trocar-conta{
+    margin-top:40px;
+    font-size:12px;
+    color:#6A7A9C;
+    background:none;
+    border:none;
+    cursor:pointer;
+    text-decoration:underline;
+  }
+</style>
+
+<div class="marca">MY PARK<span>·</span>ENTRADA</div>
+<a class="config-link" href="/" id="link-inicio" style="display:none;">início</a>
+
+<div class="login-box" id="tela-login">
+  <h1>Configurar totem</h1>
+  <p>Faça login uma vez com a conta desta cancela de entrada. Fica salvo neste equipamento.</p>
+  <label>Usuário</label>
+  <input id="login-user" placeholder="usuário do totem">
+  <label>Senha</label>
+  <input id="login-senha" type="password">
+  <button class="entrar-btn" id="btn-login">Entrar</button>
+  <div class="erro" id="erro-login"></div>
+</div>
+
+<div class="kiosk" id="tela-kiosk" style="display:none;">
+  <div class="instrucao">Toque no botão abaixo para retirar seu ticket</div>
+  <button class="retirar" id="btn-entrada">RETIRAR TICKET</button>
+  <div class="resultado" id="resultado">
+    <div class="titulo" id="resultado-titulo"></div>
+    <div class="ticket-code" id="resultado-codigo"></div>
+  </div>
+  <button class="trocar-conta" id="btn-trocar">trocar conta deste totem</button>
+</div>
+
+<script>
+const API = "";
+const CHAVE_SESSAO = 'sessao_totem_entrada';
+let sessao = null;
+
+function carregarSessao(){
+  const salva = localStorage.getItem(CHAVE_SESSAO);
+  if (salva) sessao = JSON.parse(salva);
+}
+
+function mostrarTela(){
+  const logado = !!sessao;
+  document.getElementById('tela-login').style.display = logado ? 'none' : 'block';
+  document.getElementById('tela-kiosk').style.display = logado ? 'block' : 'none';
+  document.getElementById('link-inicio').style.display = logado ? 'none' : 'block';
+}
+
+carregarSessao();
+mostrarTela();
+
+document.getElementById('btn-login').addEventListener('click', async () => {
+  const username = document.getElementById('login-user').value;
+  const senha = document.getElementById('login-senha').value;
+  const erro = document.getElementById('erro-login');
+  erro.style.display = 'none';
+  try{
+    const resp = await fetch(API + '/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, senha }),
+    });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.detail || 'Login inválido');
+    sessao = data;
+    localStorage.setItem(CHAVE_SESSAO, JSON.stringify(sessao));
+    mostrarTela();
+  }catch(e){
+    erro.textContent = e.message;
+    erro.style.display = 'block';
+  }
+});
+
+document.getElementById('btn-trocar').addEventListener('click', async () => {
+  if (sessao){
+    try{ await fetch(API + '/auth/logout', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: sessao.token }),
+    }); }catch(e){}
+  }
+  sessao = null;
+  localStorage.removeItem(CHAVE_SESSAO);
+  mostrarTela();
+});
+
+document.getElementById('btn-entrada').addEventListener('click', async () => {
+  const btn = document.getElementById('btn-entrada');
+  const resultado = document.getElementById('resultado');
+  btn.disabled = true;
+  try{
+    const resp = await fetch(API + '/entrada', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${sessao.token}` },
+    });
+    const t = await resp.json();
+    if (resp.status === 401){
+      sessao = null;
+      localStorage.removeItem(CHAVE_SESSAO);
+      mostrarTela();
+      return;
+    }
+    if (!resp.ok) throw new Error(t.detail || 'Erro ao emitir ticket');
+    resultado.className = 'resultado show';
+    document.getElementById('resultado-titulo').textContent = 'Retire seu ticket';
+    document.getElementById('resultado-codigo').textContent = t.codigo_barras;
+  }catch(e){
+    resultado.className = 'resultado show err';
+    document.getElementById('resultado-titulo').textContent = e.message;
+    document.getElementById('resultado-codigo').textContent = '';
+  }finally{
+    btn.disabled = false;
+  }
+});
+</script>

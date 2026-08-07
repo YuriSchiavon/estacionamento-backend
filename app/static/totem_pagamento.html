@@ -1,0 +1,288 @@
+<title>Totem de Pagamento</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy:#142A4B;
+    --lime:#DBFF00;
+    --danger:#C0392B;
+    --ok:#1E8E4F;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    font-family:'Poppins',sans-serif;
+    background:var(--navy);
+    color:#fff;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    min-height:100vh;
+    padding:24px;
+  }
+  .marca{position:fixed;top:20px;left:24px;font-weight:700;font-size:14px;letter-spacing:.5px;color:#B9C2D6;}
+  .marca span{color:var(--lime);}
+  .config-link{position:fixed;top:20px;right:24px;font-size:12px;color:#6A7A9C;text-decoration:none;}
+  .login-box{
+    width:100%;
+    max-width:340px;
+    background:#0F2038;
+    border:1px solid #24365A;
+    border-radius:16px;
+    padding:32px;
+  }
+  .login-box h1{font-size:18px;margin:0 0 6px;}
+  .login-box p{font-size:13px;color:#B9C2D6;margin:0 0 20px;}
+  label{display:block;font-size:12px;font-weight:600;color:#B9C2D6;margin:14px 0 6px;}
+  input,select{
+    width:100%;
+    padding:12px 14px;
+    border-radius:8px;
+    border:1px solid #2C3E5C;
+    background:#16294A;
+    color:#fff;
+    font-family:inherit;
+    font-size:15px;
+  }
+  .erro{color:#FF8A75;font-size:13px;margin-top:12px;display:none;}
+  .kiosk{width:100%;max-width:460px;}
+  .kiosk .instrucao{font-size:15px;color:#B9C2D6;margin-bottom:18px;text-align:center;}
+  input.codigo{
+    font-family:'Courier New',monospace;
+    font-size:22px;
+    text-align:center;
+    letter-spacing:2px;
+    padding:16px;
+  }
+  button.principal{
+    margin-top:16px;
+    background:var(--lime);
+    color:var(--navy);
+    border:none;
+    border-radius:12px;
+    padding:18px;
+    font-family:inherit;
+    font-weight:800;
+    font-size:18px;
+    cursor:pointer;
+    width:100%;
+  }
+  button.principal:disabled{opacity:.5;cursor:default;}
+  .valor-devido{
+    margin-top:24px;
+    background:#0F2038;
+    border:1px solid #24365A;
+    border-radius:14px;
+    padding:24px;
+    text-align:center;
+    display:none;
+  }
+  .valor-devido.show{display:block;}
+  .valor-devido .label{font-size:13px;color:#B9C2D6;}
+  .valor-devido .num{font-size:36px;font-weight:800;color:var(--lime);margin:6px 0 18px;}
+  .valor-devido .quitado{color:#5FE39A;font-weight:700;font-size:16px;padding:10px 0;}
+  .resultado{
+    margin-top:18px;
+    border-radius:12px;
+    padding:16px;
+    display:none;
+    text-align:center;
+    font-size:14px;
+  }
+  .resultado.show{display:block;}
+  .resultado.ok{background:#123522;border:1px solid var(--ok);color:#5FE39A;}
+  .resultado.err{background:#3A1A16;border:1px solid var(--danger);color:#FF8A75;}
+  .trocar-conta{
+    margin-top:28px;
+    font-size:12px;
+    color:#6A7A9C;
+    background:none;
+    border:none;
+    cursor:pointer;
+    text-decoration:underline;
+    display:block;
+    margin-left:auto;
+    margin-right:auto;
+  }
+</style>
+
+<div class="marca">MY PARK<span>·</span>PAGAMENTO</div>
+<a class="config-link" href="/" id="link-inicio" style="display:none;">início</a>
+
+<div class="login-box" id="tela-login">
+  <h1>Configurar totem</h1>
+  <p>Faça login uma vez com a conta desta unidade (mesma conta usada na saída). Fica salvo neste equipamento.</p>
+  <label>Usuário</label>
+  <input id="login-user" placeholder="usuário do totem">
+  <label>Senha</label>
+  <input id="login-senha" type="password">
+  <button class="principal" id="btn-login" style="margin-top:14px;">Entrar</button>
+  <div class="erro" id="erro-login"></div>
+</div>
+
+<div class="kiosk" id="tela-kiosk" style="display:none;">
+  <div class="instrucao">Digite o código do ticket para consultar o valor</div>
+  <input class="codigo" id="consulta-codigo" placeholder="CÓDIGO DO TICKET" autofocus>
+  <button class="principal" id="btn-consultar">CONSULTAR</button>
+
+  <div class="valor-devido" id="valor-devido">
+    <div class="label">Valor a pagar</div>
+    <div class="num" id="valor-num">R$ 0,00</div>
+    <div id="bloco-pagamento">
+      <label>Forma de pagamento</label>
+      <select id="pag-forma">
+        <option value="pix">PIX</option>
+        <option value="cartao">Cartão</option>
+        <option value="dinheiro">Dinheiro</option>
+      </select>
+      <button class="principal" id="btn-pagar">PAGAR</button>
+    </div>
+  </div>
+
+  <div class="resultado" id="resultado"></div>
+  <button class="trocar-conta" id="btn-trocar">trocar conta deste totem</button>
+</div>
+
+<script>
+const API = "";
+const CHAVE_SESSAO = 'sessao_totem_pagamento';
+let sessao = null;
+let ticketAtual = null;
+
+function carregarSessao(){
+  const salva = localStorage.getItem(CHAVE_SESSAO);
+  if (salva) sessao = JSON.parse(salva);
+}
+
+function mostrarTela(){
+  const logado = !!sessao;
+  document.getElementById('tela-login').style.display = logado ? 'none' : 'block';
+  document.getElementById('tela-kiosk').style.display = logado ? 'block' : 'none';
+  document.getElementById('link-inicio').style.display = logado ? 'none' : 'block';
+}
+
+carregarSessao();
+mostrarTela();
+
+document.getElementById('btn-login').addEventListener('click', async () => {
+  const username = document.getElementById('login-user').value;
+  const senha = document.getElementById('login-senha').value;
+  const erro = document.getElementById('erro-login');
+  erro.style.display = 'none';
+  try{
+    const resp = await fetch(API + '/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, senha }),
+    });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.detail || 'Login inválido');
+    sessao = data;
+    localStorage.setItem(CHAVE_SESSAO, JSON.stringify(sessao));
+    mostrarTela();
+  }catch(e){
+    erro.textContent = e.message;
+    erro.style.display = 'block';
+  }
+});
+
+document.getElementById('btn-trocar').addEventListener('click', async () => {
+  if (sessao){
+    try{ await fetch(API + '/auth/logout', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: sessao.token }),
+    }); }catch(e){}
+  }
+  sessao = null;
+  localStorage.removeItem(CHAVE_SESSAO);
+  mostrarTela();
+});
+
+async function chamarApi(metodo, url, body){
+  const opts = { method: metodo, headers: { 'Authorization': `Bearer ${sessao.token}` } };
+  if (body){
+    opts.headers['Content-Type'] = 'application/json';
+    opts.body = JSON.stringify(body);
+  }
+  const resp = await fetch(API + url, opts);
+  const data = await resp.json();
+  if (resp.status === 401){
+    sessao = null;
+    localStorage.removeItem(CHAVE_SESSAO);
+    mostrarTela();
+    throw new Error('Sessão expirada');
+  }
+  if (!resp.ok) throw new Error(data.detail || 'Erro desconhecido');
+  return data;
+}
+
+function limparResultado(){
+  const resultado = document.getElementById('resultado');
+  resultado.className = 'resultado';
+  resultado.textContent = '';
+}
+
+document.getElementById('btn-consultar').addEventListener('click', async () => {
+  const btn = document.getElementById('btn-consultar');
+  const valorDevido = document.getElementById('valor-devido');
+  btn.disabled = true;
+  limparResultado();
+  try{
+    const codigo = document.getElementById('consulta-codigo').value.trim();
+    const r = await chamarApi('GET', '/saida/verificar/' + encodeURIComponent(codigo));
+    ticketAtual = r.codigo_barras;
+    if (r.liberar_cancela || r.valor_calculado <= 0){
+      valorDevido.className = 'valor-devido show';
+      document.getElementById('valor-num').textContent = 'R$ 0,00';
+      document.getElementById('bloco-pagamento').style.display = 'none';
+      const resultado = document.getElementById('resultado');
+      resultado.className = 'resultado show ok';
+      resultado.textContent = 'Este ticket não tem valor pendente — pode seguir para a cancela.';
+    }else{
+      valorDevido.className = 'valor-devido show';
+      document.getElementById('valor-num').textContent = `R$ ${r.valor_calculado.toFixed(2)}`;
+      document.getElementById('bloco-pagamento').style.display = 'block';
+    }
+  }catch(e){
+    const resultado = document.getElementById('resultado');
+    resultado.className = 'resultado show err';
+    resultado.textContent = e.message;
+    document.getElementById('valor-devido').className = 'valor-devido';
+  }finally{
+    btn.disabled = false;
+  }
+});
+
+document.getElementById('consulta-codigo').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') document.getElementById('btn-consultar').click();
+});
+
+document.getElementById('btn-pagar').addEventListener('click', async () => {
+  const btn = document.getElementById('btn-pagar');
+  btn.disabled = true;
+  limparResultado();
+  try{
+    const valorTexto = document.getElementById('valor-num').textContent.replace('R$', '').trim().replace(',', '.');
+    const payload = {
+      codigo_barras: ticketAtual,
+      forma_pagamento: document.getElementById('pag-forma').value,
+      valor: parseFloat(valorTexto),
+    };
+    await chamarApi('POST', '/saida/pagamento', payload);
+    const resultado = document.getElementById('resultado');
+    resultado.className = 'resultado show ok';
+    resultado.textContent = 'Pagamento registrado! Siga para a cancela de saída.';
+    document.getElementById('valor-devido').className = 'valor-devido';
+    document.getElementById('consulta-codigo').value = '';
+    ticketAtual = null;
+  }catch(e){
+    const resultado = document.getElementById('resultado');
+    resultado.className = 'resultado show err';
+    resultado.textContent = e.message;
+  }finally{
+    btn.disabled = false;
+  }
+});
+</script>

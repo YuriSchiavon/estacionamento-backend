@@ -24,12 +24,16 @@ class LogoutRequest(BaseModel):
 class UnidadeIn(BaseModel):
     nome: str
     tolerancia_padrao_minutos: int = 15
+    valor_mensalidade: float = 200.0
+    dias_validade_mensalidade: int = 30
 
 
 class UnidadeUpdate(BaseModel):
     nome: Optional[str] = None
     ativo: Optional[bool] = None
     tolerancia_padrao_minutos: Optional[int] = None
+    valor_mensalidade: Optional[float] = None
+    dias_validade_mensalidade: Optional[int] = None
 
 
 class UnidadeOut(BaseModel):
@@ -37,6 +41,8 @@ class UnidadeOut(BaseModel):
     nome: str
     ativo: bool
     tolerancia_padrao_minutos: int
+    valor_mensalidade: float
+    dias_validade_mensalidade: int
 
     class Config:
         from_attributes = True
@@ -130,7 +136,9 @@ class CredenciadoOut(BaseModel):
 
 
 class RenovarMensalidadeRequest(BaseModel):
-    valor: float = 200.0
+    # None = usa o valor configurado na unidade do credenciado; informado
+    # permite um ajuste pontual (ex: promoção).
+    valor: Optional[float] = None
     forma_pagamento: str = "pix"
 
 
@@ -171,9 +179,11 @@ class LiberacaoManualRequest(BaseModel):
 class LiberacaoManualOut(BaseModel):
     id: int
     unidade_id: int
-    cancela: str
+    cancela: Optional[str]
     motivo: str
     ticket_id: Optional[int]
+    via_limpeza_patio: bool
+    usuario_nome: str
     data_hora: datetime
 
     class Config:
@@ -219,7 +229,8 @@ class EstabelecimentoOut(BaseModel):
 
 
 class LimparPatioRequest(BaseModel):
-    cancela: Literal["entrada", "saida"]
+    # Sem campo de cancela -- limpeza de pátio não abre nada fisicamente,
+    # só finaliza tickets presos no sistema.
     motivo: str  # justificativa obrigatória, fica registrada por ticket afetado
     # Sempre obrigatório pra dono -- limpeza de pátio nunca vale pra "todas
     # as unidades" de uma vez, mesmo pra quem enxerga tudo.
@@ -235,6 +246,7 @@ class ExclusaoTicketOut(BaseModel):
     unidade_id: int
     codigo_barras: str
     motivo: str
+    usuario_nome: str
     data_hora: datetime
 
     class Config:
@@ -280,3 +292,51 @@ class DashboardResponse(BaseModel):
     veiculos_no_patio_mensalista: int
 
     por_forma_pagamento: dict
+
+
+class UsuarioIn(BaseModel):
+    nome: str
+    papel: Literal["dono", "gerente", "operador", "totem_entrada", "totem_validacao", "totem_saida"]
+    # Obrigatório quando papel="operador" -- vira o username de login
+    # (só dígitos). Para os demais papéis, o username é derivado do nome.
+    cpf: Optional[str] = None
+    # Obrigatório pra dono criando gerente/operador/totem de uma unidade
+    # específica; ignorado (forçado pra própria unidade) se quem cria é
+    # gerente. Dono criando outro "dono" não usa unidade nenhuma.
+    unidade_id: Optional[int] = None
+    pode_liberar_manualmente: bool = False
+
+
+class UsuarioOut(BaseModel):
+    id: int
+    username: str
+    nome: str
+    papel: str
+    unidade_id: Optional[int]
+    ativo: bool
+    pode_liberar_manualmente: bool
+
+    class Config:
+        from_attributes = True
+
+
+class UsuarioCriadoResponse(BaseModel):
+    usuario: UsuarioOut
+    senha: str  # texto puro -- só aparece aqui, na criação, nunca mais
+
+
+class UsuarioUpdate(BaseModel):
+    ativo: Optional[bool] = None
+    pode_liberar_manualmente: Optional[bool] = None
+
+
+class AuditoriaEvento(BaseModel):
+    """Formato unificado pros três tipos de evento de auditoria hoje
+    existentes (liberação manual, exclusão de ticket, cupom duplicado) --
+    e espaço pra outros tipos de falha que surgirem depois."""
+    tipo: Literal["liberacao_manual", "exclusao_ticket", "cupom_duplicado"]
+    descricao: str
+    unidade_id: int
+    usuario_nome: Optional[str] = None
+    data_hora: datetime
+    detalhes: dict = {}

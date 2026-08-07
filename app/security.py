@@ -48,16 +48,35 @@ def _exigir_papel(*papeis_permitidos: models.PapelUsuario):
 
 # Dependências nomeadas em nível de módulo -- ver docstring do arquivo
 # sobre por que isso importa pros overrides de teste.
-exigir_totem_entrada = _exigir_papel(models.PapelUsuario.totem_entrada)
-exigir_totem_validacao = _exigir_papel(models.PapelUsuario.totem_validacao)
-exigir_totem_saida = _exigir_papel(models.PapelUsuario.totem_saida)
+#
+# `operador` reaproveita as permissões dos totens: quando o estacionamento
+# é assistido, uma pessoa loga como operador e faz manualmente as mesmas
+# ações que o totem faria sozinho (emitir ticket, validar cupom, verificar
+# saída, pagamento) -- por isso cada exigir_totem_* também aceita operador.
+exigir_totem_entrada = _exigir_papel(models.PapelUsuario.totem_entrada, models.PapelUsuario.operador)
+exigir_totem_validacao = _exigir_papel(models.PapelUsuario.totem_validacao, models.PapelUsuario.operador)
+exigir_totem_saida = _exigir_papel(models.PapelUsuario.totem_saida, models.PapelUsuario.operador)
+
+# Validar cupom fiscal (/loja/validar-cupom) também pode ser chamado do
+# totem de saída -- "revalidação": se o cliente chegou na cancela sem ter
+# validado na loja, dá pra validar ali mesmo, antes da decisão de tolerância.
+exigir_totem_validacao_ou_saida = _exigir_papel(
+    models.PapelUsuario.totem_validacao, models.PapelUsuario.totem_saida, models.PapelUsuario.operador
+)
+
 exigir_gestao = _exigir_papel(models.PapelUsuario.dono, models.PapelUsuario.gerente)
 
+# Consulta de tickets: operador precisa buscar/conferir um ticket no dia a
+# dia, mas não deve ganhar acesso ao resto de /gestao (credenciados,
+# estabelecimentos, unidades, usuários) -- por isso é uma dependência à
+# parte de exigir_gestao, não uma extensão dela.
+exigir_operacao = _exigir_papel(models.PapelUsuario.dono, models.PapelUsuario.gerente, models.PapelUsuario.operador)
 
-def exigir_liberacao_manual(usuario: models.Usuario = Depends(exigir_gestao)) -> models.Usuario:
+
+def exigir_liberacao_manual(usuario: models.Usuario = Depends(usuario_logado)) -> models.Usuario:
     """Permissão elevada e independente do papel -- só quem tem a flag
     pode_liberar_manualmente consegue abrir cancela na mão ou limpar pátio,
-    mesmo sendo dono/gerente."""
+    seja dono, gerente ou operador."""
     if not usuario.pode_liberar_manualmente:
         raise HTTPException(
             status.HTTP_403_FORBIDDEN,

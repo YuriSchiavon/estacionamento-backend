@@ -31,7 +31,7 @@ from .database import Base, engine, get_db
 from .nfce import extrair_cnpj_emitente
 from .rotas_gestao import router as rotas_gestao_router
 from .seed import seed
-from .security import exigir_totem_entrada, exigir_totem_saida, exigir_totem_validacao
+from .security import exigir_totem_entrada, exigir_totem_saida, exigir_totem_validacao_ou_saida
 
 Base.metadata.create_all(bind=engine)
 
@@ -48,15 +48,45 @@ def startup():
 
 
 @app.get("/", include_in_schema=False)
-def painel_de_testes():
-    """Painel visual para testar o fluxo sem precisar do Swagger."""
-    return FileResponse(STATIC_DIR / "index.html")
+def pagina_inicial():
+    """Landing: links para o painel de gestão, operação e totens."""
+    return FileResponse(STATIC_DIR / "inicio.html")
 
 
 @app.get("/gestao", include_in_schema=False)
 def painel_de_gestao():
     """Painel de gestão: credenciados/mensalistas e relatórios."""
     return FileResponse(STATIC_DIR / "gestao.html")
+
+
+@app.get("/operacao", include_in_schema=False)
+def pagina_operacao():
+    """Login único de operador + ações do dia a dia (estacionamento assistido)."""
+    return FileResponse(STATIC_DIR / "operacao.html")
+
+
+@app.get("/totem/entrada", include_in_schema=False)
+def pagina_totem_entrada():
+    """Tela real do totem de entrada: um botão, emite o ticket."""
+    return FileResponse(STATIC_DIR / "totem_entrada.html")
+
+
+@app.get("/totem/saida", include_in_schema=False)
+def pagina_totem_saida():
+    """Tela real do totem de saída: leitura do ticket + revalidação de cupom."""
+    return FileResponse(STATIC_DIR / "totem_saida.html")
+
+
+@app.get("/totem/pagamento", include_in_schema=False)
+def pagina_totem_pagamento():
+    """Tela real do totem de pagamento."""
+    return FileResponse(STATIC_DIR / "totem_pagamento.html")
+
+
+@app.get("/simulador-totens", include_in_schema=False)
+def pagina_simulador():
+    """Simulador dos 5 totens numa página só, para testar sem hardware."""
+    return FileResponse(STATIC_DIR / "simulador.html")
 
 
 # ---------------------------------------------------------------------
@@ -80,21 +110,31 @@ def registrar_entrada(
 
 
 # ---------------------------------------------------------------------
-# LOJA — chamado pelo totem de autoatendimento após ler o QR code da NFC-e
+# LOJA — chamado pelo totem de autoatendimento após ler o QR code da NFC-e.
+# Também aceita o totem de saída (e operador): "revalidação" -- se o
+# cliente chegou na cancela sem ter validado o cupom na loja, dá pra
+# validar ali mesmo. Funciona tanto antes de /saida/verificar rodar
+# (status ainda "aberto") quanto depois, se o ticket ficou "tarifado" --
+# nesse caso o totem deve chamar /saida/verificar de novo em seguida para
+# recalcular a tolerância com o cupom já vinculado.
 # ---------------------------------------------------------------------
 @app.post("/loja/validar-cupom", response_model=schemas.TicketOut)
 def validar_cupom(
     payload: schemas.ValidarCupomRequest,
     db: Session = Depends(get_db),
-    usuario: models.Usuario = Depends(exigir_totem_validacao),
+    usuario: models.Usuario = Depends(exigir_totem_validacao_ou_saida),
 ):
     ticket = db.query(models.Ticket).filter_by(
         codigo_barras=payload.codigo_barras, unidade_id=usuario.unidade_id
     ).first()
     if not ticket:
         raise HTTPException(404, "Ticket não encontrado")
-    if ticket.status != models.StatusTicket.aberto:
-        raise HTTPException(409, f"Ticket não está aberto (status atual: {ticket.status})")
+    # "aberto" é o caso normal (loja, antes da saída); "tarifado" é a
+    # revalidação no totem de saída -- já rodou /saida/verificar e excedeu
+    # a tolerância, mas o cliente ainda pode apresentar o cupom ali mesmo,
+    # antes de pagar. Qualquer outro status (finalizado/pago) já saiu.
+    if ticket.status not in (models.StatusTicket.aberto, models.StatusTicket.tarifado):
+        raise HTTPException(409, f"Ticket não pode receber cupom (status atual: {ticket.status})")
 
     ja_usado = db.query(models.CupomFiscal).filter_by(
         chave_acesso_nfce=payload.chave_acesso_nfce
