@@ -249,10 +249,6 @@
       Logado como <strong id="usuario-nome"></strong> (<span id="usuario-papel"></span>)
     </div>
     <div style="display:flex; align-items:center; gap:10px;">
-      <span id="seletor-unidade-wrap" style="display:none;">
-        Unidade:
-        <select id="seletor-unidade"><option value="">Todas (geral)</option></select>
-      </span>
       <button id="btn-logout">Sair</button>
     </div>
   </div>
@@ -288,6 +284,15 @@
         <thead><tr><th>Nome</th><th>Status</th><th>Tolerância padrão</th><th>Mensalidade</th></tr></thead>
         <tbody id="tabela-unidades"></tbody>
       </table>
+    </section>
+
+    <section class="card" id="secao-filtro-unidade" style="display:none; border-color:var(--navy); border-width:2px;">
+      <h2>Visualizando</h2>
+      <div class="desc">Tudo o que aparece abaixo (dashboard, conciliação, credenciados, usuários, auditoria, tickets) respeita este filtro.</div>
+      <div>
+        <label>Unidade</label>
+        <select id="seletor-unidade" style="max-width:340px;"><option value="">Todas as unidades (geral)</option></select>
+      </div>
     </section>
 
     <section class="card">
@@ -1145,7 +1150,7 @@ async function iniciarApp(){
 
   const ehDono = sessao.papel === 'dono';
   document.getElementById('secao-unidades').style.display = ehDono ? 'block' : 'none';
-  document.getElementById('seletor-unidade-wrap').style.display = ehDono ? 'inline' : 'none';
+  document.getElementById('secao-filtro-unidade').style.display = ehDono ? 'block' : 'none';
   document.getElementById('e-unidade-wrap').style.display = ehDono ? 'block' : 'none';
   document.getElementById('c-unidade-wrap').style.display = ehDono ? 'block' : 'none';
   document.getElementById('lm-unidade-wrap').style.display = ehDono ? 'block' : 'none';

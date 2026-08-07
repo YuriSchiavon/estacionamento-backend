@@ -195,6 +195,34 @@ Três tipos de superfície, cada uma com seu propósito:
   numa página só, com histórico de sessão, para testar o fluxo completo
   sem precisar do equipamento físico.
 
+## Deploy para teste remoto (Railway)
+
+Pra deixar um link público estável, testável por qualquer pessoa fora da
+sua rede (sem depender do seu computador ligado), a forma mais rápida é a
+[Railway](https://railway.app):
+
+1. **Suba este repositório para o GitHub** (se ainda não estiver lá).
+2. Na Railway, crie um projeto novo → **"Deploy from GitHub repo"** →
+   selecione este repositório. Ela detecta o `Procfile` sozinha.
+3. No mesmo projeto, clique em **"+ New" → "Database" → "Add PostgreSQL"**
+   — a Railway já injeta a variável `DATABASE_URL` automaticamente no seu
+   serviço, não precisa copiar/colar nada.
+4. Espere o deploy terminar e abra a aba **"Settings" → "Networking" →
+   "Generate Domain"** do serviço — isso gera o link público
+   (`https://algo.up.railway.app`).
+5. Acesse esse link: a primeira execução roda o `seed()` automaticamente
+   (mesmo comportamento do ambiente local) e imprime as credenciais
+   iniciais nos **logs** do serviço (aba "Deployments" → "View Logs") —
+   é lá que você vai pegar a senha do `admin` gerada em produção.
+
+Pronto: qualquer pessoa com esse link consegue testar de qualquer rede,
+sem VPN nem estar no mesmo Wi-Fi. `requirements.txt` já inclui o driver
+do Postgres (`psycopg2-binary`) e `app/database.py` já lê `DATABASE_URL`
+do ambiente — nenhum código muda entre local e produção.
+
+**Depois do primeiro deploy**, cada `git push` novo faz a Railway
+reimplantar automaticamente (se você conectou via GitHub).
+
 ## O que falta para virar sistema de produção (próximos passos com o Claude Code)
 
 1. **Driver de hardware**: escrever o adapter que fala o protocolo real de
