@@ -69,7 +69,7 @@ def test_totem_nao_acessa_painel_de_gestao(client_com_autenticacao_real, db_sess
 
 
 def test_gestao_sem_permissao_de_liberacao_manual_e_rejeitada(client_com_autenticacao_real, db_session):
-    _criar_usuario(db_session, "gerente1", models.PapelUsuario.gerente, unidade_id=1, pode_liberar_manualmente=False)
+    _criar_usuario(db_session, "gerente1", models.PapelUsuario.supervisor, unidade_id=1, pode_liberar_manualmente=False)
     login = client_com_autenticacao_real.post("/auth/login", json={"username": "gerente1", "senha": SENHA})
     token = login.json()["token"]
 
@@ -82,7 +82,7 @@ def test_gestao_sem_permissao_de_liberacao_manual_e_rejeitada(client_com_autenti
 
 
 def test_gestao_com_permissao_de_liberacao_manual_funciona(client_com_autenticacao_real, db_session):
-    _criar_usuario(db_session, "gerente2", models.PapelUsuario.gerente, unidade_id=1, pode_liberar_manualmente=True)
+    _criar_usuario(db_session, "gerente2", models.PapelUsuario.supervisor, unidade_id=1, pode_liberar_manualmente=True)
     login = client_com_autenticacao_real.post("/auth/login", json={"username": "gerente2", "senha": SENHA})
     token = login.json()["token"]
 
@@ -107,7 +107,7 @@ def test_logout_revoga_o_token(client_com_autenticacao_real, db_session):
 
 
 def test_trocar_senha_funciona_e_a_senha_nova_passa_a_valer(client_com_autenticacao_real, db_session):
-    _criar_usuario(db_session, "gerente1", models.PapelUsuario.gerente, unidade_id=1)
+    _criar_usuario(db_session, "gerente1", models.PapelUsuario.supervisor, unidade_id=1)
     login = client_com_autenticacao_real.post("/auth/login", json={"username": "gerente1", "senha": SENHA})
     token = login.json()["token"]
 
@@ -130,7 +130,7 @@ def test_trocar_senha_funciona_e_a_senha_nova_passa_a_valer(client_com_autentica
 
 
 def test_trocar_senha_com_senha_atual_errada_e_rejeitada(client_com_autenticacao_real, db_session):
-    _criar_usuario(db_session, "gerente1", models.PapelUsuario.gerente, unidade_id=1)
+    _criar_usuario(db_session, "gerente1", models.PapelUsuario.supervisor, unidade_id=1)
     login = client_com_autenticacao_real.post("/auth/login", json={"username": "gerente1", "senha": SENHA})
     token = login.json()["token"]
 
@@ -143,7 +143,7 @@ def test_trocar_senha_com_senha_atual_errada_e_rejeitada(client_com_autenticacao
 
 
 def test_trocar_senha_muito_curta_e_rejeitada(client_com_autenticacao_real, db_session):
-    _criar_usuario(db_session, "gerente1", models.PapelUsuario.gerente, unidade_id=1)
+    _criar_usuario(db_session, "gerente1", models.PapelUsuario.supervisor, unidade_id=1)
     login = client_com_autenticacao_real.post("/auth/login", json={"username": "gerente1", "senha": SENHA})
     token = login.json()["token"]
 

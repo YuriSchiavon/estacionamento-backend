@@ -64,24 +64,34 @@ exigir_totem_validacao_ou_saida = _exigir_papel(
     models.PapelUsuario.totem_validacao, models.PapelUsuario.totem_saida, models.PapelUsuario.operador
 )
 
-exigir_gestao = _exigir_papel(models.PapelUsuario.dono, models.PapelUsuario.gerente)
+# "gerente_operacoes" tem exatamente as mesmas permissões do "dono"
+# (multi-unidade, acesso total) -- é um cargo separado só pra distinguir
+# quem é o dono de fato de quem administra em nome dele, não um nível de
+# acesso mais restrito. Toda checagem que hoje é "papel == dono" deve
+# tratar os dois igual -- ver PAPEIS_NIVEL_DONO abaixo.
+PAPEIS_NIVEL_DONO = (models.PapelUsuario.dono, models.PapelUsuario.gerente_operacoes)
+
+exigir_gestao = _exigir_papel(models.PapelUsuario.dono, models.PapelUsuario.gerente_operacoes, models.PapelUsuario.supervisor)
 
 # Exclusão definitiva (usuários, credenciados, estabelecimentos) é mais
-# perigosa que desativar -- só o dono pode, gerente não. Ação separada de
-# exigir_gestao de propósito, não uma extensão dela.
-exigir_dono = _exigir_papel(models.PapelUsuario.dono)
+# perigosa que desativar -- só quem tem nível de dono pode, supervisor não.
+# Ação separada de exigir_gestao de propósito, não uma extensão dela.
+exigir_dono = _exigir_papel(*PAPEIS_NIVEL_DONO)
 
 # Consulta de tickets: operador precisa buscar/conferir um ticket no dia a
 # dia, mas não deve ganhar acesso ao resto de /gestao (credenciados,
 # estabelecimentos, unidades, usuários) -- por isso é uma dependência à
 # parte de exigir_gestao, não uma extensão dela.
-exigir_operacao = _exigir_papel(models.PapelUsuario.dono, models.PapelUsuario.gerente, models.PapelUsuario.operador)
+exigir_operacao = _exigir_papel(
+    models.PapelUsuario.dono, models.PapelUsuario.gerente_operacoes,
+    models.PapelUsuario.supervisor, models.PapelUsuario.operador,
+)
 
 
 def exigir_liberacao_manual(usuario: models.Usuario = Depends(usuario_logado)) -> models.Usuario:
     """Permissão elevada e independente do papel -- só quem tem a flag
     pode_liberar_manualmente consegue abrir cancela na mão ou limpar pátio,
-    seja dono, gerente ou operador."""
+    seja qual for o papel."""
     if not usuario.pode_liberar_manualmente:
         raise HTTPException(
             status.HTTP_403_FORBIDDEN,
@@ -93,10 +103,11 @@ def exigir_liberacao_manual(usuario: models.Usuario = Depends(usuario_logado)) -
 def escopo_unidade(usuario: models.Usuario, unidade_id_query: Optional[int]) -> Optional[int]:
     """Resolve qual unidade uma consulta de relatório deve enxergar.
 
-    Gerente nunca sai da própria unidade -- ignora qualquer valor vindo do
-    cliente, nunca confia em tenant id informado por quem já está preso a
-    uma unidade. Dono pode filtrar por uma unidade específica ou ver tudo
-    (retorno None = "geral", agrega todas as unidades)."""
-    if usuario.papel == models.PapelUsuario.dono:
+    Supervisor nunca sai da própria unidade -- ignora qualquer valor vindo
+    do cliente, nunca confia em tenant id informado por quem já está preso
+    a uma unidade. Dono/gerente de operações podem filtrar por uma unidade
+    específica ou ver tudo (retorno None = "geral", agrega todas as
+    unidades)."""
+    if usuario.papel in PAPEIS_NIVEL_DONO:
         return unidade_id_query
     return usuario.unidade_id

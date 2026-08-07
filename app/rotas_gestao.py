@@ -5,11 +5,12 @@ nos totens de entrada/saída.
 
 Autenticação: login por usuário/senha (ver app/auth.py e app/security.py).
 Cada totem loga com uma conta presa a uma unidade e uma função
-(entrada/validação/saída). No painel de gestão, "dono" enxerga/gerencia
-todas as unidades (pode filtrar por uma específica ou ver "geral");
-"gerente" fica sempre preso à própria unidade, mesmo que tente informar
-outra -- nunca confiamos em unidade_id vindo do cliente quando o usuário
-já está preso a uma.
+(entrada/validação/saída). No painel de gestão, "dono" e "gerente_operacoes"
+enxergam/gerenciam todas as unidades (podem filtrar por uma específica ou
+ver "geral") -- mesmo nível de acesso, cargos diferentes; "supervisor"
+fica sempre preso à própria unidade, mesmo que tente informar outra --
+nunca confiamos em unidade_id vindo do cliente quando o usuário já está
+preso a uma.
 """
 from datetime import datetime
 from typing import List, Literal, Optional
@@ -23,6 +24,7 @@ from .dashboard import montar_conciliacao, montar_dashboard
 from .database import get_db
 from .nfce import CNPJ_REGEX
 from .security import (
+    PAPEIS_NIVEL_DONO,
     escopo_unidade,
     exigir_dono,
     exigir_gestao,
@@ -37,10 +39,10 @@ router = APIRouter()
 
 
 def _resolver_unidade_para_escrita(usuario: models.Usuario, unidade_id_payload: Optional[int]) -> int:
-    """Toda criação de registro precisa saber a unidade. Gerente sempre usa
-    a própria (ignora o que vier no payload); dono precisa informar
-    explicitamente, já que gerencia várias."""
-    if usuario.papel == models.PapelUsuario.dono:
+    """Toda criação de registro precisa saber a unidade. Supervisor sempre
+    usa a própria (ignora o que vier no payload); dono/gerente de operações
+    precisam informar explicitamente, já que gerenciam várias."""
+    if usuario.papel in PAPEIS_NIVEL_DONO:
         if not unidade_id_payload:
             raise HTTPException(422, "Informe a unidade_id (seu usuário gerencia mais de uma unidade)")
         return unidade_id_payload
@@ -48,7 +50,7 @@ def _resolver_unidade_para_escrita(usuario: models.Usuario, unidade_id_payload: 
 
 
 def _verificar_acesso_unidade(usuario: models.Usuario, unidade_id_recurso: int):
-    if usuario.papel != models.PapelUsuario.dono and unidade_id_recurso != usuario.unidade_id:
+    if usuario.papel not in PAPEIS_NIVEL_DONO and unidade_id_recurso != usuario.unidade_id:
         raise HTTPException(404, "Recurso não encontrado")
 
 
@@ -58,8 +60,8 @@ def _verificar_acesso_unidade(usuario: models.Usuario, unidade_id_recurso: int):
 # ---------------------------------------------------------------------
 @router.post("/gestao/unidades", response_model=schemas.UnidadeCriadaResponse)
 def criar_unidade(payload: schemas.UnidadeIn, db: Session = Depends(get_db), usuario: models.Usuario = Depends(exigir_gestao)):
-    if usuario.papel != models.PapelUsuario.dono:
-        raise HTTPException(403, "Só o dono pode cadastrar novas unidades")
+    if usuario.papel not in PAPEIS_NIVEL_DONO:
+        raise HTTPException(403, "Só dono ou gerente de operações pode cadastrar novas unidades")
 
     unidade = models.Unidade(
         nome=payload.nome,
@@ -90,7 +92,7 @@ def criar_unidade(payload: schemas.UnidadeIn, db: Session = Depends(get_db), usu
 @router.get("/gestao/unidades", response_model=List[schemas.UnidadeOut])
 def listar_unidades(db: Session = Depends(get_db), usuario: models.Usuario = Depends(exigir_gestao)):
     query = db.query(models.Unidade)
-    if usuario.papel != models.PapelUsuario.dono:
+    if usuario.papel not in PAPEIS_NIVEL_DONO:
         query = query.filter_by(id=usuario.unidade_id)
     return query.order_by(models.Unidade.nome).all()
 
@@ -399,7 +401,8 @@ def remover_regra_tolerancia(
 
 # ---------------------------------------------------------------------
 # RELATÓRIOS -- painel de gestão. unidade_id: None = "geral" (só funciona
-# de verdade pra dono; gerente sempre vê só a própria, ver escopo_unidade).
+# de verdade pra dono/gerente de operações; supervisor sempre vê só a
+# própria, ver escopo_unidade).
 # ---------------------------------------------------------------------
 @router.get("/gestao/relatorio/tickets", response_model=List[schemas.TicketOut])
 def relatorio_tickets(
@@ -448,8 +451,8 @@ def relatorio_cupons_duplicados(
 
 # ---------------------------------------------------------------------
 # LIBERAÇÃO MANUAL -- permissão elevada e própria (pode_liberar_manualmente),
-# independente de ser dono/gerente. Não depende de um ticket válido existir
-# (o ticket pode ser o problema).
+# independente do papel. Não depende de um ticket válido existir (o
+# ticket pode ser o problema).
 # ---------------------------------------------------------------------
 @router.post("/gestao/liberacao-manual", response_model=schemas.LiberacaoManualOut)
 def liberar_manualmente(
@@ -512,9 +515,10 @@ def limpar_patio(
     if not motivo:
         raise HTTPException(422, "Motivo é obrigatório para limpeza de pátio")
 
-    # Nunca "geral", mesmo pra dono -- limpar todas as unidades de uma vez
-    # por engano é exatamente o tipo de acidente que essa checagem evita.
-    if usuario.papel == models.PapelUsuario.dono:
+    # Nunca "geral", mesmo pra dono/gerente de operações -- limpar todas as
+    # unidades de uma vez por engano é exatamente o tipo de acidente que
+    # essa checagem evita.
+    if usuario.papel in PAPEIS_NIVEL_DONO:
         if not payload.unidade_id:
             raise HTTPException(422, "Informe a unidade -- limpeza de pátio nunca vale para todas de uma vez")
         unidade_id = payload.unidade_id
@@ -683,9 +687,9 @@ def relatorio_auditoria(
 
 # ---------------------------------------------------------------------
 # USUÁRIOS -- criação avulsa pelo painel (além da criação automática
-# junto de uma unidade nova). Dono cria qualquer papel pra qualquer
-# unidade (menos outro dono, que não tem unidade); gerente só cria
-# operador pra própria unidade.
+# junto de uma unidade nova). Dono/gerente de operações criam qualquer
+# papel pra qualquer unidade (menos outro dono/gerente de operações, que
+# não têm unidade); supervisor só cria operador pra própria unidade.
 # ---------------------------------------------------------------------
 @router.post("/gestao/usuarios", response_model=schemas.UsuarioCriadoResponse)
 def criar_usuario_avulso(
@@ -693,8 +697,8 @@ def criar_usuario_avulso(
 ):
     papel = models.PapelUsuario(payload.papel)
 
-    if usuario.papel == models.PapelUsuario.dono:
-        if papel == models.PapelUsuario.dono:
+    if usuario.papel in PAPEIS_NIVEL_DONO:
+        if papel in PAPEIS_NIVEL_DONO:
             unidade_id = None
         else:
             if not payload.unidade_id:
@@ -748,7 +752,7 @@ def atualizar_usuario(
     alvo = db.get(models.Usuario, usuario_id)
     if not alvo:
         raise HTTPException(404, "Usuário não encontrado")
-    if usuario.papel != models.PapelUsuario.dono:
+    if usuario.papel not in PAPEIS_NIVEL_DONO:
         if alvo.unidade_id != usuario.unidade_id or alvo.papel != models.PapelUsuario.operador:
             raise HTTPException(404, "Usuário não encontrado")
 

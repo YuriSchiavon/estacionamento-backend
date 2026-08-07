@@ -50,7 +50,7 @@ def test_dono_cria_unidade_com_contas_de_totem_funcionais(client_com_autenticaca
 
 
 def test_gerente_nao_pode_criar_unidade(client_com_autenticacao_real, db_session):
-    _criar_usuario(db_session, "gerente1", models.PapelUsuario.gerente, unidade_id=1)
+    _criar_usuario(db_session, "gerente1", models.PapelUsuario.supervisor, unidade_id=1)
     token = _login(client_com_autenticacao_real, "gerente1")
 
     resp = client_com_autenticacao_real.post(
@@ -89,7 +89,7 @@ def test_gerente_nao_acessa_credenciado_de_outra_unidade(client_com_autenticacao
     db_session.add(credenciado_b)
     db_session.commit()
 
-    _criar_usuario(db_session, "gerente-a", models.PapelUsuario.gerente, unidade_id=1)
+    _criar_usuario(db_session, "gerente-a", models.PapelUsuario.supervisor, unidade_id=1)
     token_a = _login(client_com_autenticacao_real, "gerente-a")
 
     resp = client_com_autenticacao_real.patch(

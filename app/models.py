@@ -9,7 +9,8 @@ carrega `unidade_id` (direto ou indiretamente).
 Tabelas:
 - Unidade: um estacionamento/local. Tem seu próprio padrão de tolerância
   "sem cupom" (`tolerancia_padrao_minutos`).
-- Usuario: login de pessoas (dono, gerente) e de totens (um por função).
+- Usuario: login de pessoas (dono, gerente de operações, supervisor) e de
+  totens (um por função).
   `dono` enxerga todas as unidades; os demais papéis pertencem a uma só.
 - Sessao: token de login ativo (opaco, revogável na hora apagando a linha).
 - Ticket: um registro por veículo, criado na entrada e fechado na saída.
@@ -63,9 +64,10 @@ class Unidade(Base):
 
 
 class PapelUsuario(str, enum.Enum):
-    dono = "dono"                        # vê/gerencia todas as unidades
-    gerente = "gerente"                  # vê/gerencia uma unidade específica
-    operador = "operador"                # opera o dia a dia de uma unidade (estacionamento assistido)
+    dono = "dono"                                    # vê/gerencia todas as unidades
+    gerente_operacoes = "gerente_operacoes"          # mesmas permissões do dono (multi-unidade) -- cargo separado, mesmo nível de acesso
+    supervisor = "supervisor"                        # vê/gerencia uma unidade específica (antigo "gerente")
+    operador = "operador"                            # opera o dia a dia de uma unidade (estacionamento assistido)
     totem_entrada = "totem_entrada"
     totem_validacao = "totem_validacao"
     totem_saida = "totem_saida"
@@ -80,12 +82,13 @@ class Usuario(Base):
     nome = Column(String, nullable=False)
     papel = Column(Enum(PapelUsuario), nullable=False)
 
-    # Obrigatório pra todo papel exceto "dono" (que enxerga todas as unidades).
+    # Obrigatório pra todo papel exceto "dono"/"gerente_operacoes" (que
+    # enxergam todas as unidades).
     unidade_id = Column(Integer, ForeignKey("unidades.id"), nullable=True)
 
     # Permissão elevada e independente do papel -- só quem tem essa flag
     # consegue liberar cancela manualmente ou limpar o pátio, mesmo sendo
-    # dono/gerente. Ver app/security.py exigir_liberacao_manual.
+    # dono/gerente de operações/supervisor. Ver app/security.py exigir_liberacao_manual.
     pode_liberar_manualmente = Column(Boolean, default=False)
 
     ativo = Column(Boolean, default=True)

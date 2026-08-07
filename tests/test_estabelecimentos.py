@@ -120,7 +120,7 @@ def test_excluir_estabelecimento_com_cupom_validado_e_rejeitado(client_com_auten
 
 
 def test_gerente_nao_pode_excluir_estabelecimento(client_com_autenticacao_real, db_session):
-    _criar_usuario(db_session, "gerente1", models.PapelUsuario.gerente, unidade_id=1)
+    _criar_usuario(db_session, "gerente1", models.PapelUsuario.supervisor, unidade_id=1)
     token = _login(client_com_autenticacao_real, "gerente1")
 
     criado = client_com_autenticacao_real.post(

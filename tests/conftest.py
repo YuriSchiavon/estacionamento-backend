@@ -3,7 +3,7 @@ Configuração dos testes: usa um banco SQLite em memória, isolado do
 `estacionamento.db` real, recriado do zero antes de cada teste.
 
 Os testes de regra de negócio usam um usuário de teste fixo (papel
-gerente, preso a uma unidade de teste) via dependency_overrides -- não
+supervisor, preso a uma unidade de teste) via dependency_overrides -- não
 testam o login de verdade. Login e isolamento entre unidades são testados
 à parte, sem esse bypass (ver test_autenticacao.py e test_unidades.py).
 """
@@ -57,14 +57,14 @@ def _override_get_db():
 
 app.dependency_overrides[get_db] = _override_get_db
 
-# Usuário de teste fixo: gerente da unidade de teste, com permissão de
+# Usuário de teste fixo: supervisor da unidade de teste, com permissão de
 # liberação manual -- cobre o caso comum sem precisar de unidade_id
-# explícito em cada payload (gerente nunca sai da própria unidade, então
-# fica implícito). É um objeto transiente, nunca gravado no banco -- só
-# serve pra passar pelos `Depends`, os testes não olham pra ele além disso.
+# explícito em cada payload (supervisor nunca sai da própria unidade,
+# então fica implícito). É um objeto transiente, nunca gravado no banco --
+# só serve pra passar pelos `Depends`, os testes não olham pra ele além disso.
 _usuario_teste = models.Usuario(
     id=999, username="teste", nome="Usuário de Teste",
-    papel=models.PapelUsuario.gerente, unidade_id=UNIDADE_TESTE_ID,
+    papel=models.PapelUsuario.supervisor, unidade_id=UNIDADE_TESTE_ID,
     pode_liberar_manualmente=True, ativo=True,
 )
 

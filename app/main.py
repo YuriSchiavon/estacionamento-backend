@@ -19,10 +19,13 @@ Rodar localmente:
   uvicorn app.main:app --reload
 Depois acesse http://localhost:8000/docs para testar tudo pela interface Swagger.
 """
+import os
 from pathlib import Path
 
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.responses import FileResponse
+from pydantic import BaseModel
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from . import models, schemas, services
@@ -45,6 +48,57 @@ STATIC_DIR = Path(__file__).parent / "static"
 @app.on_event("startup")
 def startup():
     seed()
+
+
+# ---------------------------------------------------------------------
+# MIGRAÇÃO TEMPORÁRIA -- renomeia o valor "gerente" do enum de papéis pra
+# "supervisor" e adiciona "gerente_operacoes", direto no tipo do Postgres
+# (Base.metadata.create_all não altera enum já existente). Protegida por
+# ADMIN_RESET_SECRET (reaproveitada da recuperação de senha anterior).
+# Sem essa variável configurada, sempre responde 404. REMOVER depois de
+# rodar uma vez em produção.
+# ---------------------------------------------------------------------
+class _MigrarPapelRequest(BaseModel):
+    secret: str
+
+
+@app.post("/_migrar_papel_supervisor", include_in_schema=False)
+def _migrar_papel_supervisor(payload: _MigrarPapelRequest):
+    secret_configurado = os.environ.get("ADMIN_RESET_SECRET")
+    if not secret_configurado:
+        raise HTTPException(404)
+    if payload.secret != secret_configurado:
+        raise HTTPException(401, "Secret incorreto")
+
+    with engine.connect() as conn:
+        conn = conn.execution_options(isolation_level="AUTOCOMMIT")
+        tipo = conn.execute(text(
+            "SELECT t.typname FROM pg_type t JOIN pg_enum e ON t.oid = e.enumtypid "
+            "WHERE e.enumlabel = 'dono' LIMIT 1"
+        )).scalar()
+        if not tipo:
+            raise HTTPException(500, "Não achei o tipo enum de papéis no Postgres")
+
+        labels_antes = [
+            r[0] for r in conn.execute(text(
+                "SELECT enumlabel FROM pg_enum e JOIN pg_type t ON t.oid = e.enumtypid "
+                "WHERE t.typname = :tipo ORDER BY enumsortorder"
+            ), {"tipo": tipo})
+        ]
+
+        if "gerente" in labels_antes:
+            conn.execute(text(f'ALTER TYPE {tipo} RENAME VALUE \'gerente\' TO \'supervisor\''))
+        if "gerente_operacoes" not in labels_antes:
+            conn.execute(text(f"ALTER TYPE {tipo} ADD VALUE IF NOT EXISTS 'gerente_operacoes'"))
+
+        labels_depois = [
+            r[0] for r in conn.execute(text(
+                "SELECT enumlabel FROM pg_enum e JOIN pg_type t ON t.oid = e.enumtypid "
+                "WHERE t.typname = :tipo ORDER BY enumsortorder"
+            ), {"tipo": tipo})
+        ]
+
+    return {"tipo": tipo, "labels_antes": labels_antes, "labels_depois": labels_depois}
 
 
 @app.get("/", include_in_schema=False)

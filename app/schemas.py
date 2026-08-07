@@ -111,8 +111,8 @@ class CredenciadoIn(BaseModel):
     documento: Optional[str] = None
     placa: Optional[str] = None
     empresa_vinculo: Optional[str] = None
-    # Obrigatório para dono (gerencia várias unidades); ignorado para
-    # gerente, que só cadastra na própria unidade.
+    # Obrigatório para dono/gerente de operações (gerenciam várias
+    # unidades); ignorado para supervisor, que só cadastra na própria.
     unidade_id: Optional[int] = None
 
 
@@ -176,8 +176,8 @@ class LiberacaoManualRequest(BaseModel):
     motivo: str  # justificativa obrigatória, fica registrada na auditoria
     ticket_id: Optional[int] = None  # opcional: nem sempre existe um ticket válido
     # Só usado quando ticket_id não é informado (a unidade é derivada do
-    # ticket quando ele existe). Obrigatório pra dono nesse caso; ignorado
-    # pra gerente, que só libera na própria unidade.
+    # ticket quando ele existe). Obrigatório pra dono/gerente de operações
+    # nesse caso; ignorado pra supervisor, que só libera na própria unidade.
     unidade_id: Optional[int] = None
 
 
@@ -213,7 +213,7 @@ class RegraToleranciaOut(BaseModel):
 class EstabelecimentoIn(BaseModel):
     cnpj: str  # 14 dígitos, sem pontuação
     nome: str
-    unidade_id: Optional[int] = None  # obrigatório pra dono, ignorado pra gerente
+    unidade_id: Optional[int] = None  # obrigatório pra dono/gerente de operações, ignorado pra supervisor
 
 
 class EstabelecimentoUpdate(BaseModel):
@@ -301,13 +301,18 @@ class DashboardResponse(BaseModel):
 
 class UsuarioIn(BaseModel):
     nome: str
-    papel: Literal["dono", "gerente", "operador", "totem_entrada", "totem_validacao", "totem_saida"]
+    papel: Literal[
+        "dono", "gerente_operacoes", "supervisor", "operador",
+        "totem_entrada", "totem_validacao", "totem_saida",
+    ]
     # Obrigatório quando papel="operador" -- vira o username de login
     # (só dígitos). Para os demais papéis, o username é derivado do nome.
     cpf: Optional[str] = None
-    # Obrigatório pra dono criando gerente/operador/totem de uma unidade
-    # específica; ignorado (forçado pra própria unidade) se quem cria é
-    # gerente. Dono criando outro "dono" não usa unidade nenhuma.
+    # Obrigatório pra dono/gerente de operações criando supervisor/
+    # operador/totem de uma unidade específica; ignorado (forçado pra
+    # própria unidade) se quem cria é supervisor. Dono/gerente de
+    # operações criando outro dono/gerente de operações não usa unidade
+    # nenhuma -- os dois enxergam todas.
     unidade_id: Optional[int] = None
     pode_liberar_manualmente: bool = False
     # None = gera uma senha aleatória (mostrada uma vez na resposta, como

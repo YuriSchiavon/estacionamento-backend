@@ -292,12 +292,12 @@ def test_criar_operador_com_cpf_invalido_e_rejeitado(client_com_autenticacao_rea
 
 
 def test_gerente_so_cria_operador_para_propria_unidade(client_com_autenticacao_real, db_session):
-    _criar_usuario(db_session, "gerente1", models.PapelUsuario.gerente, unidade_id=1)
+    _criar_usuario(db_session, "gerente1", models.PapelUsuario.supervisor, unidade_id=1)
     token = _login(client_com_autenticacao_real, "gerente1")
 
     negado = client_com_autenticacao_real.post(
         "/gestao/usuarios", headers=_auth(token),
-        json={"nome": "Outro Gerente", "papel": "gerente", "unidade_id": 1},
+        json={"nome": "Outro Gerente", "papel": "supervisor", "unidade_id": 1},
     )
     assert negado.status_code == 403
 
@@ -314,7 +314,7 @@ def test_listar_usuarios_escopado_por_unidade(client_com_autenticacao_real, db_s
     db_session.add(unidade_b)
     db_session.commit()
 
-    _criar_usuario(db_session, "gerente-a", models.PapelUsuario.gerente, unidade_id=1)
+    _criar_usuario(db_session, "gerente-a", models.PapelUsuario.supervisor, unidade_id=1)
     _criar_usuario(db_session, "operador-a", models.PapelUsuario.operador, unidade_id=1)
     _criar_usuario(db_session, "operador-b", models.PapelUsuario.operador, unidade_id=unidade_b.id)
 
@@ -330,7 +330,7 @@ def test_gerente_nao_ativa_usuario_de_outra_unidade(client_com_autenticacao_real
     db_session.add(unidade_b)
     db_session.commit()
 
-    _criar_usuario(db_session, "gerente-a", models.PapelUsuario.gerente, unidade_id=1)
+    _criar_usuario(db_session, "gerente-a", models.PapelUsuario.supervisor, unidade_id=1)
     operador_b = _criar_usuario(db_session, "operador-b", models.PapelUsuario.operador, unidade_id=unidade_b.id)
 
     token_a = _login(client_com_autenticacao_real, "gerente-a")
@@ -388,7 +388,7 @@ def test_gerente_nao_pode_excluir_usuario(client_com_autenticacao_real, db_sessi
     """Exclusão definitiva é só do dono -- gerente nem consegue tentar,
     mesmo em usuário da própria unidade (diferente de ativar/desativar,
     que gerente pode fazer)."""
-    _criar_usuario(db_session, "gerente-a", models.PapelUsuario.gerente, unidade_id=1)
+    _criar_usuario(db_session, "gerente-a", models.PapelUsuario.supervisor, unidade_id=1)
     operador = _criar_usuario(db_session, "operador-a", models.PapelUsuario.operador, unidade_id=1)
 
     token_a = _login(client_com_autenticacao_real, "gerente-a")

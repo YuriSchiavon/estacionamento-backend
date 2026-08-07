@@ -204,7 +204,7 @@ def test_excluir_mensalista_com_pagamento_e_rejeitado(client_com_autenticacao_re
 def test_gerente_nao_pode_excluir_credenciado(client_com_autenticacao_real, db_session):
     """Exclusão definitiva de credenciado é só do dono -- gerente só pode
     ativar/desativar (PATCH), não apagar de vez."""
-    _criar_usuario(db_session, "gerente1", models.PapelUsuario.gerente, unidade_id=1)
+    _criar_usuario(db_session, "gerente1", models.PapelUsuario.supervisor, unidade_id=1)
     token = _login(client_com_autenticacao_real, "gerente1")
 
     criado = client_com_autenticacao_real.post(
