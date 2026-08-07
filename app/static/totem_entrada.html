@@ -62,6 +62,21 @@
     font-size:15px;
   }
   .erro{color:#FF8A75;font-size:13px;margin-top:12px;display:none;}
+  .campo-senha{position:relative;}
+  .campo-senha input{padding-right:64px;}
+  .campo-senha .toggle-senha{
+    position:absolute;
+    right:6px;
+    top:50%;
+    transform:translateY(-50%);
+    background:none;
+    border:none;
+    font-size:11px;
+    font-weight:700;
+    color:var(--lime);
+    cursor:pointer;
+    padding:4px 6px;
+  }
   .kiosk{
     width:100%;
     max-width:480px;
@@ -134,7 +149,10 @@
   <label>Usuário</label>
   <input id="login-user" placeholder="usuário do totem">
   <label>Senha</label>
-  <input id="login-senha" type="password">
+  <div class="campo-senha">
+    <input id="login-senha" type="password">
+    <button type="button" class="toggle-senha" data-alvo="login-senha">mostrar</button>
+  </div>
   <button class="entrar-btn" id="btn-login">Entrar</button>
   <div class="erro" id="erro-login"></div>
 </div>
@@ -168,6 +186,15 @@ function mostrarTela(){
 
 carregarSessao();
 mostrarTela();
+
+document.querySelectorAll('.toggle-senha').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const input = document.getElementById(btn.dataset.alvo);
+    const visivel = input.type === 'text';
+    input.type = visivel ? 'password' : 'text';
+    btn.textContent = visivel ? 'mostrar' : 'ocultar';
+  });
+});
 
 document.getElementById('btn-login').addEventListener('click', async () => {
   const username = document.getElementById('login-user').value;

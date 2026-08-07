@@ -220,6 +220,15 @@
     font-size:11px;
     cursor:pointer;
   }
+  .login-totem .lt-toggle-senha{
+    background:none;
+    border:1px solid #2C3E5C;
+    color:#B9C2D6;
+    padding:5px 7px;
+    border-radius:6px;
+    font-size:11px;
+    cursor:pointer;
+  }
   .login-totem .lt-status{font-size:11px;color:#9AA3B2;}
   .login-totem .lt-status.logado{color:var(--lime);font-weight:600;}
 </style>
@@ -238,6 +247,7 @@
     <span class="lt-label">Entrada</span>
     <input class="lt-user" placeholder="usuário">
     <input class="lt-senha" type="password" placeholder="senha">
+    <button class="lt-toggle-senha" type="button" title="Mostrar/ocultar senha">👁</button>
     <button class="lt-entrar">Entrar</button>
     <span class="lt-status">não logado</span>
   </div>
@@ -245,6 +255,7 @@
     <span class="lt-label">Validação</span>
     <input class="lt-user" placeholder="usuário">
     <input class="lt-senha" type="password" placeholder="senha">
+    <button class="lt-toggle-senha" type="button" title="Mostrar/ocultar senha">👁</button>
     <button class="lt-entrar">Entrar</button>
     <span class="lt-status">não logado</span>
   </div>
@@ -252,6 +263,7 @@
     <span class="lt-label">Saída</span>
     <input class="lt-user" placeholder="usuário">
     <input class="lt-senha" type="password" placeholder="senha">
+    <button class="lt-toggle-senha" type="button" title="Mostrar/ocultar senha">👁</button>
     <button class="lt-entrar">Entrar</button>
     <span class="lt-status">não logado</span>
   </div>
@@ -389,6 +401,13 @@ function atualizarStatusLogin(totem){
     status.classList.remove('logado');
   }
 }
+
+document.querySelectorAll('.lt-toggle-senha').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const input = btn.previousElementSibling;
+    input.type = input.type === 'password' ? 'text' : 'password';
+  });
+});
 
 document.querySelectorAll('.login-totem').forEach(bloco => {
   const totem = bloco.dataset.totem;

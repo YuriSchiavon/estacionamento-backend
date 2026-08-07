@@ -121,6 +121,21 @@
     color:var(--navy);
     background:#fff;
   }
+  .campo-senha{position:relative;}
+  .campo-senha input{padding-right:64px;}
+  .campo-senha .toggle-senha{
+    position:absolute;
+    right:6px;
+    top:50%;
+    transform:translateY(-50%);
+    background:none;
+    border:none;
+    font-size:11px;
+    font-weight:700;
+    color:var(--navy);
+    cursor:pointer;
+    padding:4px 6px;
+  }
   button.action{
     background:var(--lime);
     color:var(--navy);
@@ -230,7 +245,10 @@
   <label>Usuário</label>
   <input id="login-user" placeholder="usuário">
   <label style="margin-top:10px;">Senha</label>
-  <input id="login-senha" type="password" placeholder="senha">
+  <div class="campo-senha">
+    <input id="login-senha" type="password" placeholder="senha">
+    <button type="button" class="toggle-senha" data-alvo="login-senha">mostrar</button>
+  </div>
   <button class="action" id="btn-login" style="width:100%; margin-top:16px;">Entrar</button>
   <div class="msg" id="login-msg"></div>
 </div>
@@ -587,6 +605,15 @@ function encerrarSessao(){
   document.getElementById('app').style.display = 'none';
   document.getElementById('tela-login').style.display = 'block';
 }
+
+document.querySelectorAll('.toggle-senha').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const input = document.getElementById(btn.dataset.alvo);
+    const visivel = input.type === 'text';
+    input.type = visivel ? 'password' : 'text';
+    btn.textContent = visivel ? 'mostrar' : 'ocultar';
+  });
+});
 
 document.getElementById('btn-login').addEventListener('click', async () => {
   const msg = document.getElementById('login-msg');

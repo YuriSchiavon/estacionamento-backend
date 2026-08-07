@@ -79,6 +79,21 @@
   .panel h2{margin:0 0 4px;color:var(--navy);font-size:18px;}
   .panel .desc{font-size:13px;margin-bottom:18px;color:var(--gray);}
   label{display:block;font-size:12px;font-weight:600;color:var(--navy);margin:12px 0 4px;}
+  .campo-senha{position:relative;}
+  .campo-senha input{padding-right:64px;}
+  .campo-senha .toggle-senha{
+    position:absolute;
+    right:6px;
+    top:50%;
+    transform:translateY(-50%);
+    background:none;
+    border:none;
+    font-size:11px;
+    font-weight:700;
+    color:var(--navy);
+    cursor:pointer;
+    padding:4px 6px;
+  }
   input,select{
     width:100%;
     padding:10px 12px;
@@ -150,7 +165,10 @@
   <label>Usuário</label>
   <input id="login-user" placeholder="ex: 12345678900 (CPF)">
   <label>Senha</label>
-  <input id="login-senha" type="password">
+  <div class="campo-senha">
+    <input id="login-senha" type="password">
+    <button type="button" class="toggle-senha" data-alvo="login-senha">mostrar</button>
+  </div>
   <button class="action" id="btn-login">Entrar</button>
   <div class="erro-login" id="erro-login"></div>
 </div>
@@ -266,6 +284,15 @@ function mostrarTela(){
 
 carregarSessao();
 mostrarTela();
+
+document.querySelectorAll('.toggle-senha').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const input = document.getElementById(btn.dataset.alvo);
+    const visivel = input.type === 'text';
+    input.type = visivel ? 'password' : 'text';
+    btn.textContent = visivel ? 'mostrar' : 'ocultar';
+  });
+});
 
 document.getElementById('btn-login').addEventListener('click', async () => {
   const username = document.getElementById('login-user').value;
