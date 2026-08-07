@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 
 from . import models, schemas
 from .database import get_db
+from .security import usuario_logado
 from .tempo import agora_utc
 
 DURACAO_SESSAO_HORAS = 24
@@ -112,3 +113,20 @@ def logout(payload: schemas.LogoutRequest, db: Session = Depends(get_db)):
     db.query(models.Sessao).filter_by(token=payload.token).delete()
     db.commit()
     return {"detail": "Sessão encerrada"}
+
+
+@router.post("/auth/trocar-senha")
+def trocar_senha(
+    payload: schemas.TrocarSenhaRequest, db: Session = Depends(get_db),
+    usuario: models.Usuario = Depends(usuario_logado),
+):
+    """Autoatendimento -- qualquer conta logada troca a própria senha,
+    desde que confirme a senha atual. Não depende de nenhum papel."""
+    if not conferir_senha(payload.senha_atual, usuario.senha_hash):
+        raise HTTPException(401, "Senha atual incorreta")
+    if len(payload.nova_senha) < 6:
+        raise HTTPException(422, "A nova senha deve ter pelo menos 6 caracteres")
+
+    usuario.senha_hash = gerar_hash_senha(payload.nova_senha)
+    db.commit()
+    return {"detail": "Senha alterada com sucesso"}

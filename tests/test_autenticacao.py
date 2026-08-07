@@ -104,3 +104,52 @@ def test_logout_revoga_o_token(client_com_autenticacao_real, db_session):
 
     resp = client_com_autenticacao_real.post("/entrada", headers={"Authorization": f"Bearer {token}"})
     assert resp.status_code == 401
+
+
+def test_trocar_senha_funciona_e_a_senha_nova_passa_a_valer(client_com_autenticacao_real, db_session):
+    _criar_usuario(db_session, "gerente1", models.PapelUsuario.gerente, unidade_id=1)
+    login = client_com_autenticacao_real.post("/auth/login", json={"username": "gerente1", "senha": SENHA})
+    token = login.json()["token"]
+
+    resp = client_com_autenticacao_real.post(
+        "/auth/trocar-senha",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"senha_atual": SENHA, "nova_senha": "nova-senha-456"},
+    )
+    assert resp.status_code == 200
+
+    login_senha_antiga = client_com_autenticacao_real.post(
+        "/auth/login", json={"username": "gerente1", "senha": SENHA}
+    )
+    assert login_senha_antiga.status_code == 401
+
+    login_senha_nova = client_com_autenticacao_real.post(
+        "/auth/login", json={"username": "gerente1", "senha": "nova-senha-456"}
+    )
+    assert login_senha_nova.status_code == 200
+
+
+def test_trocar_senha_com_senha_atual_errada_e_rejeitada(client_com_autenticacao_real, db_session):
+    _criar_usuario(db_session, "gerente1", models.PapelUsuario.gerente, unidade_id=1)
+    login = client_com_autenticacao_real.post("/auth/login", json={"username": "gerente1", "senha": SENHA})
+    token = login.json()["token"]
+
+    resp = client_com_autenticacao_real.post(
+        "/auth/trocar-senha",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"senha_atual": "senha-errada", "nova_senha": "nova-senha-456"},
+    )
+    assert resp.status_code == 401
+
+
+def test_trocar_senha_muito_curta_e_rejeitada(client_com_autenticacao_real, db_session):
+    _criar_usuario(db_session, "gerente1", models.PapelUsuario.gerente, unidade_id=1)
+    login = client_com_autenticacao_real.post("/auth/login", json={"username": "gerente1", "senha": SENHA})
+    token = login.json()["token"]
+
+    resp = client_com_autenticacao_real.post(
+        "/auth/trocar-senha",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"senha_atual": SENHA, "nova_senha": "123"},
+    )
+    assert resp.status_code == 422

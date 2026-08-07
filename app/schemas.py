@@ -21,6 +21,11 @@ class LogoutRequest(BaseModel):
     token: str
 
 
+class TrocarSenhaRequest(BaseModel):
+    senha_atual: str  # confere posse da conta -- mesmo o dono precisa informar
+    nova_senha: str
+
+
 class UnidadeIn(BaseModel):
     nome: str
     tolerancia_padrao_minutos: int = 15

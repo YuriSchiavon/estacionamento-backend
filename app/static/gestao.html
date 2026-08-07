@@ -249,6 +249,7 @@
       Logado como <strong id="usuario-nome"></strong> (<span id="usuario-papel"></span>)
     </div>
     <div style="display:flex; align-items:center; gap:10px;">
+      <button id="btn-trocar-senha">Trocar senha</button>
       <button id="btn-logout">Sair</button>
     </div>
   </div>
@@ -614,6 +615,19 @@ document.getElementById('btn-login').addEventListener('click', async () => {
 document.getElementById('btn-logout').addEventListener('click', async () => {
   try{ await fetch('/auth/logout', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ token: sessao.token }) }); }catch(e){}
   encerrarSessao();
+});
+
+document.getElementById('btn-trocar-senha').addEventListener('click', async () => {
+  const senhaAtual = prompt('Senha atual:');
+  if (!senhaAtual) return;
+  const novaSenha = prompt('Nova senha (mínimo 6 caracteres):');
+  if (!novaSenha) return;
+  try{
+    await api('POST', '/auth/trocar-senha', { senha_atual: senhaAtual, nova_senha: novaSenha });
+    alert('Senha alterada com sucesso.');
+  }catch(e){
+    alert(e.message);
+  }
 });
 
 document.getElementById('seletor-unidade').addEventListener('change', (ev) => {
