@@ -310,6 +310,10 @@ class UsuarioIn(BaseModel):
     # gerente. Dono criando outro "dono" não usa unidade nenhuma.
     unidade_id: Optional[int] = None
     pode_liberar_manualmente: bool = False
+    # None = gera uma senha aleatória (mostrada uma vez na resposta, como
+    # hoje). Informada = usa essa senha em vez de gerar -- útil quando
+    # quem cria já quer combinar a senha com a pessoa na hora.
+    senha: Optional[str] = None
 
 
 class UsuarioOut(BaseModel):

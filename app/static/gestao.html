@@ -486,6 +486,10 @@
           <select id="us-unidade"></select>
         </div>
         <div>
+          <label>Senha (opcional -- em branco gera uma automática)</label>
+          <input id="us-senha" placeholder="deixe em branco para gerar automaticamente">
+        </div>
+        <div>
           <label style="display:flex; align-items:center; gap:6px; margin-top:22px;">
             <input type="checkbox" id="us-libera-manual" style="width:auto;"> Pode fazer liberação manual
           </label>
@@ -1117,6 +1121,8 @@ document.getElementById('btn-criar-usuario').addEventListener('click', async () 
       papel,
       pode_liberar_manualmente: document.getElementById('us-libera-manual').checked,
     };
+    const senhaEscolhida = document.getElementById('us-senha').value;
+    if (senhaEscolhida) payload.senha = senhaEscolhida;
     if (papel === 'operador') payload.cpf = document.getElementById('us-cpf').value;
     if (sessao.papel === 'dono' && papel !== 'dono'){
       payload.unidade_id = parseInt(document.getElementById('us-unidade').value, 10);
@@ -1129,6 +1135,7 @@ document.getElementById('btn-criar-usuario').addEventListener('click', async () 
     `;
     document.getElementById('us-nome').value = '';
     document.getElementById('us-cpf').value = '';
+    document.getElementById('us-senha').value = '';
     document.getElementById('us-libera-manual').checked = false;
     carregarUsuarios();
   }catch(e){

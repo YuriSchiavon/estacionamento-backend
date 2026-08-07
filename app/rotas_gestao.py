@@ -662,7 +662,12 @@ def criar_usuario_avulso(
         username_base = slugify(payload.nome)
 
     username = username_disponivel(db, username_base)
-    senha = gerar_senha_temporaria()
+    if payload.senha:
+        if len(payload.senha) < 6:
+            raise HTTPException(422, "A senha deve ter pelo menos 6 caracteres")
+        senha = payload.senha
+    else:
+        senha = gerar_senha_temporaria()
     novo_usuario = criar_usuario(
         db, username, senha, payload.nome, papel,
         unidade_id=unidade_id, pode_liberar_manualmente=payload.pode_liberar_manualmente,

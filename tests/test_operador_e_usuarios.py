@@ -246,6 +246,40 @@ def test_dono_cria_operador_com_cpf_como_username(client_com_autenticacao_real, 
     assert login.status_code == 200
 
 
+def test_dono_cria_usuario_com_senha_customizada(client_com_autenticacao_real, db_session):
+    _criar_usuario(db_session, "dono1", models.PapelUsuario.dono)
+    token = _login(client_com_autenticacao_real, "dono1")
+
+    resp = client_com_autenticacao_real.post(
+        "/gestao/usuarios", headers=_auth(token),
+        json={
+            "nome": "João Operador", "papel": "operador", "cpf": "12345678901",
+            "unidade_id": 1, "senha": "minha-senha-escolhida",
+        },
+    )
+    assert resp.status_code == 200
+    assert resp.json()["senha"] == "minha-senha-escolhida"
+
+    login = client_com_autenticacao_real.post(
+        "/auth/login", json={"username": "12345678901", "senha": "minha-senha-escolhida"}
+    )
+    assert login.status_code == 200
+
+
+def test_criar_usuario_com_senha_curta_e_rejeitado(client_com_autenticacao_real, db_session):
+    _criar_usuario(db_session, "dono1", models.PapelUsuario.dono)
+    token = _login(client_com_autenticacao_real, "dono1")
+
+    resp = client_com_autenticacao_real.post(
+        "/gestao/usuarios", headers=_auth(token),
+        json={
+            "nome": "João Operador", "papel": "operador", "cpf": "12345678901",
+            "unidade_id": 1, "senha": "123",
+        },
+    )
+    assert resp.status_code == 422
+
+
 def test_criar_operador_com_cpf_invalido_e_rejeitado(client_com_autenticacao_real, db_session):
     _criar_usuario(db_session, "dono1", models.PapelUsuario.dono)
     token = _login(client_com_autenticacao_real, "dono1")
