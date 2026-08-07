@@ -19,6 +19,7 @@ Rodar localmente:
   uvicorn app.main:app --reload
 Depois acesse http://localhost:8000/docs para testar tudo pela interface Swagger.
 """
+import os
 from pathlib import Path
 
 from fastapi import FastAPI, Depends, HTTPException
@@ -26,7 +27,7 @@ from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from . import models, schemas, services
-from .auth import router as auth_router
+from .auth import gerar_hash_senha, router as auth_router
 from .database import Base, engine, get_db
 from .nfce import extrair_cnpj_emitente
 from .rotas_gestao import router as rotas_gestao_router
@@ -45,6 +46,34 @@ STATIC_DIR = Path(__file__).parent / "static"
 @app.on_event("startup")
 def startup():
     seed()
+
+
+# ---------------------------------------------------------------------
+# RECUPERAÇÃO EMERGENCIAL -- rota temporária, só pra destravar o admin
+# quando a senha se perde e não há acesso direto ao banco. Protegida por
+# ADMIN_RESET_SECRET (variável de ambiente, nunca commitada). Sem essa
+# variável configurada, a rota sempre responde 404 -- não fica exposta
+# por acidente. REMOVER assim que o acesso for restaurado.
+# ---------------------------------------------------------------------
+from pydantic import BaseModel  # noqa: E402
+
+
+class _RecuperarAdminRequest(BaseModel):
+    secret: str
+    nova_senha: str
+
+
+@app.post("/_recuperar_admin", include_in_schema=False)
+def _recuperar_admin(payload: _RecuperarAdminRequest, db: Session = Depends(get_db)):
+    secret_configurado = os.environ.get("ADMIN_RESET_SECRET")
+    if not secret_configurado or payload.secret != secret_configurado:
+        raise HTTPException(404)
+    usuario = db.query(models.Usuario).filter_by(username="admin").first()
+    if not usuario:
+        raise HTTPException(404)
+    usuario.senha_hash = gerar_hash_senha(payload.nova_senha)
+    db.commit()
+    return {"detail": "Senha do admin redefinida"}
 
 
 @app.get("/", include_in_schema=False)
