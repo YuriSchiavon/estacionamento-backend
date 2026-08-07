@@ -4,6 +4,8 @@ fiscal contra o CNPJ embutido na chave de acesso da NFC-e -- cada
 estabelecimento tem seu próprio regulamento de tolerância (contratos
 diferentes não compartilham tabela).
 """
+from app.auth import gerar_hash_senha
+from app import models
 from tests.conftest import CNPJ_ESTABELECIMENTO_TESTE, fabricar_chave_nfce
 
 CNPJ_NAO_CONVENIADO = "99888777000166"
@@ -11,6 +13,26 @@ CNPJ_NAO_CONVENIADO = "99888777000166"
 
 def _emitir_ticket(client):
     return client.post("/entrada").json()
+
+
+def _criar_usuario(db_session, username, papel, unidade_id=None, senha="senha123"):
+    usuario = models.Usuario(
+        username=username, senha_hash=gerar_hash_senha(senha), nome=username,
+        papel=papel, unidade_id=unidade_id,
+    )
+    db_session.add(usuario)
+    db_session.commit()
+    return usuario
+
+
+def _login(client, username, senha="senha123"):
+    resp = client.post("/auth/login", json={"username": username, "senha": senha})
+    assert resp.status_code == 200, resp.text
+    return resp.json()["token"]
+
+
+def _auth(token):
+    return {"Authorization": f"Bearer {token}"}
 
 
 def test_cadastrar_estabelecimento(client):
@@ -48,6 +70,65 @@ def test_desativar_estabelecimento(client):
     resp = client.patch(f"/gestao/estabelecimentos/{criado['id']}", json={"ativo": False})
     assert resp.status_code == 200
     assert resp.json()["ativo"] is False
+
+
+def test_excluir_estabelecimento_sem_cupons_funciona(client_com_autenticacao_real, db_session):
+    _criar_usuario(db_session, "dono1", models.PapelUsuario.dono)
+    token = _login(client_com_autenticacao_real, "dono1")
+
+    criado = client_com_autenticacao_real.post(
+        "/gestao/estabelecimentos", headers=_auth(token),
+        json={"cnpj": "22333444000155", "nome": "Loja X", "unidade_id": 1},
+    ).json()
+    client_com_autenticacao_real.post(
+        f"/gestao/estabelecimentos/{criado['id']}/regras-tolerancia", headers=_auth(token),
+        json={"valor_minimo_compra": 20.0, "tolerancia_minutos": 45},
+    )
+
+    resp = client_com_autenticacao_real.delete(f"/gestao/estabelecimentos/{criado['id']}", headers=_auth(token))
+    assert resp.status_code == 200
+
+    lista = client_com_autenticacao_real.get("/gestao/estabelecimentos", headers=_auth(token)).json()
+    assert all(e["id"] != criado["id"] for e in lista)
+
+
+def test_excluir_estabelecimento_com_cupom_validado_e_rejeitado(client_com_autenticacao_real, db_session):
+    _criar_usuario(db_session, "dono1", models.PapelUsuario.dono)
+    _criar_usuario(db_session, "entrada1", models.PapelUsuario.totem_entrada, unidade_id=1)
+    _criar_usuario(db_session, "validacao1", models.PapelUsuario.totem_validacao, unidade_id=1)
+    token = _login(client_com_autenticacao_real, "dono1")
+
+    criado = client_com_autenticacao_real.post(
+        "/gestao/estabelecimentos", headers=_auth(token),
+        json={"cnpj": "22333444000155", "nome": "Loja X", "unidade_id": 1},
+    ).json()
+
+    token_entrada = _login(client_com_autenticacao_real, "entrada1")
+    ticket = client_com_autenticacao_real.post("/entrada", headers=_auth(token_entrada)).json()
+    token_validacao = _login(client_com_autenticacao_real, "validacao1")
+    client_com_autenticacao_real.post(
+        "/loja/validar-cupom", headers=_auth(token_validacao),
+        json={
+            "codigo_barras": ticket["codigo_barras"],
+            "chave_acesso_nfce": fabricar_chave_nfce("22333444000155", sufixo=1),
+            "valor_compra": 50.0,
+        },
+    )
+
+    resp = client_com_autenticacao_real.delete(f"/gestao/estabelecimentos/{criado['id']}", headers=_auth(token))
+    assert resp.status_code == 409
+
+
+def test_gerente_nao_pode_excluir_estabelecimento(client_com_autenticacao_real, db_session):
+    _criar_usuario(db_session, "gerente1", models.PapelUsuario.gerente, unidade_id=1)
+    token = _login(client_com_autenticacao_real, "gerente1")
+
+    criado = client_com_autenticacao_real.post(
+        "/gestao/estabelecimentos", headers=_auth(token), json={"cnpj": "22333444000155", "nome": "Loja X"},
+    ).json()
+
+    resp = client_com_autenticacao_real.delete(f"/gestao/estabelecimentos/{criado['id']}", headers=_auth(token))
+    assert resp.status_code == 403
 
 
 def test_adicionar_e_remover_regra_tolerancia(client):

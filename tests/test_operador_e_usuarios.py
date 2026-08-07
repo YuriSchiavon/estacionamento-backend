@@ -355,3 +355,42 @@ def test_desativar_usuario_impede_login(client_com_autenticacao_real, db_session
         "/auth/login", json={"username": "operador1", "senha": "senha123"}
     )
     assert login.status_code == 401
+
+
+def test_excluir_usuario_permite_recriar_com_mesmo_username(client_com_autenticacao_real, db_session):
+    _criar_usuario(db_session, "dono1", models.PapelUsuario.dono)
+    operador = _criar_usuario(db_session, "12345678901", models.PapelUsuario.operador, unidade_id=1)
+    token = _login(client_com_autenticacao_real, "dono1")
+
+    resp = client_com_autenticacao_real.delete(f"/gestao/usuarios/{operador.id}", headers=_auth(token))
+    assert resp.status_code == 200
+
+    lista = client_com_autenticacao_real.get("/gestao/usuarios", headers=_auth(token))
+    assert all(u["id"] != operador.id for u in lista.json())
+
+    recriado = client_com_autenticacao_real.post(
+        "/gestao/usuarios", headers=_auth(token),
+        json={"nome": "Rodrigo Novo", "papel": "operador", "cpf": "12345678901", "unidade_id": 1, "senha": "nova-senha-123"},
+    )
+    assert recriado.status_code == 200
+    assert recriado.json()["usuario"]["username"] == "12345678901"  # não virou "-2"
+
+
+def test_nao_pode_excluir_a_propria_conta(client_com_autenticacao_real, db_session):
+    dono = _criar_usuario(db_session, "dono1", models.PapelUsuario.dono)
+    token = _login(client_com_autenticacao_real, "dono1")
+
+    resp = client_com_autenticacao_real.delete(f"/gestao/usuarios/{dono.id}", headers=_auth(token))
+    assert resp.status_code == 422
+
+
+def test_gerente_nao_pode_excluir_usuario(client_com_autenticacao_real, db_session):
+    """Exclusão definitiva é só do dono -- gerente nem consegue tentar,
+    mesmo em usuário da própria unidade (diferente de ativar/desativar,
+    que gerente pode fazer)."""
+    _criar_usuario(db_session, "gerente-a", models.PapelUsuario.gerente, unidade_id=1)
+    operador = _criar_usuario(db_session, "operador-a", models.PapelUsuario.operador, unidade_id=1)
+
+    token_a = _login(client_com_autenticacao_real, "gerente-a")
+    resp = client_com_autenticacao_real.delete(f"/gestao/usuarios/{operador.id}", headers=_auth(token_a))
+    assert resp.status_code == 403

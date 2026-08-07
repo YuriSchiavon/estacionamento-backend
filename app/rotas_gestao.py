@@ -24,6 +24,7 @@ from .database import get_db
 from .nfce import CNPJ_REGEX
 from .security import (
     escopo_unidade,
+    exigir_dono,
     exigir_gestao,
     exigir_liberacao_manual,
     exigir_operacao,
@@ -227,6 +228,32 @@ def atualizar_credenciado(
     return credenciado
 
 
+@router.delete("/gestao/credenciados/{credenciado_id}")
+def excluir_credenciado(
+    credenciado_id: int, db: Session = Depends(get_db), usuario: models.Usuario = Depends(exigir_dono),
+):
+    """Exclusão de verdade (não é desativar) -- só o dono pode, e só se o
+    credenciado nunca teve movimento real (nenhum acesso registrado, nenhum
+    pagamento de mensalidade). Havendo histórico, usar PATCH ativo=false em
+    vez de apagar -- não dá pra perder rastro de acesso/pagamento real."""
+    credenciado = db.get(models.Credenciado, credenciado_id)
+    if not credenciado:
+        raise HTTPException(404, "Credenciado não encontrado")
+
+    tem_tickets = db.query(models.Ticket).filter_by(credenciado_id=credenciado_id).first() is not None
+    tem_pagamentos = db.query(models.PagamentoMensalidade).filter_by(credenciado_id=credenciado_id).first() is not None
+    if tem_tickets or tem_pagamentos:
+        raise HTTPException(
+            409,
+            "Não é possível excluir: há acessos ou pagamentos registrados para este credenciado. "
+            "Desative em vez de excluir.",
+        )
+
+    db.delete(credenciado)
+    db.commit()
+    return {"detail": "Credenciado excluído"}
+
+
 @router.post("/gestao/credenciados/{credenciado_id}/renovar", response_model=schemas.CredenciadoOut)
 def renovar_mensalidade(
     credenciado_id: int, payload: schemas.RenovarMensalidadeRequest, db: Session = Depends(get_db),
@@ -294,6 +321,31 @@ def atualizar_estabelecimento(
     db.commit()
     db.refresh(estabelecimento)
     return estabelecimento
+
+
+@router.delete("/gestao/estabelecimentos/{estabelecimento_id}")
+def excluir_estabelecimento(
+    estabelecimento_id: int, db: Session = Depends(get_db), usuario: models.Usuario = Depends(exigir_dono),
+):
+    """Exclusão de verdade -- só o dono pode, e só se nenhum cupom fiscal já
+    foi validado contra este estabelecimento. Havendo cupons, usar PATCH
+    ativo=false em vez de apagar -- cupom fiscal é dado de auditoria real."""
+    estabelecimento = db.get(models.Estabelecimento, estabelecimento_id)
+    if not estabelecimento:
+        raise HTTPException(404, "Estabelecimento não encontrado")
+
+    tem_cupons = db.query(models.CupomFiscal).filter_by(estabelecimento_id=estabelecimento_id).first() is not None
+    if tem_cupons:
+        raise HTTPException(
+            409,
+            "Não é possível excluir: há cupons fiscais validados para este estabelecimento. "
+            "Desative em vez de excluir.",
+        )
+
+    db.query(models.RegraTolerancia).filter_by(estabelecimento_id=estabelecimento_id).delete()
+    db.delete(estabelecimento)
+    db.commit()
+    return {"detail": "Estabelecimento excluído"}
 
 
 @router.post("/gestao/estabelecimentos/{estabelecimento_id}/regras-tolerancia", response_model=schemas.EstabelecimentoOut)
@@ -705,3 +757,23 @@ def atualizar_usuario(
     db.commit()
     db.refresh(alvo)
     return alvo
+
+
+@router.delete("/gestao/usuarios/{usuario_id}")
+def excluir_usuario(
+    usuario_id: int, db: Session = Depends(get_db), usuario: models.Usuario = Depends(exigir_dono),
+):
+    """Exclusão de verdade -- só o dono pode. Útil pra recriar uma conta do
+    zero (ex: senha inicial perdida). Liberações manuais/exclusões de ticket
+    já feitas por essa conta não são afetadas: guardam o nome como
+    snapshot, não uma FK."""
+    alvo = db.get(models.Usuario, usuario_id)
+    if not alvo:
+        raise HTTPException(404, "Usuário não encontrado")
+    if alvo.id == usuario.id:
+        raise HTTPException(422, "Não é possível excluir a própria conta enquanto estiver logado nela")
+
+    db.query(models.Sessao).filter_by(usuario_id=alvo.id).delete()
+    db.delete(alvo)
+    db.commit()
+    return {"detail": "Usuário excluído"}

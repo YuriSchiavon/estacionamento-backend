@@ -748,6 +748,7 @@ async function carregarCredenciados(){
         <td>
           ${c.tipo === 'mensalista' ? `<button class="secundario" onclick="renovar(${c.id})">Renovar</button>` : ''}
           <button class="secundario" onclick="alternarAtivo(${c.id}, ${c.ativo})">${c.ativo ? 'Desativar' : 'Ativar'}</button>
+          ${sessao.papel === 'dono' ? `<button class="secundario" onclick="excluirCredenciado(${c.id}, '${c.nome.replace(/'/g, "\\'")}')">Excluir</button>` : ''}
         </td>
       `;
       tbody.appendChild(tr);
@@ -772,6 +773,16 @@ async function renovar(id){
 async function alternarAtivo(id, ativoAtual){
   try{
     await api('PATCH', `/gestao/credenciados/${id}`, { ativo: !ativoAtual });
+    carregarCredenciados();
+  }catch(e){
+    alert(e.message);
+  }
+}
+
+async function excluirCredenciado(id, nome){
+  if (!confirm(`Excluir "${nome}" definitivamente? Só funciona se não houver acessos ou pagamentos registrados.`)) return;
+  try{
+    await api('DELETE', `/gestao/credenciados/${id}`);
     carregarCredenciados();
   }catch(e){
     alert(e.message);
@@ -985,6 +996,7 @@ async function carregarEstabelecimentos(){
           <div>
             ${badgeStatus(e.ativo)}
             <button class="secundario" onclick="alternarAtivoEstabelecimento(${e.id}, ${e.ativo})">${e.ativo ? 'Desativar' : 'Ativar'}</button>
+            ${sessao.papel === 'dono' ? `<button class="secundario" onclick="excluirEstabelecimento(${e.id}, '${e.nome.replace(/'/g, "\\'")}')">Excluir</button>` : ''}
           </div>
         </div>
         <table style="margin-top:10px;">
@@ -1014,6 +1026,16 @@ async function carregarEstabelecimentos(){
 async function alternarAtivoEstabelecimento(id, ativoAtual){
   try{
     await api('PATCH', `/gestao/estabelecimentos/${id}`, { ativo: !ativoAtual });
+    carregarEstabelecimentos();
+  }catch(e){
+    alert(e.message);
+  }
+}
+
+async function excluirEstabelecimento(id, nome){
+  if (!confirm(`Excluir "${nome}" definitivamente? Só funciona se não houver cupons fiscais validados.`)) return;
+  try{
+    await api('DELETE', `/gestao/estabelecimentos/${id}`);
     carregarEstabelecimentos();
   }catch(e){
     alert(e.message);
@@ -1162,6 +1184,7 @@ async function carregarUsuarios(){
         <td>
           <button class="secundario" onclick="alternarAtivoUsuario(${u.id}, ${u.ativo})">${u.ativo ? 'Desativar' : 'Ativar'}</button>
           <button class="secundario" onclick="alternarLiberaManualUsuario(${u.id}, ${u.pode_liberar_manualmente})">${u.pode_liberar_manualmente ? 'Tirar liberação manual' : 'Dar liberação manual'}</button>
+          ${sessao.papel === 'dono' ? `<button class="secundario" onclick="excluirUsuario(${u.id}, '${u.nome.replace(/'/g, "\\'")}')">Excluir</button>` : ''}
         </td>
       `;
       tbody.appendChild(tr);
@@ -1174,6 +1197,16 @@ async function carregarUsuarios(){
 async function alternarAtivoUsuario(id, ativoAtual){
   try{
     await api('PATCH', `/gestao/usuarios/${id}`, { ativo: !ativoAtual });
+    carregarUsuarios();
+  }catch(e){
+    alert(e.message);
+  }
+}
+
+async function excluirUsuario(id, nome){
+  if (!confirm(`Excluir a conta de "${nome}" definitivamente? Essa ação não pode ser desfeita.`)) return;
+  try{
+    await api('DELETE', `/gestao/usuarios/${id}`);
     carregarUsuarios();
   }catch(e){
     alert(e.message);

@@ -66,6 +66,11 @@ exigir_totem_validacao_ou_saida = _exigir_papel(
 
 exigir_gestao = _exigir_papel(models.PapelUsuario.dono, models.PapelUsuario.gerente)
 
+# Exclusão definitiva (usuários, credenciados, estabelecimentos) é mais
+# perigosa que desativar -- só o dono pode, gerente não. Ação separada de
+# exigir_gestao de propósito, não uma extensão dela.
+exigir_dono = _exigir_papel(models.PapelUsuario.dono)
+
 # Consulta de tickets: operador precisa buscar/conferir um ticket no dia a
 # dia, mas não deve ganhar acesso ao resto de /gestao (credenciados,
 # estabelecimentos, unidades, usuários) -- por isso é uma dependência à

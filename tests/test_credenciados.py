@@ -4,8 +4,29 @@ liberados) e mensalistas (liberados enquanto a mensalidade estiver em dia).
 """
 from datetime import timedelta
 
+from app.auth import gerar_hash_senha
 from app import models
 from app.tempo import agora_utc
+
+
+def _criar_usuario(db_session, username, papel, unidade_id=None, senha="senha123"):
+    usuario = models.Usuario(
+        username=username, senha_hash=gerar_hash_senha(senha), nome=username,
+        papel=papel, unidade_id=unidade_id,
+    )
+    db_session.add(usuario)
+    db_session.commit()
+    return usuario
+
+
+def _login(client, username, senha="senha123"):
+    resp = client.post("/auth/login", json={"username": username, "senha": senha})
+    assert resp.status_code == 200, resp.text
+    return resp.json()["token"]
+
+
+def _auth(token):
+    return {"Authorization": f"Bearer {token}"}
 
 
 def _cadastrar_credenciado(client, **overrides):
@@ -128,3 +149,68 @@ def test_desativar_credenciado_via_atualizacao(client):
     resp = client.patch(f"/gestao/credenciados/{cadastrado['id']}", json={"ativo": False})
     assert resp.status_code == 200
     assert resp.json()["ativo"] is False
+
+
+def test_excluir_credenciado_sem_historico_funciona(client_com_autenticacao_real, db_session):
+    _criar_usuario(db_session, "dono1", models.PapelUsuario.dono)
+    token = _login(client_com_autenticacao_real, "dono1")
+
+    cadastrado = client_com_autenticacao_real.post(
+        "/gestao/credenciados", headers=_auth(token),
+        json={"nome": "Fulano", "tipo": "credenciado", "identificador_facial": "FACE-001", "unidade_id": 1},
+    ).json()
+
+    resp = client_com_autenticacao_real.delete(f"/gestao/credenciados/{cadastrado['id']}", headers=_auth(token))
+    assert resp.status_code == 200
+
+    lista = client_com_autenticacao_real.get("/gestao/credenciados", headers=_auth(token)).json()
+    assert all(c["id"] != cadastrado["id"] for c in lista)
+
+
+def test_excluir_credenciado_com_acesso_registrado_e_rejeitado(client_com_autenticacao_real, db_session):
+    _criar_usuario(db_session, "dono1", models.PapelUsuario.dono)
+    _criar_usuario(db_session, "entrada1", models.PapelUsuario.totem_entrada, unidade_id=1)
+    token = _login(client_com_autenticacao_real, "dono1")
+
+    cadastrado = client_com_autenticacao_real.post(
+        "/gestao/credenciados", headers=_auth(token),
+        json={"nome": "Fulano", "tipo": "credenciado", "identificador_facial": "FACE-001", "unidade_id": 1},
+    ).json()
+    token_entrada = _login(client_com_autenticacao_real, "entrada1")
+    client_com_autenticacao_real.post(
+        "/credenciados/entrada", headers=_auth(token_entrada), json={"identificador_facial": "FACE-001"}
+    )
+
+    resp = client_com_autenticacao_real.delete(f"/gestao/credenciados/{cadastrado['id']}", headers=_auth(token))
+    assert resp.status_code == 409
+
+
+def test_excluir_mensalista_com_pagamento_e_rejeitado(client_com_autenticacao_real, db_session):
+    _criar_usuario(db_session, "dono1", models.PapelUsuario.dono)
+    token = _login(client_com_autenticacao_real, "dono1")
+
+    cadastrado = client_com_autenticacao_real.post(
+        "/gestao/credenciados", headers=_auth(token),
+        json={"nome": "Fulano", "tipo": "mensalista", "identificador_facial": "FACE-MENSAL-5", "unidade_id": 1},
+    ).json()
+    client_com_autenticacao_real.post(
+        f"/gestao/credenciados/{cadastrado['id']}/renovar", headers=_auth(token), json={"valor": 200.0}
+    )
+
+    resp = client_com_autenticacao_real.delete(f"/gestao/credenciados/{cadastrado['id']}", headers=_auth(token))
+    assert resp.status_code == 409
+
+
+def test_gerente_nao_pode_excluir_credenciado(client_com_autenticacao_real, db_session):
+    """Exclusão definitiva de credenciado é só do dono -- gerente só pode
+    ativar/desativar (PATCH), não apagar de vez."""
+    _criar_usuario(db_session, "gerente1", models.PapelUsuario.gerente, unidade_id=1)
+    token = _login(client_com_autenticacao_real, "gerente1")
+
+    criado = client_com_autenticacao_real.post(
+        "/gestao/credenciados", headers=_auth(token),
+        json={"nome": "Fulano", "tipo": "credenciado", "identificador_facial": "FACE-GERENTE"},
+    ).json()
+
+    resp = client_com_autenticacao_real.delete(f"/gestao/credenciados/{criado['id']}", headers=_auth(token))
+    assert resp.status_code == 403
