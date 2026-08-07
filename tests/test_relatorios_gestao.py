@@ -1,6 +1,7 @@
 """
-Cobre os relatórios do painel de gestão: tickets, financeiro e auditoria
-de tentativas de reuso de cupom fiscal.
+Cobre os relatórios do painel de gestão: tickets, conciliação financeira
+e auditoria de tentativas de reuso de cupom fiscal. Dashboard e conciliação
+detalhados ficam em test_dashboard_e_manutencao.py.
 """
 from tests.conftest import CNPJ_ESTABELECIMENTO_TESTE, fabricar_chave_nfce
 
@@ -34,7 +35,7 @@ def test_tentativa_de_cupom_duplicado_fica_registrada_na_auditoria(client):
     assert registros[0]["codigo_barras_tentativa"] == ticket_2["codigo_barras"]
 
 
-def test_relatorio_financeiro_soma_transacoes_por_forma_de_pagamento(client, db_session):
+def test_conciliacao_soma_transacoes_por_forma_de_pagamento(client, db_session):
     from datetime import timedelta
     from app import models
     from app.tempo import agora_utc
@@ -52,12 +53,13 @@ def test_relatorio_financeiro_soma_transacoes_por_forma_de_pagamento(client, db_
         "valor": valor,
     })
 
-    resp = client.get("/gestao/relatorio/financeiro")
+    resp = client.get("/gestao/relatorio/conciliacao")
     assert resp.status_code == 200
     data = resp.json()
-    assert data["total_arrecadado"] == valor
+    assert data["valor_recebido"] == valor
     assert data["por_forma_pagamento"]["pix"] == valor
-    assert data["quantidade_transacoes"] == 1
+    assert data["tickets_tarifados_pagos"] == 1
+    assert data["tickets_tarifados_sem_pagar"] == 0
 
 
 def test_relatorio_tickets_lista_tickets_emitidos(client):

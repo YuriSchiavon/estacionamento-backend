@@ -12,6 +12,7 @@ nNF(9) tpEmis(1) cNF(8) cDV(1) = 44.
 import re
 
 CHAVE_REGEX = re.compile(r"^\d{44}$")
+CNPJ_REGEX = re.compile(r"^\d{14}$")
 
 
 def extrair_cnpj_emitente(chave_acesso_nfce: str) -> str:

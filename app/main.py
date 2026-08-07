@@ -1,5 +1,5 @@
 """
-API do software de controle de acesso do estacionamento.
+API do software de controle de acesso do estacionamento (multi-unidade).
 
 Três grupos de endpoints, cada um pensado para ser chamado pelo respectivo
 equipamento (via o driver/adapter que você vai escrever para o protocolo
@@ -10,12 +10,15 @@ específico do fornecedor escolhido):
   GET  /saida/verificar/{codigo}     -> chamado pelo totem leitor da cancela
   POST /saida/pagamento              -> chamado pelo totem de pagamento (se houver)
 
+Cada totem loga com seu próprio usuário (ver POST /auth/login em
+app/auth.py) e só enxerga/afeta dados da própria unidade -- ver
+app/security.py.
+
 Rodar localmente:
   pip install -r requirements.txt
   uvicorn app.main:app --reload
 Depois acesse http://localhost:8000/docs para testar tudo pela interface Swagger.
 """
-from datetime import datetime
 from pathlib import Path
 
 from fastapi import FastAPI, Depends, HTTPException
@@ -23,15 +26,17 @@ from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from . import models, schemas, services
+from .auth import router as auth_router
 from .database import Base, engine, get_db
 from .nfce import extrair_cnpj_emitente
 from .rotas_gestao import router as rotas_gestao_router
 from .seed import seed
-from .security import chaves_ainda_no_padrao_dev, exigir_chave_entrada, exigir_chave_saida, exigir_chave_validacao
+from .security import exigir_totem_entrada, exigir_totem_saida, exigir_totem_validacao
 
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Estacionamento - Controle de Acesso")
+app.include_router(auth_router)
 app.include_router(rotas_gestao_router)
 
 STATIC_DIR = Path(__file__).parent / "static"
@@ -40,12 +45,6 @@ STATIC_DIR = Path(__file__).parent / "static"
 @app.on_event("startup")
 def startup():
     seed()
-    pendentes = chaves_ainda_no_padrao_dev()
-    if pendentes:
-        print(
-            f"AVISO: totem(s) {', '.join(pendentes)} ainda usando chave de API "
-            f"padrão de desenvolvimento -- troque no .env antes de ir para produção."
-        )
 
 
 @app.get("/", include_in_schema=False)
@@ -63,9 +62,13 @@ def painel_de_gestao():
 # ---------------------------------------------------------------------
 # ENTRADA — chamado pelo totem emissor quando o botão é pressionado
 # ---------------------------------------------------------------------
-@app.post("/entrada", response_model=schemas.TicketOut, dependencies=[Depends(exigir_chave_entrada)])
-def registrar_entrada(gate_entrada: str = "entrada-1", db: Session = Depends(get_db)):
-    ticket = models.Ticket(gate_entrada=gate_entrada)
+@app.post("/entrada", response_model=schemas.TicketOut)
+def registrar_entrada(
+    gate_entrada: str = "entrada-1",
+    db: Session = Depends(get_db),
+    usuario: models.Usuario = Depends(exigir_totem_entrada),
+):
+    ticket = models.Ticket(unidade_id=usuario.unidade_id, gate_entrada=gate_entrada)
     db.add(ticket)
     db.commit()
     db.refresh(ticket)
@@ -79,9 +82,15 @@ def registrar_entrada(gate_entrada: str = "entrada-1", db: Session = Depends(get
 # ---------------------------------------------------------------------
 # LOJA — chamado pelo totem de autoatendimento após ler o QR code da NFC-e
 # ---------------------------------------------------------------------
-@app.post("/loja/validar-cupom", response_model=schemas.TicketOut, dependencies=[Depends(exigir_chave_validacao)])
-def validar_cupom(payload: schemas.ValidarCupomRequest, db: Session = Depends(get_db)):
-    ticket = db.query(models.Ticket).filter_by(codigo_barras=payload.codigo_barras).first()
+@app.post("/loja/validar-cupom", response_model=schemas.TicketOut)
+def validar_cupom(
+    payload: schemas.ValidarCupomRequest,
+    db: Session = Depends(get_db),
+    usuario: models.Usuario = Depends(exigir_totem_validacao),
+):
+    ticket = db.query(models.Ticket).filter_by(
+        codigo_barras=payload.codigo_barras, unidade_id=usuario.unidade_id
+    ).first()
     if not ticket:
         raise HTTPException(404, "Ticket não encontrado")
     if ticket.status != models.StatusTicket.aberto:
@@ -92,6 +101,7 @@ def validar_cupom(payload: schemas.ValidarCupomRequest, db: Session = Depends(ge
     ).first()
     if ja_usado:
         db.add(models.TentativaCupomDuplicado(
+            unidade_id=usuario.unidade_id,
             chave_acesso_nfce=payload.chave_acesso_nfce,
             codigo_barras_tentativa=payload.codigo_barras,
             ticket_original_id=ja_usado.ticket_id,
@@ -104,11 +114,13 @@ def validar_cupom(payload: schemas.ValidarCupomRequest, db: Session = Depends(ge
     except ValueError as erro:
         raise HTTPException(422, str(erro))
 
-    estabelecimento = db.query(models.Estabelecimento).filter_by(cnpj=cnpj, ativo=True).first()
+    estabelecimento = db.query(models.Estabelecimento).filter_by(
+        cnpj=cnpj, unidade_id=usuario.unidade_id, ativo=True
+    ).first()
     if not estabelecimento:
         raise HTTPException(
             403,
-            "Este cupom não é de um estabelecimento conveniado -- não conta para tolerância",
+            "Este cupom não é de um estabelecimento conveniado desta unidade -- não conta para tolerância",
         )
 
     cupom = models.CupomFiscal(
@@ -131,9 +143,15 @@ def validar_cupom(payload: schemas.ValidarCupomRequest, db: Session = Depends(ge
 # ---------------------------------------------------------------------
 # SAÍDA — chamado pelo totem leitor da cancela quando o ticket é apresentado
 # ---------------------------------------------------------------------
-@app.get("/saida/verificar/{codigo_barras}", response_model=schemas.VerificarSaidaResponse, dependencies=[Depends(exigir_chave_saida)])
-def verificar_saida(codigo_barras: str, db: Session = Depends(get_db)):
-    ticket = db.query(models.Ticket).filter_by(codigo_barras=codigo_barras).first()
+@app.get("/saida/verificar/{codigo_barras}", response_model=schemas.VerificarSaidaResponse)
+def verificar_saida(
+    codigo_barras: str,
+    db: Session = Depends(get_db),
+    usuario: models.Usuario = Depends(exigir_totem_saida),
+):
+    ticket = db.query(models.Ticket).filter_by(
+        codigo_barras=codigo_barras, unidade_id=usuario.unidade_id
+    ).first()
     if not ticket:
         raise HTTPException(404, "Ticket não encontrado")
     if ticket.status == models.StatusTicket.finalizado:
@@ -154,9 +172,15 @@ def verificar_saida(codigo_barras: str, db: Session = Depends(get_db)):
 # ---------------------------------------------------------------------
 # PAGAMENTO — chamado pelo totem de pagamento quando o ticket está tarifado
 # ---------------------------------------------------------------------
-@app.post("/saida/pagamento", response_model=schemas.TicketOut, dependencies=[Depends(exigir_chave_saida)])
-def registrar_pagamento(payload: schemas.PagamentoRequest, db: Session = Depends(get_db)):
-    ticket = db.query(models.Ticket).filter_by(codigo_barras=payload.codigo_barras).first()
+@app.post("/saida/pagamento", response_model=schemas.TicketOut)
+def registrar_pagamento(
+    payload: schemas.PagamentoRequest,
+    db: Session = Depends(get_db),
+    usuario: models.Usuario = Depends(exigir_totem_saida),
+):
+    ticket = db.query(models.Ticket).filter_by(
+        codigo_barras=payload.codigo_barras, unidade_id=usuario.unidade_id
+    ).first()
     if not ticket:
         raise HTTPException(404, "Ticket não encontrado")
     if ticket.status != models.StatusTicket.tarifado:

@@ -4,8 +4,58 @@ from typing import Literal, Optional
 from pydantic import BaseModel
 
 
+class LoginRequest(BaseModel):
+    username: str
+    senha: str
+
+
+class LoginResponse(BaseModel):
+    token: str
+    papel: str
+    unidade_id: Optional[int]
+    nome: str
+    pode_liberar_manualmente: bool
+
+
+class LogoutRequest(BaseModel):
+    token: str
+
+
+class UnidadeIn(BaseModel):
+    nome: str
+    tolerancia_padrao_minutos: int = 15
+
+
+class UnidadeUpdate(BaseModel):
+    nome: Optional[str] = None
+    ativo: Optional[bool] = None
+    tolerancia_padrao_minutos: Optional[int] = None
+
+
+class UnidadeOut(BaseModel):
+    id: int
+    nome: str
+    ativo: bool
+    tolerancia_padrao_minutos: int
+
+    class Config:
+        from_attributes = True
+
+
+class ContaCriada(BaseModel):
+    username: str
+    senha: str  # texto puro -- só aparece aqui, na criação, nunca mais
+    papel: str
+
+
+class UnidadeCriadaResponse(BaseModel):
+    unidade: UnidadeOut
+    contas: list[ContaCriada]
+
+
 class TicketOut(BaseModel):
     id: int
+    unidade_id: int
     codigo_barras: str
     data_hora_entrada: datetime
     data_hora_saida: Optional[datetime]
@@ -50,6 +100,9 @@ class CredenciadoIn(BaseModel):
     documento: Optional[str] = None
     placa: Optional[str] = None
     empresa_vinculo: Optional[str] = None
+    # Obrigatório para dono (gerencia várias unidades); ignorado para
+    # gerente, que só cadastra na própria unidade.
+    unidade_id: Optional[int] = None
 
 
 class CredenciadoUpdate(BaseModel):
@@ -62,6 +115,7 @@ class CredenciadoUpdate(BaseModel):
 
 class CredenciadoOut(BaseModel):
     id: int
+    unidade_id: int
     nome: str
     tipo: str
     identificador_facial: str
@@ -94,6 +148,7 @@ class AcessoCredenciadoResponse(BaseModel):
 
 class TentativaCupomDuplicadoOut(BaseModel):
     id: int
+    unidade_id: int
     chave_acesso_nfce: str
     codigo_barras_tentativa: str
     ticket_original_id: Optional[int]
@@ -103,22 +158,19 @@ class TentativaCupomDuplicadoOut(BaseModel):
         from_attributes = True
 
 
-class RelatorioFinanceiroResponse(BaseModel):
-    periodo_inicio: Optional[datetime]
-    periodo_fim: datetime
-    total_arrecadado: float
-    por_forma_pagamento: dict
-    quantidade_transacoes: int
-
-
 class LiberacaoManualRequest(BaseModel):
     cancela: Literal["entrada", "saida"]
     motivo: str  # justificativa obrigatória, fica registrada na auditoria
     ticket_id: Optional[int] = None  # opcional: nem sempre existe um ticket válido
+    # Só usado quando ticket_id não é informado (a unidade é derivada do
+    # ticket quando ele existe). Obrigatório pra dono nesse caso; ignorado
+    # pra gerente, que só libera na própria unidade.
+    unidade_id: Optional[int] = None
 
 
 class LiberacaoManualOut(BaseModel):
     id: int
+    unidade_id: int
     cancela: str
     motivo: str
     ticket_id: Optional[int]
@@ -146,6 +198,7 @@ class RegraToleranciaOut(BaseModel):
 class EstabelecimentoIn(BaseModel):
     cnpj: str  # 14 dígitos, sem pontuação
     nome: str
+    unidade_id: Optional[int] = None  # obrigatório pra dono, ignorado pra gerente
 
 
 class EstabelecimentoUpdate(BaseModel):
@@ -155,6 +208,7 @@ class EstabelecimentoUpdate(BaseModel):
 
 class EstabelecimentoOut(BaseModel):
     id: int
+    unidade_id: int
     cnpj: str
     nome: str
     ativo: bool
@@ -162,3 +216,67 @@ class EstabelecimentoOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class LimparPatioRequest(BaseModel):
+    cancela: Literal["entrada", "saida"]
+    motivo: str  # justificativa obrigatória, fica registrada por ticket afetado
+    # Sempre obrigatório pra dono -- limpeza de pátio nunca vale pra "todas
+    # as unidades" de uma vez, mesmo pra quem enxerga tudo.
+    unidade_id: Optional[int] = None
+
+
+class ExclusaoTicketRequest(BaseModel):
+    motivo: str
+
+
+class ExclusaoTicketOut(BaseModel):
+    id: int
+    unidade_id: int
+    codigo_barras: str
+    motivo: str
+    data_hora: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class ConciliacaoResponse(BaseModel):
+    """Achar a diferença entre tickets impressos, pagos e liberados.
+
+    Isento (dentro da tolerância) não é "diferença" -- é o esperado. A
+    diferença de verdade é `tickets_tarifados_sem_pagar`: excedeu a
+    tolerância, devia pagar, saiu (ou foi liberado manualmente) sem pagar."""
+    periodo_inicio: Optional[datetime]
+    periodo_fim: datetime
+
+    tickets_impressos: int
+    tickets_liberados: int          # saíram (finalizado), de qualquer tipo
+    tickets_tarifados: int          # excederam a tolerância, deviam pagar
+    tickets_tarifados_pagos: int
+    tickets_tarifados_sem_pagar: int  # a diferença de verdade -- provável furo
+
+    valor_esperado: float    # soma do valor_calculado dos tickets tarifados
+    valor_recebido: float    # soma das transações de fato pagas
+    diferenca_valor: float   # valor_esperado - valor_recebido
+
+    valor_mensalidades: float
+    por_forma_pagamento: dict
+
+
+class DashboardResponse(BaseModel):
+    """Visão operacional: movimento no período + pátio em tempo real
+    (contagem "agora", independente do filtro de período)."""
+    periodo_inicio: Optional[datetime]
+    periodo_fim: datetime
+
+    entradas_no_periodo: int
+    saidas_no_periodo: int
+    acessos_credenciado_no_periodo: int
+    acessos_mensalista_no_periodo: int
+
+    veiculos_no_patio_agora: int
+    veiculos_no_patio_credenciado: int
+    veiculos_no_patio_mensalista: int
+
+    por_forma_pagamento: dict

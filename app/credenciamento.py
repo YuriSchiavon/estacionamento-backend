@@ -21,9 +21,9 @@ VALOR_MENSALIDADE = 200.0
 DIAS_VALIDADE_MENSALIDADE = 30
 
 
-def buscar_credenciado_ativo(db: Session, identificador_facial: str) -> Optional[models.Credenciado]:
+def buscar_credenciado_ativo(db: Session, identificador_facial: str, unidade_id: int) -> Optional[models.Credenciado]:
     return db.query(models.Credenciado).filter_by(
-        identificador_facial=identificador_facial, ativo=True
+        identificador_facial=identificador_facial, unidade_id=unidade_id, ativo=True
     ).first()
 
 

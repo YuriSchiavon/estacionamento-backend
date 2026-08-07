@@ -188,22 +188,19 @@
     padding:10px 32px;
     display:flex;
     align-items:center;
-    gap:16px;
+    gap:20px;
     flex-wrap:wrap;
     font-size:12px;
   }
   .chaves-bar strong{color:#fff;font-weight:600;}
-  .chaves-bar label{
+  .login-totem{
     display:flex;
     align-items:center;
     gap:6px;
-    color:#B9C2D6;
-    margin:0;
-    font-weight:400;
-    font-size:12px;
   }
-  .chaves-bar input{
-    width:190px;
+  .login-totem .lt-label{color:#B9C2D6;font-weight:600;min-width:56px;}
+  .login-totem input{
+    width:110px;
     padding:5px 8px;
     border-radius:6px;
     border:1px solid #2C3E5C;
@@ -212,6 +209,19 @@
     font-size:12px;
     font-family:'Courier New',monospace;
   }
+  .login-totem button{
+    background:var(--lime);
+    color:var(--navy);
+    border:none;
+    padding:6px 10px;
+    border-radius:6px;
+    font-family:inherit;
+    font-weight:700;
+    font-size:11px;
+    cursor:pointer;
+  }
+  .login-totem .lt-status{font-size:11px;color:#9AA3B2;}
+  .login-totem .lt-status.logado{color:var(--lime);font-weight:600;}
 </style>
 
 <header>
@@ -223,10 +233,28 @@
 </header>
 
 <div class="chaves-bar">
-  <strong>Chaves de API dos totens:</strong>
-  <label>Entrada <input id="chave-entrada" placeholder="X-API-Key"></label>
-  <label>Validação <input id="chave-validacao" placeholder="X-API-Key"></label>
-  <label>Saída <input id="chave-saida" placeholder="X-API-Key"></label>
+  <strong>Login dos totens:</strong>
+  <div class="login-totem" data-totem="entrada">
+    <span class="lt-label">Entrada</span>
+    <input class="lt-user" placeholder="usuário">
+    <input class="lt-senha" type="password" placeholder="senha">
+    <button class="lt-entrar">Entrar</button>
+    <span class="lt-status">não logado</span>
+  </div>
+  <div class="login-totem" data-totem="validacao">
+    <span class="lt-label">Validação</span>
+    <input class="lt-user" placeholder="usuário">
+    <input class="lt-senha" type="password" placeholder="senha">
+    <button class="lt-entrar">Entrar</button>
+    <span class="lt-status">não logado</span>
+  </div>
+  <div class="login-totem" data-totem="saida">
+    <span class="lt-label">Saída</span>
+    <input class="lt-user" placeholder="usuário">
+    <input class="lt-senha" type="password" placeholder="senha">
+    <button class="lt-entrar">Entrar</button>
+    <span class="lt-status">não logado</span>
+  </div>
 </div>
 
 <main>
@@ -348,25 +376,54 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
   });
 });
 
-const CAMPOS_CHAVE = {
-  entrada: 'chave-entrada',
-  validacao: 'chave-validacao',
-  saida: 'chave-saida',
-};
-const CHAVES_PADRAO_DEV = {
-  entrada: 'dev-entrada-troque-em-producao',
-  validacao: 'dev-validacao-troque-em-producao',
-  saida: 'dev-saida-troque-em-producao',
-};
+const tokens = {};
 
-Object.entries(CAMPOS_CHAVE).forEach(([totem, id]) => {
-  const input = document.getElementById(id);
-  input.value = localStorage.getItem('pk_' + totem) || CHAVES_PADRAO_DEV[totem];
-  input.addEventListener('change', () => localStorage.setItem('pk_' + totem, input.value));
+function atualizarStatusLogin(totem){
+  const bloco = document.querySelector(`.login-totem[data-totem="${totem}"]`);
+  const status = bloco.querySelector('.lt-status');
+  if (tokens[totem]){
+    status.textContent = 'logado';
+    status.classList.add('logado');
+  }else{
+    status.textContent = 'não logado';
+    status.classList.remove('logado');
+  }
+}
+
+document.querySelectorAll('.login-totem').forEach(bloco => {
+  const totem = bloco.dataset.totem;
+  const tokenSalvo = localStorage.getItem('token_' + totem);
+  if (tokenSalvo) tokens[totem] = tokenSalvo;
+  atualizarStatusLogin(totem);
+
+  bloco.querySelector('.lt-entrar').addEventListener('click', async () => {
+    const username = bloco.querySelector('.lt-user').value;
+    const senha = bloco.querySelector('.lt-senha').value;
+    try{
+      const resp = await fetch(API + '/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, senha }),
+      });
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.detail || 'Login inválido');
+      tokens[totem] = data.token;
+      localStorage.setItem('token_' + totem, data.token);
+      atualizarStatusLogin(totem);
+      log(`Login (${totem})`, true, `Logado como <b>${data.nome}</b> (${data.papel}).`);
+    }catch(e){
+      atualizarStatusLogin(totem);
+      log(`Falha no login (${totem})`, false, e.message);
+    }
+  });
 });
 
 async function chamarApi(metodo, url, totem, body){
-  const opts = { method: metodo, headers: { 'X-API-Key': document.getElementById(CAMPOS_CHAVE[totem]).value } };
+  const token = tokens[totem];
+  if (!token){
+    throw new Error(`Faça login como totem de ${totem} antes de usar esta ação.`);
+  }
+  const opts = { method: metodo, headers: { 'Authorization': `Bearer ${token}` } };
   if (body){
     opts.headers['Content-Type'] = 'application/json';
     opts.body = JSON.stringify(body);

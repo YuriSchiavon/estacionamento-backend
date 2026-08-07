@@ -1,18 +1,28 @@
 """
 Modelo de dados do sistema de controle de acesso do estacionamento.
 
+Multi-unidade: o sistema atende várias unidades (estacionamentos)
+independentes -- cada uma com seus próprios tickets, credenciados,
+estabelecimentos conveniados e usuários/totens. Praticamente toda tabela
+carrega `unidade_id` (direto ou indiretamente).
+
 Tabelas:
+- Unidade: um estacionamento/local. Tem seu próprio padrão de tolerância
+  "sem cupom" (`tolerancia_padrao_minutos`).
+- Usuario: login de pessoas (dono, gerente) e de totens (um por função).
+  `dono` enxerga todas as unidades; os demais papéis pertencem a uma só.
+- Sessao: token de login ativo (opaco, revogável na hora apagando a linha).
 - Ticket: um registro por veículo, criado na entrada e fechado na saída.
 - Estabelecimento: um conveniado (ex: um contrato de supermercado, uma loja
-  de shopping) identificado pelo CNPJ. Cada um tem seu próprio conjunto de
-  regras de tolerância -- contratos diferentes, regulamentos diferentes.
+  de shopping) de uma unidade específica, identificado pelo CNPJ. Cada um
+  tem seu próprio conjunto de regras de tolerância -- contratos diferentes,
+  regulamentos diferentes, mesmo que seja o "mesmo" CNPJ em outra unidade.
 - CupomFiscal: nota fiscal (NFC-e) validada no totem de autoatendimento,
   vinculada a um único ticket (chave de acesso é UNIQUE para impedir reuso)
   e a um Estabelecimento conveniado (identificado pelo CNPJ embutido na
   própria chave de acesso -- não dá pra falsificar sem invalidar a chave).
 - RegraTolerancia: faixas de tolerância por valor de compra, por
-  estabelecimento. estabelecimento_id = None é a regra padrão global
-  (sem cupom), que vale pra qualquer entrada independente de conveniado.
+  estabelecimento.
 - Transacao: pagamentos efetuados (quando a permanência ultrapassa a tolerância).
 - Credenciado: pessoa reconhecida por identificador facial no totem, com
   acesso liberado sem passar pelo fluxo normal de ticket/tolerância/cupom.
@@ -20,7 +30,10 @@ Tabelas:
   a mensalidade estiver em dia -- ver PagamentoMensalidade).
 - PagamentoMensalidade: histórico de renovações de mensalistas.
 - TentativaCupomDuplicado: auditoria de tentativas de reuso de cupom fiscal.
+- LiberacaoManual: auditoria de liberação de cancela feita pelo painel.
+- ExclusaoTicket: auditoria de exclusão de ticket avulso.
 """
+import enum
 import uuid
 
 from sqlalchemy import (
@@ -28,21 +41,82 @@ from sqlalchemy import (
     UniqueConstraint,
 )
 from sqlalchemy.orm import relationship
-import enum
 
 from .database import Base
 from .tempo import agora_utc
 
 
-class Estabelecimento(Base):
-    __tablename__ = "estabelecimentos"
+class Unidade(Base):
+    __tablename__ = "unidades"
 
     id = Column(Integer, primary_key=True)
-    cnpj = Column(String(14), unique=True, index=True, nullable=False)
+    nome = Column(String, nullable=False)
+    ativo = Column(Boolean, default=True)
+    # Tolerância "sem cupom", aplicada a qualquer entrada dessa unidade que
+    # não vincule nenhum cupom fiscal conveniado.
+    tolerancia_padrao_minutos = Column(Integer, nullable=False, default=15)
+    criado_em = Column(DateTime, default=agora_utc)
+
+
+class PapelUsuario(str, enum.Enum):
+    dono = "dono"                        # vê/gerencia todas as unidades
+    gerente = "gerente"                  # vê/gerencia uma unidade específica
+    totem_entrada = "totem_entrada"
+    totem_validacao = "totem_validacao"
+    totem_saida = "totem_saida"
+
+
+class Usuario(Base):
+    __tablename__ = "usuarios"
+
+    id = Column(Integer, primary_key=True)
+    username = Column(String, unique=True, index=True, nullable=False)
+    senha_hash = Column(String, nullable=False)
+    nome = Column(String, nullable=False)
+    papel = Column(Enum(PapelUsuario), nullable=False)
+
+    # Obrigatório pra todo papel exceto "dono" (que enxerga todas as unidades).
+    unidade_id = Column(Integer, ForeignKey("unidades.id"), nullable=True)
+
+    # Permissão elevada e independente do papel -- só quem tem essa flag
+    # consegue liberar cancela manualmente ou limpar o pátio, mesmo sendo
+    # dono/gerente. Ver app/security.py exigir_liberacao_manual.
+    pode_liberar_manualmente = Column(Boolean, default=False)
+
+    ativo = Column(Boolean, default=True)
+    criado_em = Column(DateTime, default=agora_utc)
+
+    unidade = relationship("Unidade")
+
+
+class Sessao(Base):
+    """Token de login opaco -- revogável na hora (basta apagar a linha),
+    diferente de um JWT auto-contido que continuaria válido até expirar."""
+    __tablename__ = "sessoes"
+
+    id = Column(Integer, primary_key=True)
+    usuario_id = Column(Integer, ForeignKey("usuarios.id"), nullable=False)
+    token = Column(String, unique=True, index=True, nullable=False)
+    criado_em = Column(DateTime, default=agora_utc)
+    expira_em = Column(DateTime, nullable=False)
+
+    usuario = relationship("Usuario")
+
+
+class Estabelecimento(Base):
+    __tablename__ = "estabelecimentos"
+    __table_args__ = (
+        UniqueConstraint("unidade_id", "cnpj", name="uq_estabelecimento_por_unidade"),
+    )
+
+    id = Column(Integer, primary_key=True)
+    unidade_id = Column(Integer, ForeignKey("unidades.id"), nullable=False)
+    cnpj = Column(String(14), index=True, nullable=False)
     nome = Column(String, nullable=False)
     ativo = Column(Boolean, default=True)
     criado_em = Column(DateTime, default=agora_utc)
 
+    unidade = relationship("Unidade")
     regras_tolerancia = relationship("RegraTolerancia", back_populates="estabelecimento")
     cupons = relationship("CupomFiscal", back_populates="estabelecimento")
 
@@ -63,6 +137,7 @@ class Ticket(Base):
     __tablename__ = "tickets"
 
     id = Column(Integer, primary_key=True)
+    unidade_id = Column(Integer, ForeignKey("unidades.id"), nullable=False)
     codigo_barras = Column(String, unique=True, index=True, default=gerar_codigo_barras)
 
     data_hora_entrada = Column(DateTime, default=agora_utc)
@@ -81,6 +156,7 @@ class Ticket(Base):
     # facial (credenciado/mensalista) em vez do fluxo normal de ticket.
     credenciado_id = Column(Integer, ForeignKey("credenciados.id"), nullable=True)
 
+    unidade = relationship("Unidade")
     cupom_fiscal = relationship("CupomFiscal", back_populates="ticket", uselist=False)
     transacoes = relationship("Transacao", back_populates="ticket")
     credenciado = relationship("Credenciado", back_populates="tickets")
@@ -111,13 +187,10 @@ class RegraTolerancia(Base):
     )
 
     id = Column(Integer, primary_key=True)
-    # None = regra padrão global (sem cupom); só se aplica se
-    # estabelecimento_id também for None -- ver services.calcular_tolerancia_minutos.
+    estabelecimento_id = Column(Integer, ForeignKey("estabelecimentos.id"), nullable=False)
+    # None = "qualquer valor de compra desse estabelecimento".
     valor_minimo_compra = Column(Float, nullable=True)
     tolerancia_minutos = Column(Integer, nullable=False)
-    # None = regra padrão global. Preenchido = regra específica do contrato
-    # daquele estabelecimento conveniado.
-    estabelecimento_id = Column(Integer, ForeignKey("estabelecimentos.id"), nullable=True)
 
     estabelecimento = relationship("Estabelecimento", back_populates="regras_tolerancia")
 
@@ -141,8 +214,12 @@ class TipoCredenciado(str, enum.Enum):
 
 class Credenciado(Base):
     __tablename__ = "credenciados"
+    __table_args__ = (
+        UniqueConstraint("unidade_id", "identificador_facial", name="uq_credenciado_por_unidade"),
+    )
 
     id = Column(Integer, primary_key=True)
+    unidade_id = Column(Integer, ForeignKey("unidades.id"), nullable=False)
     nome = Column(String, nullable=False)
     documento = Column(String, nullable=True)
     placa = Column(String, nullable=True)
@@ -151,13 +228,14 @@ class Credenciado(Base):
 
     # Retornado pelo SDK de reconhecimento facial do totem -- identifica a
     # pessoa sem precisar de ticket/cupom físico.
-    identificador_facial = Column(String, unique=True, index=True, nullable=False)
+    identificador_facial = Column(String, index=True, nullable=False)
 
     ativo = Column(Boolean, default=True)
     # Só se aplica a mensalistas; None = nunca pagou / sem mensalidade ativa.
     data_validade = Column(DateTime, nullable=True)
     criado_em = Column(DateTime, default=agora_utc)
 
+    unidade = relationship("Unidade")
     tickets = relationship("Ticket", back_populates="credenciado")
     pagamentos = relationship("PagamentoMensalidade", back_populates="credenciado")
 
@@ -183,6 +261,7 @@ class TentativaCupomDuplicado(Base):
     __tablename__ = "tentativas_cupom_duplicado"
 
     id = Column(Integer, primary_key=True)
+    unidade_id = Column(Integer, ForeignKey("unidades.id"), nullable=False)
     chave_acesso_nfce = Column(String(44), nullable=False)
     codigo_barras_tentativa = Column(String, nullable=False)
     ticket_original_id = Column(Integer, ForeignKey("tickets.id"), nullable=True)
@@ -205,9 +284,23 @@ class LiberacaoManual(Base):
     __tablename__ = "liberacoes_manuais"
 
     id = Column(Integer, primary_key=True)
+    unidade_id = Column(Integer, ForeignKey("unidades.id"), nullable=False)
     cancela = Column(Enum(Cancela), nullable=False)
     motivo = Column(String, nullable=False)
     ticket_id = Column(Integer, ForeignKey("tickets.id"), nullable=True)
     data_hora = Column(DateTime, default=agora_utc)
 
     ticket = relationship("Ticket")
+
+
+class ExclusaoTicket(Base):
+    """Auditoria de exclusão de ticket avulso (ex: duplicado por engano,
+    ticket de teste). Guarda o código de barras como texto porque o ticket
+    em si é removido -- não dá pra manter uma FK para uma linha apagada."""
+    __tablename__ = "exclusoes_ticket"
+
+    id = Column(Integer, primary_key=True)
+    unidade_id = Column(Integer, ForeignKey("unidades.id"), nullable=False)
+    codigo_barras = Column(String, nullable=False)
+    motivo = Column(String, nullable=False)
+    data_hora = Column(DateTime, default=agora_utc)

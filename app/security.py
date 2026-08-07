@@ -1,70 +1,78 @@
 """
-Autenticação por chave de API fixa, uma por totem físico.
+Autenticação por login (usuário/senha), não mais por chave de API fixa.
 
-Cada endpoint só aceita a chave do totem responsável por ele (ver mapeamento
-em app/main.py) -- assim, se a chave de um totem vazar ou o equipamento for
-trocado, dá pra revogar/trocar só aquela chave sem afetar os outros totens.
+Cada requisição autenticada manda `Authorization: Bearer <token>`, obtido
+via POST /auth/login (ver app/auth.py). O token é opaco e fica guardado
+em `Sessao` -- revogar é só apagar a linha, sem precisar de blocklist.
 
-Sem as variáveis de ambiente configuradas, cada totem cai num valor padrão
-de desenvolvimento (só pra não travar o ambiente local/demo) -- troque todas
-elas no .env antes de ir para produção. Ver .env.example.
+As dependências abaixo são definidas como objetos de módulo (não fábricas
+chamadas inline nas rotas) de propósito: assim os testes conseguem fazer
+`app.dependency_overrides[exigir_totem_entrada] = ...` apontando pro
+mesmo objeto usado nas rotas -- se cada rota chamasse a fábrica na hora,
+cada uma criaria uma função diferente e o override não bateria em todas.
 """
-import os
-import secrets
 from typing import Optional
 
-from fastapi import Header, HTTPException, status
+from fastapi import Depends, Header, HTTPException, status
+from sqlalchemy.orm import Session
 
-_CHAVES_PADRAO_DEV = {
-    "entrada": ("API_KEY_ENTRADA", "dev-entrada-troque-em-producao"),
-    "validação": ("API_KEY_VALIDACAO", "dev-validacao-troque-em-producao"),
-    "saída": ("API_KEY_SAIDA", "dev-saida-troque-em-producao"),
-    "gestão": ("API_KEY_GESTAO", "dev-gestao-troque-em-producao"),
-    "liberação manual": ("API_KEY_LIBERACAO_MANUAL", "dev-liberacao-manual-troque-em-producao"),
-}
+from . import models
+from .database import get_db
+from .tempo import agora_utc
 
 
-def _chave_configurada(totem: str) -> str:
-    nome_env, padrao_dev = _CHAVES_PADRAO_DEV[totem]
-    return os.environ.get(nome_env, padrao_dev)
+def usuario_logado(
+    authorization: Optional[str] = Header(default=None), db: Session = Depends(get_db)
+) -> models.Usuario:
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Faça login para continuar")
+
+    token = authorization.removeprefix("Bearer ").strip()
+    sessao = db.query(models.Sessao).filter_by(token=token).first()
+    if not sessao or sessao.expira_em < agora_utc():
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Sessão inválida ou expirada, faça login novamente")
+
+    usuario = sessao.usuario
+    if not usuario or not usuario.ativo:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Usuário inativo")
+    return usuario
 
 
-def _validar(totem: str, x_api_key: Optional[str]) -> None:
-    chave_esperada = _chave_configurada(totem)
-    if not x_api_key or not secrets.compare_digest(x_api_key, chave_esperada):
+def _exigir_papel(*papeis_permitidos: models.PapelUsuario):
+    def dependencia(usuario: models.Usuario = Depends(usuario_logado)) -> models.Usuario:
+        if usuario.papel not in papeis_permitidos:
+            raise HTTPException(status.HTTP_403_FORBIDDEN, "Seu usuário não tem permissão para essa ação")
+        return usuario
+    return dependencia
+
+
+# Dependências nomeadas em nível de módulo -- ver docstring do arquivo
+# sobre por que isso importa pros overrides de teste.
+exigir_totem_entrada = _exigir_papel(models.PapelUsuario.totem_entrada)
+exigir_totem_validacao = _exigir_papel(models.PapelUsuario.totem_validacao)
+exigir_totem_saida = _exigir_papel(models.PapelUsuario.totem_saida)
+exigir_gestao = _exigir_papel(models.PapelUsuario.dono, models.PapelUsuario.gerente)
+
+
+def exigir_liberacao_manual(usuario: models.Usuario = Depends(exigir_gestao)) -> models.Usuario:
+    """Permissão elevada e independente do papel -- só quem tem a flag
+    pode_liberar_manualmente consegue abrir cancela na mão ou limpar pátio,
+    mesmo sendo dono/gerente."""
+    if not usuario.pode_liberar_manualmente:
         raise HTTPException(
-            status.HTTP_401_UNAUTHORIZED,
-            f"Chave de API do totem de {totem} inválida ou ausente",
+            status.HTTP_403_FORBIDDEN,
+            "Seu usuário não tem permissão para liberação manual/limpeza de pátio",
         )
+    return usuario
 
 
-def exigir_chave_entrada(x_api_key: Optional[str] = Header(default=None)):
-    _validar("entrada", x_api_key)
+def escopo_unidade(usuario: models.Usuario, unidade_id_query: Optional[int]) -> Optional[int]:
+    """Resolve qual unidade uma consulta de relatório deve enxergar.
 
-
-def exigir_chave_validacao(x_api_key: Optional[str] = Header(default=None)):
-    _validar("validação", x_api_key)
-
-
-def exigir_chave_saida(x_api_key: Optional[str] = Header(default=None)):
-    _validar("saída", x_api_key)
-
-
-def exigir_chave_gestao(x_api_key: Optional[str] = Header(default=None)):
-    """Chave do painel de gestão -- não deve ser configurada em nenhum totem."""
-    _validar("gestão", x_api_key)
-
-
-def exigir_chave_liberacao_manual(x_api_key: Optional[str] = Header(default=None)):
-    """Chave própria e mais restrita, separada da chave geral de gestão --
-    só quem tem essa chave consegue abrir cancela manualmente. Quem só
-    consulta relatórios (chave de gestão) não consegue acionar isso."""
-    _validar("liberação manual", x_api_key)
-
-
-def chaves_ainda_no_padrao_dev() -> list[str]:
-    """Usado só para avisar no startup quais chaves ainda não foram trocadas."""
-    return [
-        totem for totem, (nome_env, padrao_dev) in _CHAVES_PADRAO_DEV.items()
-        if os.environ.get(nome_env, padrao_dev) == padrao_dev
-    ]
+    Gerente nunca sai da própria unidade -- ignora qualquer valor vindo do
+    cliente, nunca confia em tenant id informado por quem já está preso a
+    uma unidade. Dono pode filtrar por uma unidade específica ou ver tudo
+    (retorno None = "geral", agrega todas as unidades)."""
+    if usuario.papel == models.PapelUsuario.dono:
+        return unidade_id_query
+    return usuario.unidade_id

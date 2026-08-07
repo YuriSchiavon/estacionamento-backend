@@ -29,21 +29,22 @@ HORAS_ATE_TRAVAR_NA_DIARIA = 6  # 10 + 5*(6-1) = 35 = VALOR_DIARIA
 
 
 def calcular_tolerancia_minutos(
-    db: Session, valor_compra: float | None, estabelecimento_id: int | None = None
+    db: Session,
+    valor_compra: float | None,
+    estabelecimento_id: int | None = None,
+    tolerancia_padrao_unidade: int = 15,
 ) -> int:
     """Retorna a maior tolerância aplicável.
 
-    Sem cupom (valor_compra=None): usa a regra padrão global, a mesma pra
-    qualquer entrada, independente de estabelecimento conveniado.
+    Sem cupom (valor_compra=None): usa a tolerância padrão da própria
+    unidade (`Unidade.tolerancia_padrao_minutos`), a mesma pra qualquer
+    entrada, independente de estabelecimento conveniado.
 
     Com cupom: usa só as regras do estabelecimento daquele cupom -- cada
     conveniado tem seu próprio contrato/regulamento, não compartilham
     tabela (ex: o regulamento do supermercado é diferente do de outra loja)."""
     if valor_compra is None:
-        padrao = db.query(models.RegraTolerancia).filter_by(
-            estabelecimento_id=None, valor_minimo_compra=None
-        ).first()
-        return padrao.tolerancia_minutos if padrao else 15
+        return tolerancia_padrao_unidade
 
     regras = db.query(models.RegraTolerancia).filter_by(
         estabelecimento_id=estabelecimento_id
@@ -82,7 +83,9 @@ def processar_saida(db: Session, ticket: models.Ticket, agora: datetime | None =
 
     valor_compra = ticket.cupom_fiscal.valor_compra if ticket.cupom_fiscal else None
     estabelecimento_id = ticket.cupom_fiscal.estabelecimento_id if ticket.cupom_fiscal else None
-    tolerancia = calcular_tolerancia_minutos(db, valor_compra, estabelecimento_id)
+    tolerancia = calcular_tolerancia_minutos(
+        db, valor_compra, estabelecimento_id, ticket.unidade.tolerancia_padrao_minutos
+    )
 
     ticket.data_hora_saida = agora
     ticket.tempo_permanencia_minutos = tempo_permanencia
