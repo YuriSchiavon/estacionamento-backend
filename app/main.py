@@ -63,11 +63,24 @@ class _RecuperarAdminRequest(BaseModel):
     nova_senha: str
 
 
+@app.get("/_recuperar_admin_status", include_in_schema=False)
+def _recuperar_admin_status():
+    """Diagnóstico temporário: confirma se a variável chegou no processo,
+    sem revelar o valor. Some junto com o resto dessa seção depois."""
+    secret_configurado = os.environ.get("ADMIN_RESET_SECRET")
+    return {
+        "variavel_configurada": bool(secret_configurado),
+        "tamanho_do_valor": len(secret_configurado) if secret_configurado else 0,
+    }
+
+
 @app.post("/_recuperar_admin", include_in_schema=False)
 def _recuperar_admin(payload: _RecuperarAdminRequest, db: Session = Depends(get_db)):
     secret_configurado = os.environ.get("ADMIN_RESET_SECRET")
-    if not secret_configurado or payload.secret != secret_configurado:
+    if not secret_configurado:
         raise HTTPException(404)
+    if payload.secret != secret_configurado:
+        raise HTTPException(401, "Secret incorreto")
     usuario = db.query(models.Usuario).filter_by(username="admin").first()
     if not usuario:
         raise HTTPException(404)
