@@ -8,6 +8,7 @@ Autenticação:
 - /gestao/* usa uma chave própria (API_KEY_GESTAO), pensada para o painel
   administrativo -- não deve ser configurada em nenhum totem.
 """
+import re
 from datetime import datetime
 from typing import List, Optional
 
@@ -23,6 +24,8 @@ from .security import (
     exigir_chave_saida,
 )
 from .tempo import agora_utc
+
+CNPJ_REGEX = re.compile(r"^\d{14}$")
 
 router = APIRouter()
 
@@ -257,3 +260,105 @@ def relatorio_liberacoes_manuais(db: Session = Depends(get_db)):
     return db.query(models.LiberacaoManual).order_by(
         models.LiberacaoManual.data_hora.desc()
     ).all()
+
+
+# ---------------------------------------------------------------------
+# ESTABELECIMENTOS CONVENIADOS -- cada um com seu próprio regulamento de
+# tolerância (contratos diferentes, regras diferentes). O CNPJ é conferido
+# contra o embutido na chave de acesso da NFC-e (ver app/nfce.py).
+# ---------------------------------------------------------------------
+@router.post(
+    "/gestao/estabelecimentos",
+    response_model=schemas.EstabelecimentoOut,
+    dependencies=[Depends(exigir_chave_gestao)],
+)
+def criar_estabelecimento(payload: schemas.EstabelecimentoIn, db: Session = Depends(get_db)):
+    if not CNPJ_REGEX.match(payload.cnpj):
+        raise HTTPException(422, "CNPJ precisa ter 14 dígitos numéricos, sem pontuação")
+
+    existente = db.query(models.Estabelecimento).filter_by(cnpj=payload.cnpj).first()
+    if existente:
+        raise HTTPException(409, "Já existe um estabelecimento com esse CNPJ")
+
+    estabelecimento = models.Estabelecimento(cnpj=payload.cnpj, nome=payload.nome)
+    db.add(estabelecimento)
+    db.commit()
+    db.refresh(estabelecimento)
+    return estabelecimento
+
+
+@router.get(
+    "/gestao/estabelecimentos",
+    response_model=List[schemas.EstabelecimentoOut],
+    dependencies=[Depends(exigir_chave_gestao)],
+)
+def listar_estabelecimentos(db: Session = Depends(get_db)):
+    return db.query(models.Estabelecimento).order_by(models.Estabelecimento.nome).all()
+
+
+@router.patch(
+    "/gestao/estabelecimentos/{estabelecimento_id}",
+    response_model=schemas.EstabelecimentoOut,
+    dependencies=[Depends(exigir_chave_gestao)],
+)
+def atualizar_estabelecimento(
+    estabelecimento_id: int, payload: schemas.EstabelecimentoUpdate, db: Session = Depends(get_db)
+):
+    estabelecimento = db.get(models.Estabelecimento, estabelecimento_id)
+    if not estabelecimento:
+        raise HTTPException(404, "Estabelecimento não encontrado")
+
+    for campo, valor in payload.model_dump(exclude_unset=True).items():
+        setattr(estabelecimento, campo, valor)
+
+    db.commit()
+    db.refresh(estabelecimento)
+    return estabelecimento
+
+
+@router.post(
+    "/gestao/estabelecimentos/{estabelecimento_id}/regras-tolerancia",
+    response_model=schemas.EstabelecimentoOut,
+    dependencies=[Depends(exigir_chave_gestao)],
+)
+def adicionar_regra_tolerancia(
+    estabelecimento_id: int, payload: schemas.RegraToleranciaIn, db: Session = Depends(get_db)
+):
+    estabelecimento = db.get(models.Estabelecimento, estabelecimento_id)
+    if not estabelecimento:
+        raise HTTPException(404, "Estabelecimento não encontrado")
+
+    existente = db.query(models.RegraTolerancia).filter_by(
+        estabelecimento_id=estabelecimento_id, valor_minimo_compra=payload.valor_minimo_compra
+    ).first()
+    if existente:
+        raise HTTPException(409, "Já existe uma regra com esse valor mínimo para este estabelecimento")
+
+    regra = models.RegraTolerancia(
+        estabelecimento_id=estabelecimento_id,
+        valor_minimo_compra=payload.valor_minimo_compra,
+        tolerancia_minutos=payload.tolerancia_minutos,
+    )
+    db.add(regra)
+    db.commit()
+    db.refresh(estabelecimento)
+    return estabelecimento
+
+
+@router.delete(
+    "/gestao/estabelecimentos/{estabelecimento_id}/regras-tolerancia/{regra_id}",
+    response_model=schemas.EstabelecimentoOut,
+    dependencies=[Depends(exigir_chave_gestao)],
+)
+def remover_regra_tolerancia(estabelecimento_id: int, regra_id: int, db: Session = Depends(get_db)):
+    regra = db.query(models.RegraTolerancia).filter_by(
+        id=regra_id, estabelecimento_id=estabelecimento_id
+    ).first()
+    if not regra:
+        raise HTTPException(404, "Regra não encontrada para este estabelecimento")
+
+    db.delete(regra)
+    db.commit()
+
+    estabelecimento = db.get(models.Estabelecimento, estabelecimento_id)
+    return estabelecimento

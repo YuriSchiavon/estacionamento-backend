@@ -2,6 +2,7 @@
 Cobre os relatórios do painel de gestão: tickets, financeiro e auditoria
 de tentativas de reuso de cupom fiscal.
 """
+from tests.conftest import CNPJ_ESTABELECIMENTO_TESTE, fabricar_chave_nfce
 
 
 def _emitir_ticket(client):
@@ -11,15 +12,16 @@ def _emitir_ticket(client):
 def test_tentativa_de_cupom_duplicado_fica_registrada_na_auditoria(client):
     ticket_1 = _emitir_ticket(client)
     ticket_2 = _emitir_ticket(client)
+    chave_auditada = fabricar_chave_nfce(CNPJ_ESTABELECIMENTO_TESTE, sufixo=3)
 
     client.post("/loja/validar-cupom", json={
         "codigo_barras": ticket_1["codigo_barras"],
-        "chave_acesso_nfce": "CHAVE-AUDITADA",
+        "chave_acesso_nfce": chave_auditada,
         "valor_compra": 20.0,
     })
     resp_duplicada = client.post("/loja/validar-cupom", json={
         "codigo_barras": ticket_2["codigo_barras"],
-        "chave_acesso_nfce": "CHAVE-AUDITADA",
+        "chave_acesso_nfce": chave_auditada,
         "valor_compra": 20.0,
     })
     assert resp_duplicada.status_code == 409
@@ -28,7 +30,7 @@ def test_tentativa_de_cupom_duplicado_fica_registrada_na_auditoria(client):
     assert auditoria.status_code == 200
     registros = auditoria.json()
     assert len(registros) == 1
-    assert registros[0]["chave_acesso_nfce"] == "CHAVE-AUDITADA"
+    assert registros[0]["chave_acesso_nfce"] == chave_auditada
     assert registros[0]["codigo_barras_tentativa"] == ticket_2["codigo_barras"]
 
 

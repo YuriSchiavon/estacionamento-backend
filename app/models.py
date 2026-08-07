@@ -3,10 +3,16 @@ Modelo de dados do sistema de controle de acesso do estacionamento.
 
 Tabelas:
 - Ticket: um registro por veículo, criado na entrada e fechado na saída.
+- Estabelecimento: um conveniado (ex: um contrato de supermercado, uma loja
+  de shopping) identificado pelo CNPJ. Cada um tem seu próprio conjunto de
+  regras de tolerância -- contratos diferentes, regulamentos diferentes.
 - CupomFiscal: nota fiscal (NFC-e) validada no totem de autoatendimento,
-  vinculada a um único ticket (chave de acesso é UNIQUE para impedir reuso).
-- RegraTolerancia: tabela de faixas de tolerância por valor de compra.
-  valor_minimo_compra = None representa a tolerância padrão (sem cupom).
+  vinculada a um único ticket (chave de acesso é UNIQUE para impedir reuso)
+  e a um Estabelecimento conveniado (identificado pelo CNPJ embutido na
+  própria chave de acesso -- não dá pra falsificar sem invalidar a chave).
+- RegraTolerancia: faixas de tolerância por valor de compra, por
+  estabelecimento. estabelecimento_id = None é a regra padrão global
+  (sem cupom), que vale pra qualquer entrada independente de conveniado.
 - Transacao: pagamentos efetuados (quando a permanência ultrapassa a tolerância).
 - Credenciado: pessoa reconhecida por identificador facial no totem, com
   acesso liberado sem passar pelo fluxo normal de ticket/tolerância/cupom.
@@ -18,13 +24,27 @@ Tabelas:
 import uuid
 
 from sqlalchemy import (
-    Column, String, DateTime, Float, Integer, ForeignKey, Enum, Boolean
+    Column, String, DateTime, Float, Integer, ForeignKey, Enum, Boolean,
+    UniqueConstraint,
 )
 from sqlalchemy.orm import relationship
 import enum
 
 from .database import Base
 from .tempo import agora_utc
+
+
+class Estabelecimento(Base):
+    __tablename__ = "estabelecimentos"
+
+    id = Column(Integer, primary_key=True)
+    cnpj = Column(String(14), unique=True, index=True, nullable=False)
+    nome = Column(String, nullable=False)
+    ativo = Column(Boolean, default=True)
+    criado_em = Column(DateTime, default=agora_utc)
+
+    regras_tolerancia = relationship("RegraTolerancia", back_populates="estabelecimento")
+    cupons = relationship("CupomFiscal", back_populates="estabelecimento")
 
 
 def gerar_codigo_barras() -> str:
@@ -71,22 +91,35 @@ class CupomFiscal(Base):
 
     id = Column(Integer, primary_key=True)
     chave_acesso_nfce = Column(String(44), unique=True, index=True, nullable=False)
-    cnpj_estabelecimento = Column(String, nullable=True)
+    # Derivado da própria chave de acesso na validação -- não é um dado
+    # declarado pelo totem, então não dá pra informar um CNPJ falso.
+    cnpj_estabelecimento = Column(String(14), nullable=False)
+    estabelecimento_id = Column(Integer, ForeignKey("estabelecimentos.id"), nullable=False)
     valor_compra = Column(Float, nullable=False)
     data_hora_emissao = Column(DateTime, nullable=True)
     data_hora_validacao = Column(DateTime, default=agora_utc)
 
     ticket_id = Column(Integer, ForeignKey("tickets.id"), unique=True)
     ticket = relationship("Ticket", back_populates="cupom_fiscal")
+    estabelecimento = relationship("Estabelecimento", back_populates="cupons")
 
 
 class RegraTolerancia(Base):
     __tablename__ = "regras_tolerancia"
+    __table_args__ = (
+        UniqueConstraint("estabelecimento_id", "valor_minimo_compra", name="uq_regra_por_estabelecimento"),
+    )
 
     id = Column(Integer, primary_key=True)
-    # None = regra padrão, aplicada quando não há cupom fiscal validado
-    valor_minimo_compra = Column(Float, nullable=True, unique=True)
+    # None = regra padrão global (sem cupom); só se aplica se
+    # estabelecimento_id também for None -- ver services.calcular_tolerancia_minutos.
+    valor_minimo_compra = Column(Float, nullable=True)
     tolerancia_minutos = Column(Integer, nullable=False)
+    # None = regra padrão global. Preenchido = regra específica do contrato
+    # daquele estabelecimento conveniado.
+    estabelecimento_id = Column(Integer, ForeignKey("estabelecimentos.id"), nullable=True)
+
+    estabelecimento = relationship("Estabelecimento", back_populates="regras_tolerancia")
 
 
 class Transacao(Base):

@@ -36,6 +36,37 @@ no banco (SQLite local, `estacionamento.db`) na primeira execução.
 | `GET /gestao/relatorio/cupons-duplicados` | Painel de gestão | Auditoria de tentativas de reuso de cupom fiscal |
 | `POST /gestao/liberacao-manual` | Painel de gestão | Libera uma cancela manualmente (fluxo automático falhou) |
 | `GET /gestao/relatorio/liberacoes-manuais` | Painel de gestão | Auditoria de liberações manuais |
+| `POST /gestao/estabelecimentos` | Painel de gestão | Cadastra um estabelecimento conveniado |
+| `GET /gestao/estabelecimentos` | Painel de gestão | Lista estabelecimentos e suas regras de tolerância |
+| `PATCH /gestao/estabelecimentos/{id}` | Painel de gestão | Edita dados / ativa / desativa |
+| `POST /gestao/estabelecimentos/{id}/regras-tolerancia` | Painel de gestão | Adiciona uma faixa de tolerância ao estabelecimento |
+| `DELETE /gestao/estabelecimentos/{id}/regras-tolerancia/{regra_id}` | Painel de gestão | Remove uma faixa de tolerância |
+
+## Estabelecimentos conveniados (multi-contrato)
+
+Pensado pra ir além de um único supermercado — shopping, condomínio
+comercial, qualquer lugar com vários estabelecimentos participando do
+mesmo estacionamento. Cada um cadastrado com seu próprio CNPJ **e seu
+próprio regulamento de tolerância** (contratos diferentes, regras
+diferentes — não tem tabela compartilhada).
+
+Como funciona a validação: o CNPJ do emitente já vem embutido nos dígitos
+7-20 da própria chave de acesso da NFC-e (padrão SEFAZ, 44 dígitos) — não
+é um dado que o totem declara, é extraído da chave lida no QR code, então
+não dá pra informar um CNPJ falso sem invalidar a chave inteira
+(`app/nfce.py`). Se o CNPJ extraído não bater com nenhum estabelecimento
+ativo cadastrado, o cupom é rejeitado (`403`) — cupom de fora não conta
+pra tolerância.
+
+**Cadastro 100% pelo painel de gestão** (`/gestao`, seção "Estabelecimentos
+conveniados") — CNPJ, nome, ativar/desativar, e adicionar/remover faixas
+de tolerância, sem precisar mexer em código.
+
+**Importante:** o estabelecimento inserido automaticamente na primeira
+execução (`app/seed.py`) usa um **CNPJ placeholder** (`00000000000000`)
+representando o contrato atual do supermercado. O servidor avisa no log
+até isso ser trocado pelo CNPJ real no painel — sem isso, nenhum cupom
+desse estabelecimento vai validar de verdade.
 
 ## Liberação manual de cancela (uso excepcional)
 

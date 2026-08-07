@@ -24,6 +24,7 @@ from sqlalchemy.orm import Session
 
 from . import models, schemas, services
 from .database import Base, engine, get_db
+from .nfce import extrair_cnpj_emitente
 from .rotas_gestao import router as rotas_gestao_router
 from .seed import seed
 from .security import chaves_ainda_no_padrao_dev, exigir_chave_entrada, exigir_chave_saida, exigir_chave_validacao
@@ -98,9 +99,22 @@ def validar_cupom(payload: schemas.ValidarCupomRequest, db: Session = Depends(ge
         db.commit()
         raise HTTPException(409, "Este cupom fiscal já foi validado em outro ticket")
 
+    try:
+        cnpj = extrair_cnpj_emitente(payload.chave_acesso_nfce)
+    except ValueError as erro:
+        raise HTTPException(422, str(erro))
+
+    estabelecimento = db.query(models.Estabelecimento).filter_by(cnpj=cnpj, ativo=True).first()
+    if not estabelecimento:
+        raise HTTPException(
+            403,
+            "Este cupom não é de um estabelecimento conveniado -- não conta para tolerância",
+        )
+
     cupom = models.CupomFiscal(
         chave_acesso_nfce=payload.chave_acesso_nfce,
-        cnpj_estabelecimento=payload.cnpj_estabelecimento,
+        cnpj_estabelecimento=cnpj,
+        estabelecimento_id=estabelecimento.id,
         valor_compra=payload.valor_compra,
         data_hora_emissao=payload.data_hora_emissao,
         ticket_id=ticket.id,

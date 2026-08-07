@@ -20,10 +20,12 @@ class TicketOut(BaseModel):
 
 class ValidarCupomRequest(BaseModel):
     codigo_barras: str          # código do ticket, lido no totem de autoatendimento
-    chave_acesso_nfce: str      # extraída do QR code da nota fiscal
+    chave_acesso_nfce: str      # extraída do QR code da nota fiscal (44 dígitos)
     valor_compra: float
-    cnpj_estabelecimento: Optional[str] = None
     data_hora_emissao: Optional[datetime] = None
+    # cnpj_estabelecimento não é mais um campo de entrada: é derivado da
+    # própria chave_acesso_nfce na validação, para não depender de um dado
+    # que o totem poderia informar errado (ou falsificado).
 
 
 class VerificarSaidaResponse(BaseModel):
@@ -121,6 +123,42 @@ class LiberacaoManualOut(BaseModel):
     motivo: str
     ticket_id: Optional[int]
     data_hora: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class RegraToleranciaIn(BaseModel):
+    # None = "qualquer cupom desse estabelecimento, sem valor mínimo"
+    valor_minimo_compra: Optional[float] = None
+    tolerancia_minutos: int
+
+
+class RegraToleranciaOut(BaseModel):
+    id: int
+    valor_minimo_compra: Optional[float]
+    tolerancia_minutos: int
+
+    class Config:
+        from_attributes = True
+
+
+class EstabelecimentoIn(BaseModel):
+    cnpj: str  # 14 dígitos, sem pontuação
+    nome: str
+
+
+class EstabelecimentoUpdate(BaseModel):
+    nome: Optional[str] = None
+    ativo: Optional[bool] = None
+
+
+class EstabelecimentoOut(BaseModel):
+    id: int
+    cnpj: str
+    nome: str
+    ativo: bool
+    regras_tolerancia: list[RegraToleranciaOut] = []
 
     class Config:
         from_attributes = True

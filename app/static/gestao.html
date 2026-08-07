@@ -214,6 +214,26 @@
 
 <main>
   <section class="card">
+    <h2>Estabelecimentos conveniados</h2>
+    <div class="desc">Cada estabelecimento tem seu próprio regulamento de tolerância (contratos diferentes). O CNPJ é conferido contra o embutido na chave de acesso da NFC-e lida no totem — cupom de fora não conta.</div>
+    <div class="grid-form">
+      <div>
+        <label>CNPJ (14 dígitos, sem pontuação)</label>
+        <input id="e-cnpj" placeholder="ex: 12345678000199" maxlength="14">
+      </div>
+      <div>
+        <label>Nome</label>
+        <input id="e-nome" placeholder="ex: Supermercado Central">
+      </div>
+      <div>
+        <button class="action" id="btn-cadastrar-estabelecimento" style="width:100%;">Cadastrar</button>
+      </div>
+    </div>
+    <div class="msg" id="msg-estabelecimento"></div>
+    <div id="lista-estabelecimentos" style="margin-top:20px;"></div>
+  </section>
+
+  <section class="card">
     <h2>Cadastrar credenciado / mensalista</h2>
     <div class="desc">O identificador facial é o que a câmera do totem retorna ao reconhecer a pessoa — aqui, para teste, pode ser qualquer texto único.</div>
     <div class="grid-form">
@@ -588,6 +608,108 @@ async function carregarLiberacoesManuais(){
 
 document.getElementById('btn-auditoria-liberacao').addEventListener('click', carregarLiberacoesManuais);
 
+async function carregarEstabelecimentos(){
+  const container = document.getElementById('lista-estabelecimentos');
+  try{
+    const lista = await api('GET', '/gestao/estabelecimentos');
+    if (!lista.length){
+      container.innerHTML = '<div class="empty">Nenhum estabelecimento cadastrado ainda.</div>';
+      return;
+    }
+    container.innerHTML = lista.map(e => `
+      <div style="border:1px solid var(--border); border-radius:10px; padding:16px; margin-bottom:12px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+          <div>
+            <strong style="color:var(--navy);">${e.nome}</strong>
+            <span style="color:var(--gray); font-size:12px;"> — CNPJ <code>${e.cnpj}</code></span>
+          </div>
+          <div>
+            ${badgeStatus(e.ativo)}
+            <button class="secundario" onclick="alternarAtivoEstabelecimento(${e.id}, ${e.ativo})">${e.ativo ? 'Desativar' : 'Ativar'}</button>
+          </div>
+        </div>
+        <table style="margin-top:10px;">
+          <thead><tr><th>Valor mínimo</th><th>Tolerância</th><th></th></tr></thead>
+          <tbody>
+            ${e.regras_tolerancia.length ? e.regras_tolerancia.map(r => `
+              <tr>
+                <td>${r.valor_minimo_compra != null ? 'R$ ' + r.valor_minimo_compra.toFixed(2) : 'qualquer valor'}</td>
+                <td>${r.tolerancia_minutos} min</td>
+                <td><button class="secundario" onclick="removerRegra(${e.id}, ${r.id})">Remover</button></td>
+              </tr>
+            `).join('') : '<tr><td colspan="3" class="empty">Nenhuma regra cadastrada — nenhum cupom desse estabelecimento vai liberar tolerância ainda.</td></tr>'}
+          </tbody>
+        </table>
+        <div style="display:flex; gap:8px; margin-top:10px; align-items:end; flex-wrap:wrap;">
+          <div><label>Valor mínimo (R$, vazio = qualquer valor)</label><input type="number" step="0.01" id="nova-regra-valor-${e.id}" style="width:160px;"></div>
+          <div><label>Tolerância (min)</label><input type="number" id="nova-regra-minutos-${e.id}" style="width:100px;"></div>
+          <button class="secundario" onclick="adicionarRegra(${e.id})">Adicionar regra</button>
+        </div>
+      </div>
+    `).join('');
+  }catch(err){
+    container.innerHTML = `<div class="msg err">${err.message}</div>`;
+  }
+}
+
+async function alternarAtivoEstabelecimento(id, ativoAtual){
+  try{
+    await api('PATCH', `/gestao/estabelecimentos/${id}`, { ativo: !ativoAtual });
+    carregarEstabelecimentos();
+  }catch(e){
+    alert(e.message);
+  }
+}
+
+async function adicionarRegra(estabelecimentoId){
+  const valorInput = document.getElementById(`nova-regra-valor-${estabelecimentoId}`);
+  const minutosInput = document.getElementById(`nova-regra-minutos-${estabelecimentoId}`);
+  const valor = valorInput.value === '' ? null : parseFloat(valorInput.value);
+  const minutos = parseInt(minutosInput.value, 10);
+  if (!minutos){
+    alert('Informe a tolerância em minutos.');
+    return;
+  }
+  try{
+    await api('POST', `/gestao/estabelecimentos/${estabelecimentoId}/regras-tolerancia`, {
+      valor_minimo_compra: valor, tolerancia_minutos: minutos,
+    });
+    carregarEstabelecimentos();
+  }catch(e){
+    alert(e.message);
+  }
+}
+
+async function removerRegra(estabelecimentoId, regraId){
+  try{
+    await api('DELETE', `/gestao/estabelecimentos/${estabelecimentoId}/regras-tolerancia/${regraId}`);
+    carregarEstabelecimentos();
+  }catch(e){
+    alert(e.message);
+  }
+}
+
+document.getElementById('btn-cadastrar-estabelecimento').addEventListener('click', async () => {
+  const msg = document.getElementById('msg-estabelecimento');
+  msg.className = 'msg';
+  msg.textContent = '';
+  try{
+    await api('POST', '/gestao/estabelecimentos', {
+      cnpj: document.getElementById('e-cnpj').value,
+      nome: document.getElementById('e-nome').value,
+    });
+    msg.className = 'msg ok';
+    msg.textContent = 'Cadastrado com sucesso.';
+    document.getElementById('e-cnpj').value = '';
+    document.getElementById('e-nome').value = '';
+    carregarEstabelecimentos();
+  }catch(e){
+    msg.className = 'msg err';
+    msg.textContent = e.message;
+  }
+});
+
 carregarCredenciados();
 carregarLiberacoesManuais();
+carregarEstabelecimentos();
 </script>

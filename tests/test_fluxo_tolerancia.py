@@ -6,6 +6,7 @@ from datetime import timedelta
 
 from app import models
 from app.tempo import agora_utc
+from tests.conftest import CNPJ_ESTABELECIMENTO_TESTE, fabricar_chave_nfce
 
 
 def _emitir_ticket(client):
@@ -61,7 +62,7 @@ def test_tolerancia_maior_com_cupom_de_valor_alto(client, db_session):
     ticket = _emitir_ticket(client)
     client.post("/loja/validar-cupom", json={
         "codigo_barras": ticket["codigo_barras"],
-        "chave_acesso_nfce": "CHAVE-UNICA-001",
+        "chave_acesso_nfce": fabricar_chave_nfce(CNPJ_ESTABELECIMENTO_TESTE, sufixo=1),
         "valor_compra": 50.0,  # >= 45 => 60 min de tolerância
     })
     _envelhecer_ticket(db_session, ticket["codigo_barras"], minutos=50)
@@ -76,17 +77,18 @@ def test_tolerancia_maior_com_cupom_de_valor_alto(client, db_session):
 def test_cupom_fiscal_duplicado_e_rejeitado(client):
     ticket_1 = _emitir_ticket(client)
     ticket_2 = _emitir_ticket(client)
+    chave_repetida = fabricar_chave_nfce(CNPJ_ESTABELECIMENTO_TESTE, sufixo=2)
 
     primeira = client.post("/loja/validar-cupom", json={
         "codigo_barras": ticket_1["codigo_barras"],
-        "chave_acesso_nfce": "CHAVE-REPETIDA",
+        "chave_acesso_nfce": chave_repetida,
         "valor_compra": 20.0,
     })
     assert primeira.status_code == 200
 
     segunda = client.post("/loja/validar-cupom", json={
         "codigo_barras": ticket_2["codigo_barras"],
-        "chave_acesso_nfce": "CHAVE-REPETIDA",
+        "chave_acesso_nfce": chave_repetida,
         "valor_compra": 20.0,
     })
     assert segunda.status_code == 409
