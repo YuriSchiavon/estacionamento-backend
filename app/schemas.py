@@ -1,7 +1,24 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Literal, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
+
+
+class ComDatasUTC(BaseModel):
+    """Datas no banco são salvas sem timezone (naive UTC -- ver
+    app/tempo.py). Sem marcar isso explicitamente antes de serializar, o
+    navegador interpreta a string ISO como horário local em vez de UTC, e
+    o horário mostrado sai errado (adiantado, já que o Brasil está atrás
+    de UTC). Toda resposta com campo de data deve herdar daqui em vez de
+    BaseModel."""
+
+    @model_validator(mode="after")
+    def _marcar_datas_como_utc(self):
+        for nome in type(self).model_fields:
+            valor = getattr(self, nome)
+            if isinstance(valor, datetime) and valor.tzinfo is None:
+                setattr(self, nome, valor.replace(tzinfo=timezone.utc))
+        return self
 
 
 class LoginRequest(BaseModel):
@@ -64,7 +81,7 @@ class UnidadeCriadaResponse(BaseModel):
     contas: list[ContaCriada]
 
 
-class TicketOut(BaseModel):
+class TicketOut(ComDatasUTC):
     id: int
     unidade_id: int
     codigo_barras: str
@@ -124,7 +141,7 @@ class CredenciadoUpdate(BaseModel):
     ativo: Optional[bool] = None
 
 
-class CredenciadoOut(BaseModel):
+class CredenciadoOut(ComDatasUTC):
     id: int
     unidade_id: int
     nome: str
@@ -159,7 +176,7 @@ class AcessoCredenciadoResponse(BaseModel):
     ticket_id: Optional[int] = None
 
 
-class TentativaCupomDuplicadoOut(BaseModel):
+class TentativaCupomDuplicadoOut(ComDatasUTC):
     id: int
     unidade_id: int
     chave_acesso_nfce: str
@@ -181,7 +198,7 @@ class LiberacaoManualRequest(BaseModel):
     unidade_id: Optional[int] = None
 
 
-class LiberacaoManualOut(BaseModel):
+class LiberacaoManualOut(ComDatasUTC):
     id: int
     unidade_id: int
     cancela: Optional[str]
@@ -246,7 +263,7 @@ class ExclusaoTicketRequest(BaseModel):
     motivo: str
 
 
-class ExclusaoTicketOut(BaseModel):
+class ExclusaoTicketOut(ComDatasUTC):
     id: int
     unidade_id: int
     codigo_barras: str
@@ -258,7 +275,7 @@ class ExclusaoTicketOut(BaseModel):
         from_attributes = True
 
 
-class ConciliacaoResponse(BaseModel):
+class ConciliacaoResponse(ComDatasUTC):
     """Achar a diferença entre tickets impressos, pagos e liberados.
 
     Isento (dentro da tolerância) não é "diferença" -- é o esperado. A
@@ -281,7 +298,7 @@ class ConciliacaoResponse(BaseModel):
     por_forma_pagamento: dict
 
 
-class DashboardResponse(BaseModel):
+class DashboardResponse(ComDatasUTC):
     """Visão operacional: movimento no período + pátio em tempo real
     (contagem "agora", independente do filtro de período)."""
     periodo_inicio: Optional[datetime]
@@ -344,7 +361,7 @@ class UsuarioUpdate(BaseModel):
     pode_liberar_manualmente: Optional[bool] = None
 
 
-class AuditoriaEvento(BaseModel):
+class AuditoriaEvento(ComDatasUTC):
     """Formato unificado pros três tipos de evento de auditoria hoje
     existentes (liberação manual, exclusão de ticket, cupom duplicado) --
     e espaço pra outros tipos de falha que surgirem depois."""
