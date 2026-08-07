@@ -420,6 +420,52 @@ def relatorio_tickets(
     return query.order_by(models.Ticket.data_hora_entrada.desc()).all()
 
 
+# ---------------------------------------------------------------------
+# PÁTIO -- visão do dia a dia (painel gerencial e tela de operação usam a
+# mesma rota). "estacionados" é o padrão -- o que está fisicamente lá
+# agora; os outros filtros olham o mesmo universo de tickets por outro
+# ângulo (já saiu, é de credenciado, já foi pago), não são exclusivos
+# entre si de verdade, mas a tela mostra um de cada vez.
+# ---------------------------------------------------------------------
+@router.get("/gestao/relatorio/patio", response_model=List[schemas.PatioItemOut])
+def relatorio_patio(
+    filtro: Literal["estacionados", "liberados", "credenciados", "pagos"] = "estacionados",
+    unidade_id: Optional[int] = None,
+    db: Session = Depends(get_db), usuario: models.Usuario = Depends(exigir_operacao),
+):
+    escopo = escopo_unidade(usuario, unidade_id)
+    query = db.query(models.Ticket)
+    if escopo is not None:
+        query = query.filter_by(unidade_id=escopo)
+
+    if filtro == "estacionados":
+        query = query.filter(models.Ticket.status != models.StatusTicket.finalizado)
+    elif filtro == "liberados":
+        query = query.filter(models.Ticket.status == models.StatusTicket.finalizado)
+    elif filtro == "credenciados":
+        query = query.filter(models.Ticket.credenciado_id.isnot(None))
+    elif filtro == "pagos":
+        query = query.join(models.Transacao)
+
+    tickets = query.order_by(models.Ticket.data_hora_entrada.desc()).limit(200).all()
+
+    return [
+        schemas.PatioItemOut(
+            id=t.id,
+            unidade_id=t.unidade_id,
+            codigo_barras=t.codigo_barras,
+            status=t.status.value,
+            data_hora_entrada=t.data_hora_entrada,
+            data_hora_saida=t.data_hora_saida,
+            valor_calculado=t.valor_calculado,
+            pago=bool(t.transacoes),
+            credenciado_nome=t.credenciado.nome if t.credenciado else None,
+            credenciado_tipo=t.credenciado.tipo.value if t.credenciado else None,
+        )
+        for t in tickets
+    ]
+
+
 @router.get("/gestao/relatorio/conciliacao", response_model=schemas.ConciliacaoResponse)
 def relatorio_conciliacao(
     inicio: Optional[datetime] = None, fim: Optional[datetime] = None, unidade_id: Optional[int] = None,

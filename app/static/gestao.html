@@ -312,6 +312,9 @@
         <label>Unidade</label>
         <select id="seletor-unidade" style="max-width:340px;"><option value="">Todas as unidades (geral)</option></select>
       </div>
+      <div id="filtro-aplicado-badge" style="margin-top:12px; font-size:13px; color:var(--ok); font-weight:600;">
+        ✓ Mostrando: Todas as unidades (geral)
+      </div>
     </section>
 
     <section class="card">
@@ -323,6 +326,30 @@
         <div><button class="action" id="btn-dashboard">Buscar</button></div>
       </div>
       <div class="resumo" id="resumo-dashboard"></div>
+    </section>
+
+    <section class="card">
+      <h2>Pátio</h2>
+      <div class="desc">O que está acontecendo agora -- estacionados no pátio, já liberados, de credenciados/mensalistas, ou já pagos.</div>
+      <div class="filtros">
+        <div>
+          <label>Ver</label>
+          <select id="pt-filtro">
+            <option value="estacionados">Estacionados no pátio</option>
+            <option value="liberados">Liberados</option>
+            <option value="credenciados">Credenciados</option>
+            <option value="pagos">Pagos</option>
+          </select>
+        </div>
+        <div><button class="action" id="btn-patio">Buscar</button></div>
+      </div>
+      <table>
+        <thead>
+          <tr><th>Código</th><th>Entrada</th><th>Saída</th><th>Status</th><th>Valor</th><th>Pago</th><th>Credenciado</th></tr>
+        </thead>
+        <tbody id="tabela-patio"></tbody>
+      </table>
+      <div class="empty" id="patio-vazio" style="display:none;">Nenhum ticket nesse filtro.</div>
     </section>
 
     <section class="card">
@@ -677,8 +704,19 @@ document.getElementById('btn-trocar-senha').addEventListener('click', async () =
   }
 });
 
+function atualizarBadgeFiltro(){
+  const badge = document.getElementById('filtro-aplicado-badge');
+  if (!unidadeFiltro){
+    badge.textContent = '✓ Mostrando: Todas as unidades (geral)';
+    return;
+  }
+  const unidade = listaUnidades.find(u => String(u.id) === String(unidadeFiltro));
+  badge.textContent = `✓ Mostrando: ${unidade ? unidade.nome : 'unidade #' + unidadeFiltro}`;
+}
+
 document.getElementById('seletor-unidade').addEventListener('change', (ev) => {
   unidadeFiltro = ev.target.value;
+  atualizarBadgeFiltro();
   carregarTudo();
 });
 
@@ -688,9 +726,14 @@ function preencherSelectsDeUnidade(){
     const select = document.getElementById(id);
     select.innerHTML = listaUnidades.map(u => `<option value="${u.id}">${u.nome}</option>`).join('');
   });
+  // Reconstruir o <select> apaga a seleção visual (o navegador volta pra
+  // primeira opção) -- preserva o valor atual do filtro pra não parecer
+  // que ele "desaplicou" sozinho ao cadastrar uma unidade nova, por exemplo.
   const seletorGeral = document.getElementById('seletor-unidade');
   seletorGeral.innerHTML = '<option value="">Todas (geral)</option>' +
     listaUnidades.map(u => `<option value="${u.id}">${u.nome}</option>`).join('');
+  seletorGeral.value = unidadeFiltro;
+  atualizarBadgeFiltro();
 }
 
 async function carregarUnidades(){
@@ -909,6 +952,37 @@ async function carregarDashboard(){
 }
 
 document.getElementById('btn-dashboard').addEventListener('click', carregarDashboard);
+
+async function carregarPatio(){
+  const tbody = document.getElementById('tabela-patio');
+  const vazio = document.getElementById('patio-vazio');
+  const filtro = document.getElementById('pt-filtro').value;
+  try{
+    const params = new URLSearchParams(query());
+    params.set('filtro', filtro);
+    const lista = await api('GET', `/gestao/relatorio/patio?${params.toString()}`);
+    tbody.innerHTML = '';
+    vazio.style.display = lista.length ? 'none' : 'block';
+    lista.forEach(t => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><code>${t.codigo_barras}</code></td>
+        <td>${fmtData(t.data_hora_entrada)}</td>
+        <td>${fmtData(t.data_hora_saida)}</td>
+        <td>${t.status}</td>
+        <td>R$ ${t.valor_calculado.toFixed(2)}</td>
+        <td>${t.pago ? '<span class="badge ativo">sim</span>' : '<span class="badge inativo">não</span>'}</td>
+        <td>${t.credenciado_nome ? `${t.credenciado_nome} (${t.credenciado_tipo})` : '—'}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }catch(e){
+    alert(e.message);
+  }
+}
+
+document.getElementById('btn-patio').addEventListener('click', carregarPatio);
+document.getElementById('pt-filtro').addEventListener('change', carregarPatio);
 
 function badgeTipoAuditoria(tipo){
   const nomes = {
@@ -1235,6 +1309,7 @@ function carregarTudo(){
   carregarAuditoria();
   carregarEstabelecimentos();
   carregarDashboard();
+  carregarPatio();
   carregarConciliacao();
   carregarUsuarios();
 }

@@ -176,6 +176,7 @@
 <main id="tela-operacao" style="display:none;">
   <div class="tabs">
     <button class="tab-btn active" data-tab="entrada">Emitir Ticket</button>
+    <button class="tab-btn" data-tab="patio">Pátio</button>
     <button class="tab-btn" data-tab="loja">Validar Cupom</button>
     <button class="tab-btn" data-tab="saida">Verificar Saída</button>
     <button class="tab-btn" data-tab="pagamento">Pagamento</button>
@@ -188,6 +189,20 @@
     <div class="desc">Cliente chegou na entrada e precisa do ticket.</div>
     <button class="action" id="btn-entrada">Emitir ticket</button>
     <div class="result" id="result-entrada"></div>
+  </section>
+
+  <section class="panel" id="panel-patio">
+    <h2>Pátio</h2>
+    <div class="desc">O que está acontecendo agora.</div>
+    <label>Ver</label>
+    <select id="pt-filtro">
+      <option value="estacionados">Estacionados no pátio</option>
+      <option value="liberados">Liberados</option>
+      <option value="credenciados">Credenciados</option>
+      <option value="pagos">Pagos</option>
+    </select>
+    <button class="action" id="btn-patio">Buscar</button>
+    <div class="lista-tickets" id="lista-patio"></div>
   </section>
 
   <section class="panel" id="panel-loja">
@@ -524,4 +539,34 @@ document.getElementById('btn-consulta').addEventListener('click', async () => {
     btn.disabled = false;
   }
 });
+
+async function carregarPatio(){
+  const btn = document.getElementById('btn-patio');
+  const lista = document.getElementById('lista-patio');
+  btn.disabled = true;
+  try{
+    const filtro = document.getElementById('pt-filtro').value;
+    const dados = await chamarApi('GET', `/gestao/relatorio/patio?filtro=${filtro}`);
+    if (dados.length === 0){
+      lista.innerHTML = '<div class="item">Nenhum ticket nesse filtro.</div>';
+    }else{
+      lista.innerHTML = dados.map(t => `
+        <div class="item">
+          <span>
+            <b>${t.codigo_barras}</b> — entrada ${new Date(t.data_hora_entrada).toLocaleString('pt-BR')}
+            ${t.credenciado_nome ? ` — ${t.credenciado_nome} (${t.credenciado_tipo})` : ''}
+          </span>
+          <span>${t.status}${t.pago ? ' · pago' : ''} · R$ ${t.valor_calculado.toFixed(2)}</span>
+        </div>
+      `).join('');
+    }
+  }catch(e){
+    lista.innerHTML = `<div class="item">${e.message}</div>`;
+  }finally{
+    btn.disabled = false;
+  }
+}
+
+document.getElementById('btn-patio').addEventListener('click', carregarPatio);
+document.getElementById('pt-filtro').addEventListener('change', carregarPatio);
 </script>

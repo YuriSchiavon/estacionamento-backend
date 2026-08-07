@@ -96,6 +96,22 @@ class TicketOut(ComDatasUTC):
         from_attributes = True
 
 
+class PatioItemOut(ComDatasUTC):
+    """Uma linha da tela de pátio -- ticket normal ou de credenciado,
+    com o suficiente pra saber se já pagou e se é de credenciado/
+    mensalista, sem precisar de outra consulta."""
+    id: int
+    unidade_id: int
+    codigo_barras: str
+    status: str
+    data_hora_entrada: datetime
+    data_hora_saida: Optional[datetime]
+    valor_calculado: float
+    pago: bool
+    credenciado_nome: Optional[str] = None
+    credenciado_tipo: Optional[str] = None
+
+
 class ValidarCupomRequest(BaseModel):
     codigo_barras: str          # código do ticket, lido no totem de autoatendimento
     chave_acesso_nfce: str      # extraída do QR code da nota fiscal (44 dígitos)
