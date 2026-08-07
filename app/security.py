@@ -20,6 +20,7 @@ _CHAVES_PADRAO_DEV = {
     "validação": ("API_KEY_VALIDACAO", "dev-validacao-troque-em-producao"),
     "saída": ("API_KEY_SAIDA", "dev-saida-troque-em-producao"),
     "gestão": ("API_KEY_GESTAO", "dev-gestao-troque-em-producao"),
+    "liberação manual": ("API_KEY_LIBERACAO_MANUAL", "dev-liberacao-manual-troque-em-producao"),
 }
 
 
@@ -52,6 +53,13 @@ def exigir_chave_saida(x_api_key: Optional[str] = Header(default=None)):
 def exigir_chave_gestao(x_api_key: Optional[str] = Header(default=None)):
     """Chave do painel de gestão -- não deve ser configurada em nenhum totem."""
     _validar("gestão", x_api_key)
+
+
+def exigir_chave_liberacao_manual(x_api_key: Optional[str] = Header(default=None)):
+    """Chave própria e mais restrita, separada da chave geral de gestão --
+    só quem tem essa chave consegue abrir cancela manualmente. Quem só
+    consulta relatórios (chave de gestão) não consegue acionar isso."""
+    _validar("liberação manual", x_api_key)
 
 
 def chaves_ainda_no_padrao_dev() -> list[str]:

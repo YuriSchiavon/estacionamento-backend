@@ -154,3 +154,27 @@ class TentativaCupomDuplicado(Base):
     codigo_barras_tentativa = Column(String, nullable=False)
     ticket_original_id = Column(Integer, ForeignKey("tickets.id"), nullable=True)
     data_hora = Column(DateTime, default=agora_utc)
+
+
+class Cancela(str, enum.Enum):
+    entrada = "entrada"
+    saida = "saida"
+
+
+class LiberacaoManual(Base):
+    """Auditoria: toda liberação de cancela feita manualmente pelo painel de
+    gestão (em vez do fluxo automático) fica registrada aqui -- qual cancela,
+    motivo obrigatório e quando aconteceu.
+
+    ticket_id é opcional de propósito: a liberação manual existe justamente
+    para os casos em que o ticket falhou ou nem chegou a existir (ex: totem
+    travou, impressora falhou) -- não pode depender de um ticket válido."""
+    __tablename__ = "liberacoes_manuais"
+
+    id = Column(Integer, primary_key=True)
+    cancela = Column(Enum(Cancela), nullable=False)
+    motivo = Column(String, nullable=False)
+    ticket_id = Column(Integer, ForeignKey("tickets.id"), nullable=True)
+    data_hora = Column(DateTime, default=agora_utc)
+
+    ticket = relationship("Ticket")

@@ -169,6 +169,32 @@
   .filtros label{margin-bottom:4px;}
   .filtros > div{min-width:200px;}
   .empty{color:#9AA3B2;font-size:13px;}
+  .card.perigo{border-color:var(--danger);border-width:2px;}
+  .card.perigo h2{color:var(--danger);}
+  textarea{
+    width:100%;
+    padding:9px 11px;
+    border:1px solid var(--border);
+    border-radius:8px;
+    font-family:inherit;
+    font-size:13px;
+    color:var(--navy);
+    background:#fff;
+    resize:vertical;
+    min-height:60px;
+  }
+  button.perigo{
+    background:var(--danger);
+    color:#fff;
+    border:none;
+    padding:10px 16px;
+    border-radius:8px;
+    font-family:inherit;
+    font-weight:700;
+    font-size:13px;
+    cursor:pointer;
+  }
+  button.perigo:hover{filter:brightness(0.92);}
 </style>
 
 <header>
@@ -182,6 +208,8 @@
 <div class="chaves-bar">
   <strong>Chave de gestão:</strong>
   <input id="chave-gestao" placeholder="X-API-Key">
+  <strong>Chave de liberação manual:</strong>
+  <input id="chave-liberacao" placeholder="X-API-Key">
 </div>
 
 <main>
@@ -238,6 +266,41 @@
     <div class="empty" id="credenciados-vazio" style="display:none;">Nenhum credenciado cadastrado ainda.</div>
   </section>
 
+  <section class="card perigo">
+    <h2>Liberação manual de cancela</h2>
+    <div class="desc">Use só quando o fluxo automático falhou (ex: totem travou, ticket não foi emitido). Exige a chave separada de liberação manual — quem só tem a chave de gestão não consegue acionar isso. Toda liberação fica registrada na auditoria abaixo.</div>
+    <div class="grid-form">
+      <div>
+        <label>Cancela</label>
+        <select id="lm-cancela">
+          <option value="entrada">Entrada</option>
+          <option value="saida">Saída</option>
+        </select>
+      </div>
+      <div>
+        <label>Ticket relacionado (opcional)</label>
+        <input id="lm-ticket-id" type="number" placeholder="ID do ticket, se existir">
+      </div>
+    </div>
+    <label style="margin-top:12px;">Motivo (obrigatório)</label>
+    <textarea id="lm-motivo" placeholder="Descreva por que a liberação manual é necessária"></textarea>
+    <button class="perigo" id="btn-liberacao-manual" style="margin-top:14px;">Liberar cancela manualmente</button>
+    <div class="msg" id="msg-liberacao-manual"></div>
+  </section>
+
+  <section class="card">
+    <h2>Auditoria — liberações manuais</h2>
+    <div class="desc">Toda liberação manual de cancela feita pelo painel, com motivo e horário.</div>
+    <button class="action" id="btn-auditoria-liberacao">Atualizar</button>
+    <table>
+      <thead>
+        <tr><th>Cancela</th><th>Motivo</th><th>Ticket</th><th>Quando</th></tr>
+      </thead>
+      <tbody id="tabela-liberacao-manual"></tbody>
+    </table>
+    <div class="empty" id="liberacao-manual-vazio" style="display:none;">Nenhuma liberação manual registrada.</div>
+  </section>
+
   <section class="card">
     <h2>Relatório de tickets</h2>
     <div class="filtros">
@@ -284,8 +347,13 @@ const inputChave = document.getElementById('chave-gestao');
 inputChave.value = localStorage.getItem('pk_gestao') || CHAVE_GESTAO_PADRAO_DEV;
 inputChave.addEventListener('change', () => localStorage.setItem('pk_gestao', inputChave.value));
 
-async function api(metodo, url, body){
-  const opts = { method: metodo, headers: { 'X-API-Key': inputChave.value } };
+const CHAVE_LIBERACAO_PADRAO_DEV = 'dev-liberacao-manual-troque-em-producao';
+const inputChaveLiberacao = document.getElementById('chave-liberacao');
+inputChaveLiberacao.value = localStorage.getItem('pk_liberacao') || CHAVE_LIBERACAO_PADRAO_DEV;
+inputChaveLiberacao.addEventListener('change', () => localStorage.setItem('pk_liberacao', inputChaveLiberacao.value));
+
+async function api(metodo, url, body, chave){
+  const opts = { method: metodo, headers: { 'X-API-Key': chave || inputChave.value } };
   if (body){
     opts.headers['Content-Type'] = 'application/json';
     opts.body = JSON.stringify(body);
@@ -461,5 +529,65 @@ document.getElementById('btn-auditoria').addEventListener('click', async () => {
   }
 });
 
+document.getElementById('btn-liberacao-manual').addEventListener('click', async () => {
+  const msg = document.getElementById('msg-liberacao-manual');
+  msg.className = 'msg';
+  msg.textContent = '';
+
+  const cancela = document.getElementById('lm-cancela').value;
+  const motivo = document.getElementById('lm-motivo').value.trim();
+  const ticketIdRaw = document.getElementById('lm-ticket-id').value;
+
+  if (!motivo){
+    msg.className = 'msg err';
+    msg.textContent = 'Informe o motivo antes de liberar.';
+    return;
+  }
+
+  const confirmado = confirm(
+    `Confirma a liberação MANUAL da cancela de ${cancela}?\n\nMotivo: ${motivo}\n\nIsso abre a cancela fisicamente e fica registrado na auditoria.`
+  );
+  if (!confirmado) return;
+
+  try{
+    const payload = { cancela, motivo };
+    if (ticketIdRaw) payload.ticket_id = parseInt(ticketIdRaw, 10);
+    await api('POST', '/gestao/liberacao-manual', payload, inputChaveLiberacao.value);
+    msg.className = 'msg ok';
+    msg.textContent = `Cancela de ${cancela} liberada manualmente.`;
+    document.getElementById('lm-motivo').value = '';
+    document.getElementById('lm-ticket-id').value = '';
+    carregarLiberacoesManuais();
+  }catch(e){
+    msg.className = 'msg err';
+    msg.textContent = e.message;
+  }
+});
+
+async function carregarLiberacoesManuais(){
+  const tbody = document.getElementById('tabela-liberacao-manual');
+  const vazio = document.getElementById('liberacao-manual-vazio');
+  try{
+    const lista = await api('GET', '/gestao/relatorio/liberacoes-manuais');
+    tbody.innerHTML = '';
+    vazio.style.display = lista.length ? 'none' : 'block';
+    lista.forEach(l => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${l.cancela}</td>
+        <td>${l.motivo}</td>
+        <td>${l.ticket_id ? '#' + l.ticket_id : '—'}</td>
+        <td>${fmtData(l.data_hora)}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }catch(e){
+    alert(e.message);
+  }
+}
+
+document.getElementById('btn-auditoria-liberacao').addEventListener('click', carregarLiberacoesManuais);
+
 carregarCredenciados();
+carregarLiberacoesManuais();
 </script>

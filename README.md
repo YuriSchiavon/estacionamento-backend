@@ -34,6 +34,23 @@ no banco (SQLite local, `estacionamento.db`) na primeira execução.
 | `GET /gestao/relatorio/tickets` | Painel de gestão | Lista tickets por período |
 | `GET /gestao/relatorio/financeiro` | Painel de gestão | Conciliação financeira por período e forma de pagamento |
 | `GET /gestao/relatorio/cupons-duplicados` | Painel de gestão | Auditoria de tentativas de reuso de cupom fiscal |
+| `POST /gestao/liberacao-manual` | Painel de gestão | Libera uma cancela manualmente (fluxo automático falhou) |
+| `GET /gestao/relatorio/liberacoes-manuais` | Painel de gestão | Auditoria de liberações manuais |
+
+## Liberação manual de cancela (uso excepcional)
+
+Existe pra cobrir os casos em que o fluxo automático falha (totem travou,
+ticket não foi emitido, leitor com defeito) — abre a cancela na mão, pelo
+painel de gestão, sem depender de um ticket válido existir.
+
+Duas proteções de propósito, por ser uma ação com efeito físico real:
+
+- **Chave própria** (`API_KEY_LIBERACAO_MANUAL`), separada da chave geral
+  de gestão — quem só consulta relatórios não consegue acionar isso.
+- **Motivo obrigatório** e **registro de auditoria** (`app/models.py`
+  `LiberacaoManual`) — toda liberação manual fica rastreada: qual cancela,
+  por quê, quando, e o ticket relacionado (se houver — o vínculo é
+  opcional, já que às vezes o próprio ticket é o motivo da falha).
 
 ## Credenciados e mensalistas (acesso por reconhecimento facial)
 

@@ -11,7 +11,13 @@ from fastapi.testclient import TestClient
 from app.main import app
 from app.database import Base, get_db
 from app.seed import REGRAS
-from app.security import exigir_chave_entrada, exigir_chave_gestao, exigir_chave_saida, exigir_chave_validacao
+from app.security import (
+    exigir_chave_entrada,
+    exigir_chave_gestao,
+    exigir_chave_liberacao_manual,
+    exigir_chave_saida,
+    exigir_chave_validacao,
+)
 from app import models
 
 # Estes testes cobrem regra de negócio, não autenticação -- a autenticação
@@ -20,6 +26,7 @@ app.dependency_overrides[exigir_chave_entrada] = lambda: None
 app.dependency_overrides[exigir_chave_validacao] = lambda: None
 app.dependency_overrides[exigir_chave_saida] = lambda: None
 app.dependency_overrides[exigir_chave_gestao] = lambda: None
+app.dependency_overrides[exigir_chave_liberacao_manual] = lambda: None
 
 engine = create_engine(
     "sqlite:///:memory:",

@@ -16,7 +16,12 @@ from sqlalchemy.orm import Session
 
 from . import credenciamento, models, schemas
 from .database import get_db
-from .security import exigir_chave_entrada, exigir_chave_gestao, exigir_chave_saida
+from .security import (
+    exigir_chave_entrada,
+    exigir_chave_gestao,
+    exigir_chave_liberacao_manual,
+    exigir_chave_saida,
+)
 from .tempo import agora_utc
 
 router = APIRouter()
@@ -205,4 +210,50 @@ def relatorio_financeiro(inicio: Optional[datetime] = None, fim: Optional[dateti
 def relatorio_cupons_duplicados(db: Session = Depends(get_db)):
     return db.query(models.TentativaCupomDuplicado).order_by(
         models.TentativaCupomDuplicado.data_hora.desc()
+    ).all()
+
+
+# ---------------------------------------------------------------------
+# LIBERAÇÃO MANUAL -- chave própria, separada da chave geral de gestão.
+# Não depende de um ticket válido existir (o ticket pode ser o problema).
+# ---------------------------------------------------------------------
+@router.post(
+    "/gestao/liberacao-manual",
+    response_model=schemas.LiberacaoManualOut,
+    dependencies=[Depends(exigir_chave_liberacao_manual)],
+)
+def liberar_manualmente(payload: schemas.LiberacaoManualRequest, db: Session = Depends(get_db)):
+    motivo = payload.motivo.strip()
+    if not motivo:
+        raise HTTPException(422, "Motivo é obrigatório para liberação manual")
+
+    ticket = None
+    if payload.ticket_id is not None:
+        ticket = db.get(models.Ticket, payload.ticket_id)
+        if not ticket:
+            raise HTTPException(404, "Ticket informado não encontrado")
+        if ticket.status != models.StatusTicket.finalizado:
+            if not ticket.data_hora_saida:
+                ticket.data_hora_saida = agora_utc()
+            ticket.status = models.StatusTicket.finalizado
+
+    liberacao = models.LiberacaoManual(
+        cancela=payload.cancela,
+        motivo=motivo,
+        ticket_id=ticket.id if ticket else None,
+    )
+    db.add(liberacao)
+    db.commit()
+    db.refresh(liberacao)
+    return liberacao
+
+
+@router.get(
+    "/gestao/relatorio/liberacoes-manuais",
+    response_model=List[schemas.LiberacaoManualOut],
+    dependencies=[Depends(exigir_chave_gestao)],
+)
+def relatorio_liberacoes_manuais(db: Session = Depends(get_db)):
+    return db.query(models.LiberacaoManual).order_by(
+        models.LiberacaoManual.data_hora.desc()
     ).all()

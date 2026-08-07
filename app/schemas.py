@@ -107,3 +107,20 @@ class RelatorioFinanceiroResponse(BaseModel):
     total_arrecadado: float
     por_forma_pagamento: dict
     quantidade_transacoes: int
+
+
+class LiberacaoManualRequest(BaseModel):
+    cancela: Literal["entrada", "saida"]
+    motivo: str  # justificativa obrigatória, fica registrada na auditoria
+    ticket_id: Optional[int] = None  # opcional: nem sempre existe um ticket válido
+
+
+class LiberacaoManualOut(BaseModel):
+    id: int
+    cancela: str
+    motivo: str
+    ticket_id: Optional[int]
+    data_hora: datetime
+
+    class Config:
+        from_attributes = True
