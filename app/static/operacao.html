@@ -139,6 +139,7 @@
   </div>
   <div class="quem-esta-logado" id="quem-logado" style="display:none;">
     <span>Logado como <b id="nome-logado"></b></span>
+    <button class="btn-sair" id="btn-trocar-senha">Trocar senha</button>
     <button class="btn-sair" id="btn-sair">Sair</button>
   </div>
 </header>
@@ -296,6 +297,27 @@ document.getElementById('btn-sair').addEventListener('click', async () => {
   sessao = null;
   localStorage.removeItem('sessao_operacao');
   mostrarTela();
+});
+
+document.getElementById('btn-trocar-senha').addEventListener('click', async () => {
+  const senhaAtual = prompt('Senha atual:');
+  if (!senhaAtual) return;
+  const novaSenha = prompt('Nova senha (mínimo 6 caracteres):');
+  if (!novaSenha) return;
+  try{
+    // Chamada direta (não usa chamarApi()) -- "senha atual incorreta"
+    // também é 401, e chamarApi() trataria isso como sessão expirada.
+    const resp = await fetch(API + '/auth/trocar-senha', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sessao.token}` },
+      body: JSON.stringify({ senha_atual: senhaAtual, nova_senha: novaSenha }),
+    });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.detail || 'Erro desconhecido');
+    alert('Senha alterada com sucesso.');
+  }catch(e){
+    alert(e.message);
+  }
 });
 
 document.querySelectorAll('.tab-btn').forEach(btn => {

@@ -623,7 +623,15 @@ document.getElementById('btn-trocar-senha').addEventListener('click', async () =
   const novaSenha = prompt('Nova senha (mínimo 6 caracteres):');
   if (!novaSenha) return;
   try{
-    await api('POST', '/auth/trocar-senha', { senha_atual: senhaAtual, nova_senha: novaSenha });
+    // Chamada direta (não usa api()) -- "senha atual incorreta" também é
+    // 401, e api() trataria isso como sessão expirada e deslogaria à toa.
+    const resp = await fetch('/auth/trocar-senha', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sessao.token}` },
+      body: JSON.stringify({ senha_atual: senhaAtual, nova_senha: novaSenha }),
+    });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.detail || 'Erro desconhecido');
     alert('Senha alterada com sucesso.');
   }catch(e){
     alert(e.message);
