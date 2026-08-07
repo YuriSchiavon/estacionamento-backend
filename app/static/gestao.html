@@ -308,9 +308,12 @@
     <section class="card" id="secao-filtro-unidade" style="display:none; border-color:var(--navy); border-width:2px;">
       <h2>Visualizando</h2>
       <div class="desc">Tudo o que aparece abaixo (dashboard, conciliação, credenciados, usuários, auditoria, tickets) respeita este filtro.</div>
-      <div>
-        <label>Unidade</label>
-        <select id="seletor-unidade" style="max-width:340px;"><option value="">Todas as unidades (geral)</option></select>
+      <div class="filtros">
+        <div>
+          <label>Unidade</label>
+          <select id="seletor-unidade" style="max-width:340px;"><option value="">Todas as unidades (geral)</option></select>
+        </div>
+        <div><button class="action" id="btn-aplicar-filtro-unidade">Aplicar filtro</button></div>
       </div>
       <div id="filtro-aplicado-badge" style="margin-top:12px; font-size:13px; color:var(--ok); font-weight:600;">
         ✓ Mostrando: Todas as unidades (geral)
@@ -714,8 +717,8 @@ function atualizarBadgeFiltro(){
   badge.textContent = `✓ Mostrando: ${unidade ? unidade.nome : 'unidade #' + unidadeFiltro}`;
 }
 
-document.getElementById('seletor-unidade').addEventListener('change', (ev) => {
-  unidadeFiltro = ev.target.value;
+document.getElementById('btn-aplicar-filtro-unidade').addEventListener('click', () => {
+  unidadeFiltro = document.getElementById('seletor-unidade').value;
   atualizarBadgeFiltro();
   carregarTudo();
 });
@@ -902,6 +905,7 @@ async function excluirTicket(ticketId, codigoBarras){
     await api('POST', `/gestao/tickets/${ticketId}/excluir`, { motivo });
     carregarRelatorioTickets();
     carregarAuditoria();
+    carregarPatio();
   }catch(e){
     alert(e.message);
   }
@@ -982,7 +986,6 @@ async function carregarPatio(){
 }
 
 document.getElementById('btn-patio').addEventListener('click', carregarPatio);
-document.getElementById('pt-filtro').addEventListener('change', carregarPatio);
 
 function badgeTipoAuditoria(tipo){
   const nomes = {
@@ -1019,7 +1022,6 @@ async function carregarAuditoria(){
 }
 
 document.getElementById('btn-auditoria').addEventListener('click', carregarAuditoria);
-document.getElementById('ad-tipo').addEventListener('change', carregarAuditoria);
 
 document.getElementById('btn-liberacao-manual').addEventListener('click', async () => {
   const msg = document.getElementById('msg-liberacao-manual');
@@ -1054,6 +1056,8 @@ document.getElementById('btn-liberacao-manual').addEventListener('click', async 
     document.getElementById('lm-motivo').value = '';
     document.getElementById('lm-ticket-id').value = '';
     carregarAuditoria();
+    carregarPatio();
+    carregarRelatorioTickets();
   }catch(e){
     msg.className = 'msg err';
     msg.textContent = e.message;
@@ -1195,6 +1199,8 @@ document.getElementById('btn-limpar-patio').addEventListener('click', async () =
     msg.textContent = `${resultado.length} ticket(s) finalizado(s).`;
     document.getElementById('lp-motivo').value = '';
     carregarAuditoria();
+    carregarPatio();
+    carregarRelatorioTickets();
   }catch(e){
     msg.className = 'msg err';
     msg.textContent = e.message;
