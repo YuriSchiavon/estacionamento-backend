@@ -327,7 +327,10 @@ function mostrarTela(){
   }
   document.getElementById('quem-logado').style.display = 'flex';
   document.getElementById('nome-logado').textContent = `${sessao.nome} (${sessao.papel})`;
-  document.getElementById('tab-liberacao').style.display = sessao.pode_liberar_manualmente ? 'inline-block' : 'none';
+  // dono/gerente de operações sempre têm essa permissão no backend agora,
+  // independente da flag (ver security.exigir_liberacao_manual).
+  const nivelDono = sessao.papel === 'dono' || sessao.papel === 'gerente_operacoes';
+  document.getElementById('tab-liberacao').style.display = (sessao.pode_liberar_manualmente || nivelDono) ? 'inline-block' : 'none';
 
   if (!sessao.unidade_operacional_id){
     document.getElementById('tela-selecao-unidade').style.display = 'block';

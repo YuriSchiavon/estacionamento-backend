@@ -91,6 +91,13 @@ class TicketOut(ComDatasUTC):
     tempo_permanencia_minutos: Optional[int]
     tolerancia_aplicada_minutos: Optional[int]
     valor_calculado: float
+    # Nome da unidade pro ticket impresso (todo TicketOut já traz, via
+    # Ticket.unidade_nome) -- não só a marca genérica do sistema.
+    unidade_nome: Optional[str] = None
+    # SVG do QR code do código do ticket -- só o totem de entrada
+    # popula isso na resposta de POST /entrada; os demais endpoints que
+    # devolvem TicketOut deixam None (o frontend deles ignora o campo).
+    qr_code_svg: Optional[str] = None
 
     class Config:
         from_attributes = True

@@ -67,7 +67,12 @@ _PAPEIS_OPERACAO_AMPLIADOS = (
 )
 exigir_totem_entrada = _exigir_papel(models.PapelUsuario.totem_entrada, *_PAPEIS_OPERACAO_AMPLIADOS)
 exigir_totem_validacao = _exigir_papel(models.PapelUsuario.totem_validacao, *_PAPEIS_OPERACAO_AMPLIADOS)
-exigir_totem_saida = _exigir_papel(models.PapelUsuario.totem_saida, *_PAPEIS_OPERACAO_AMPLIADOS)
+
+# totem_validacao também chama /saida/verificar e /saida/pagamento --
+# ele processa pagamento igual ao totem_saida, só não controla cancela.
+exigir_totem_saida = _exigir_papel(
+    models.PapelUsuario.totem_saida, models.PapelUsuario.totem_validacao, *_PAPEIS_OPERACAO_AMPLIADOS
+)
 
 # Validar cupom fiscal (/loja/validar-cupom) também pode ser chamado do
 # totem de saída -- "revalidação": se o cliente chegou na cancela sem ter
@@ -95,9 +100,12 @@ exigir_operacao = _exigir_papel(
 
 def exigir_liberacao_manual(usuario: models.Usuario = Depends(usuario_logado)) -> models.Usuario:
     """Permissão elevada e independente do papel -- só quem tem a flag
-    pode_liberar_manualmente consegue abrir cancela na mão ou limpar pátio,
-    seja qual for o papel."""
-    if not usuario.pode_liberar_manualmente:
+    pode_liberar_manualmente consegue abrir cancela na mão ou limpar pátio.
+    Exceção: dono/gerente de operações sempre podem, mesmo sem a flag --
+    são o nível de acesso mais alto do sistema, não faz sentido bloquear
+    por uma configuração que pode ter ficado desmarcada por descuido na
+    criação da conta."""
+    if usuario.papel not in PAPEIS_NIVEL_DONO and not usuario.pode_liberar_manualmente:
         raise HTTPException(
             status.HTTP_403_FORBIDDEN,
             "Seu usuário não tem permissão para liberação manual/limpeza de pátio",

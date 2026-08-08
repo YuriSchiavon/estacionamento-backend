@@ -30,6 +30,7 @@ from . import models, schemas, services
 from .auth import router as auth_router
 from .database import Base, engine, get_db
 from .nfce import extrair_cnpj_emitente
+from .qrcode_util import gerar_qr_svg
 from .rotas_gestao import router as rotas_gestao_router
 from .seed import seed
 from .security import (
@@ -83,10 +84,10 @@ def pagina_totem_saida():
     return FileResponse(STATIC_DIR / "totem_saida.html")
 
 
-@app.get("/totem/pagamento", include_in_schema=False)
-def pagina_totem_pagamento():
-    """Tela real do totem de pagamento."""
-    return FileResponse(STATIC_DIR / "totem_pagamento.html")
+@app.get("/totem/validacao", include_in_schema=False)
+def pagina_totem_validacao():
+    """Tela real do totem de validação/pagamento -- sem controle de cancela."""
+    return FileResponse(STATIC_DIR / "totem_validacao.html")
 
 
 @app.get("/simulador-totens", include_in_schema=False)
@@ -114,7 +115,11 @@ def registrar_entrada(
     #   1) mandar o comando de impressão com ticket.codigo_barras
     #   2) esperar confirmação de retirada
     #   3) só então mandar o comando de abertura da cancela de entrada
-    return ticket
+    resposta = schemas.TicketOut.model_validate(ticket)
+    # QR code do código do ticket -- só aqui, pra poder ser lido direto
+    # pelo scanner no totem de saída/validação, sem precisar digitar.
+    resposta.qr_code_svg = gerar_qr_svg(ticket.codigo_barras)
+    return resposta
 
 
 # ---------------------------------------------------------------------

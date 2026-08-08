@@ -1,4 +1,4 @@
-<title>Totem de Saída</title>
+<title>Totem de Validação</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
@@ -40,7 +40,7 @@
   .login-box h1{font-size:18px;margin:0 0 6px;}
   .login-box p{font-size:13px;color:#B9C2D6;margin:0 0 20px;}
   label{display:block;font-size:12px;font-weight:600;color:#B9C2D6;margin:14px 0 6px;}
-  input{
+  input,select{
     width:100%;
     padding:12px 14px;
     border-radius:8px;
@@ -87,6 +87,22 @@
   .titulo-pagina{font-size:clamp(24px,4vw,32px);font-weight:800;margin-bottom:8px;text-align:center;}
   .desc-pagina{font-size:15px;color:#B9C2D6;margin-bottom:28px;text-align:center;}
 
+  .menu-principal{display:flex;flex-direction:column;gap:20px;width:100%;}
+  button.acao-menu{
+    background:var(--lime);
+    color:var(--navy);
+    border:none;
+    border-radius:20px;
+    padding:56px 24px;
+    font-family:inherit;
+    font-weight:800;
+    font-size:clamp(24px,3.4vw,30px);
+    cursor:pointer;
+    width:100%;
+    box-shadow:0 10px 30px rgba(219,255,0,.12);
+  }
+  button.acao-menu.secundaria-menu{background:none;border:2px solid var(--lime);color:var(--lime);box-shadow:none;}
+
   input.codigo{
     font-family:'Courier New',monospace;
     font-size:clamp(20px,3vw,28px);
@@ -95,20 +111,20 @@
     padding:22px;
     width:100%;
   }
-  button.verificar{
+  button.principal{
     margin-top:18px;
     background:var(--lime);
     color:var(--navy);
     border:none;
     border-radius:14px;
-    padding:24px;
+    padding:22px;
     font-family:inherit;
     font-weight:800;
     font-size:clamp(18px,2.6vw,22px);
     cursor:pointer;
     width:100%;
   }
-  button.verificar:disabled{opacity:.5;cursor:default;}
+  button.principal:disabled{opacity:.5;cursor:default;}
   button.secundaria{
     margin-top:16px;
     background:none;
@@ -123,35 +139,18 @@
     width:100%;
   }
 
-  .resultado-box{
+  .valor-devido{
     width:100%;
-    border-radius:18px;
-    padding:32px 24px;
+    background:#0F2038;
+    border:1px solid #24365A;
+    border-radius:16px;
+    padding:28px;
     text-align:center;
+    display:none;
   }
-  .resultado-box.ok{background:#123522;border:2px solid var(--ok);}
-  .resultado-box.err{background:#3A1A16;border:2px solid var(--danger);}
-  .resultado-box .status{font-weight:800;font-size:clamp(26px,4vw,36px);margin-bottom:14px;}
-  .resultado-box.ok .status{color:#5FE39A;}
-  .resultado-box.err .status{color:#FF8A75;}
-  .resultado-box .linha{display:flex;justify-content:space-between;font-size:16px;padding:8px 0;color:#B9C2D6;border-top:1px solid rgba(255,255,255,.1);}
-  .resultado-box .linha:first-of-type{border-top:none;}
-  .resultado-box .linha b{color:#fff;font-size:18px;}
-
-  .acoes-fallback{display:flex;flex-direction:column;gap:14px;width:100%;margin-top:24px;}
-  button.acao-grande{
-    background:var(--lime);
-    color:var(--navy);
-    border:none;
-    border-radius:14px;
-    padding:26px;
-    font-family:inherit;
-    font-weight:800;
-    font-size:clamp(18px,2.6vw,22px);
-    cursor:pointer;
-    width:100%;
-  }
-  button.acao-grande.contorno{background:none;border:2px solid var(--lime);color:var(--lime);}
+  .valor-devido.show{display:block;}
+  .valor-devido .label{font-size:13px;color:#B9C2D6;}
+  .valor-devido .num{font-size:clamp(30px,4.5vw,40px);font-weight:800;color:var(--lime);margin:8px 0 20px;}
 
   .botoes-pagamento{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;width:100%;margin-top:8px;}
   button.btn-forma-pagamento{
@@ -168,6 +167,19 @@
   button.btn-forma-pagamento:hover{border-color:var(--lime);}
   button.btn-forma-pagamento:disabled{opacity:.5;cursor:default;}
 
+  .resultado{
+    margin-top:18px;
+    border-radius:14px;
+    padding:20px;
+    display:none;
+    text-align:center;
+    font-size:16px;
+    width:100%;
+  }
+  .resultado.show{display:block;}
+  .resultado.ok{background:#123522;border:2px solid var(--ok);color:#5FE39A;}
+  .resultado.err{background:#3A1A16;border:2px solid var(--danger);color:#FF8A75;}
+
   .rodape-conta{margin-top:36px;display:flex;gap:18px;justify-content:center;}
   .rodape-conta button{
     font-size:12px;
@@ -183,7 +195,7 @@
 
 <div class="login-box" id="tela-login">
   <h1>Configurar totem</h1>
-  <p>Faça login uma vez com a conta desta cancela de saída. Fica salvo neste equipamento.</p>
+  <p>Faça login uma vez com a conta desta unidade (papel de validação). Fica salvo neste equipamento.</p>
   <label>Usuário</label>
   <input id="login-user" placeholder="usuário do totem">
   <label>Senha</label>
@@ -191,7 +203,7 @@
     <input id="login-senha" type="password">
     <button type="button" class="toggle-senha" data-alvo="login-senha">mostrar</button>
   </div>
-  <button class="verificar" id="btn-login" style="margin-top:14px;">Entrar</button>
+  <button class="principal" id="btn-login" style="margin-top:14px;">Entrar</button>
   <div class="erro" id="erro-login"></div>
 </div>
 
@@ -201,47 +213,45 @@
   <div class="lista-unidades" id="lista-unidades"></div>
 </div>
 
-<div id="tela-kiosk" style="display:none;width:100%;display:flex;flex-direction:column;align-items:center;">
+<div id="tela-kiosk" style="display:none;width:100%;flex-direction:column;align-items:center;">
 
-  <div class="pagina ativa" id="pagina-ticket">
-    <div class="titulo-pagina">Apresente o ticket</div>
-    <div class="desc-pagina">Aproxime o ticket do leitor ou digite o código</div>
-    <input class="codigo" id="saida-codigo" placeholder="CÓDIGO DO TICKET" autofocus>
-    <button class="verificar" id="btn-saida">VERIFICAR</button>
-  </div>
-
-  <div class="pagina" id="pagina-resultado">
-    <div class="resultado-box" id="resultado-box">
-      <div class="status" id="resultado-status"></div>
-      <div class="linha"><span>Motivo</span><b id="resultado-motivo"></b></div>
-      <div class="linha" id="linha-permanencia" style="display:none;"><span>Permanência</span><b id="resultado-permanencia"></b></div>
-      <div class="linha" id="linha-valor" style="display:none;"><span>Valor a pagar</span><b id="resultado-valor"></b></div>
+  <div class="pagina ativa" id="pagina-menu">
+    <div class="menu-principal">
+      <button class="acao-menu" id="btn-menu-pagamento">Pagamento</button>
+      <button class="acao-menu secundaria-menu" id="btn-menu-validar">Validar Cupom</button>
     </div>
-    <div class="acoes-fallback" id="acoes-fallback" style="display:none;">
-      <button class="acao-grande" id="btn-ir-pagamento">Pagar</button>
-      <button class="acao-grande contorno" id="btn-ir-validar">Validar Cupom</button>
-    </div>
-    <button class="secundaria" id="btn-novo-ticket">Concluir</button>
   </div>
 
   <div class="pagina" id="pagina-validar">
     <div class="titulo-pagina">Validar cupom</div>
     <div class="desc-pagina">Aproxime o QR code da nota fiscal do leitor</div>
-    <input class="codigo" id="validar-qr" placeholder="AGUARDANDO LEITURA" autofocus>
-    <div class="erro" id="erro-validar"></div>
-    <button class="secundaria" id="btn-cancelar-validar">voltar</button>
+    <input class="codigo" id="validar-codigo-ticket" placeholder="CÓDIGO DO TICKET">
+    <input class="codigo" id="validar-qr" placeholder="AGUARDANDO LEITURA DO CUPOM" style="margin-top:14px;">
+    <div class="resultado" id="resultado-validar"></div>
+    <button class="secundaria" id="btn-voltar-validar">voltar</button>
   </div>
 
   <div class="pagina" id="pagina-pagamento">
-    <div class="titulo-pagina" id="pagamento-valor-titulo">Valor a pagar</div>
-    <div class="desc-pagina">Toque na forma de pagamento</div>
-    <div class="botoes-pagamento">
-      <button class="btn-forma-pagamento" data-forma="pix">PIX</button>
-      <button class="btn-forma-pagamento" data-forma="credito">Crédito</button>
-      <button class="btn-forma-pagamento" data-forma="debito">Débito</button>
+    <div class="titulo-pagina">Pagamento</div>
+    <div class="desc-pagina">Digite ou leia o código do ticket para consultar o valor</div>
+    <input class="codigo" id="consulta-codigo" placeholder="CÓDIGO DO TICKET" autofocus>
+    <button class="principal" id="btn-consultar">CONSULTAR</button>
+
+    <div class="valor-devido" id="valor-devido">
+      <div class="label">Valor a pagar</div>
+      <div class="num" id="valor-num">R$ 0,00</div>
+      <div id="bloco-pagamento">
+        <label style="text-align:center;">Toque na forma de pagamento</label>
+        <div class="botoes-pagamento">
+          <button class="btn-forma-pagamento" data-forma="pix">PIX</button>
+          <button class="btn-forma-pagamento" data-forma="credito">Crédito</button>
+          <button class="btn-forma-pagamento" data-forma="debito">Débito</button>
+        </div>
+      </div>
     </div>
-    <div class="erro" id="erro-pagamento"></div>
-    <button class="secundaria" id="btn-cancelar-pagamento">voltar</button>
+
+    <div class="resultado" id="resultado-pagamento"></div>
+    <button class="secundaria" id="btn-voltar-pagamento">voltar</button>
   </div>
 
   <div class="rodape-conta">
@@ -273,10 +283,9 @@
 document.addEventListener('contextmenu', e => e.preventDefault());
 
 const API = "";
-const CHAVE_SESSAO = 'sessao_totem_saida';
+const CHAVE_SESSAO = 'sessao_totem_validacao';
 let sessao = null;
-let codigoAtual = null;
-let ultimaVerificacao = null;
+let ticketAtual = null;
 
 function carregarSessao(){
   const salva = localStorage.getItem(CHAVE_SESSAO);
@@ -303,20 +312,24 @@ function mostrarTela(){
     return;
   }
   document.getElementById('tela-kiosk').style.display = 'flex';
-  mostrarPagina('pagina-ticket');
+  mostrarPagina('pagina-menu');
 }
 
 function mostrarPagina(id){
   document.querySelectorAll('.pagina').forEach(p => p.classList.remove('ativa'));
   document.getElementById(id).classList.add('ativa');
-  if (id === 'pagina-ticket'){
-    document.getElementById('saida-codigo').value = '';
-    document.getElementById('saida-codigo').focus();
-  }
   if (id === 'pagina-validar'){
+    document.getElementById('validar-codigo-ticket').value = '';
     document.getElementById('validar-qr').value = '';
-    document.getElementById('erro-validar').style.display = 'none';
-    document.getElementById('validar-qr').focus();
+    document.getElementById('resultado-validar').className = 'resultado';
+    document.getElementById('validar-codigo-ticket').focus();
+  }
+  if (id === 'pagina-pagamento'){
+    document.getElementById('consulta-codigo').value = '';
+    document.getElementById('valor-devido').className = 'valor-devido';
+    document.getElementById('resultado-pagamento').className = 'resultado';
+    ticketAtual = null;
+    document.getElementById('consulta-codigo').focus();
   }
 }
 
@@ -437,65 +450,15 @@ async function chamarApi(metodo, url, body){
   return data;
 }
 
-function exibirResultado(r){
-  codigoAtual = r.codigo_barras;
-  ultimaVerificacao = r;
-  const box = document.getElementById('resultado-box');
-  box.className = 'resultado-box ' + (r.liberar_cancela ? 'ok' : 'err');
-  document.getElementById('resultado-status').textContent = r.liberar_cancela ? 'CANCELA LIBERADA' : 'AGUARDANDO';
-  document.getElementById('resultado-motivo').textContent = r.motivo;
-
-  document.getElementById('linha-permanencia').style.display = 'flex';
-  document.getElementById('resultado-permanencia').textContent = `${r.tempo_permanencia_minutos} min`;
-
-  const linhaValor = document.getElementById('linha-valor');
-  if (r.valor_calculado > 0){
-    linhaValor.style.display = 'flex';
-    document.getElementById('resultado-valor').textContent = `R$ ${r.valor_calculado.toFixed(2)}`;
-  }else{
-    linhaValor.style.display = 'none';
-  }
-
-  document.getElementById('acoes-fallback').style.display = (!r.liberar_cancela) ? 'flex' : 'none';
-  mostrarPagina('pagina-resultado');
-}
-
-async function verificarSaida(codigo){
-  const r = await chamarApi('GET', '/saida/verificar/' + encodeURIComponent(codigo) + '?unidade_id=' + sessao.unidade_operacional_id);
-  exibirResultado(r);
-  return r;
-}
-
-document.getElementById('btn-saida').addEventListener('click', async () => {
-  const codigo = document.getElementById('saida-codigo').value.trim();
-  if (!codigo) return;
-  const btn = document.getElementById('btn-saida');
-  btn.disabled = true;
-  try{
-    await verificarSaida(codigo);
-  }catch(e){
-    exibirResultado({
-      codigo_barras: codigo, liberar_cancela: false, motivo: e.message,
-      tempo_permanencia_minutos: 0, valor_calculado: 0,
-    });
-    document.getElementById('linha-permanencia').style.display = 'none';
-    document.getElementById('acoes-fallback').style.display = 'none';
-  }finally{
-    btn.disabled = false;
-  }
-});
-
-document.getElementById('saida-codigo').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') document.getElementById('btn-saida').click();
-});
-
-document.getElementById('btn-novo-ticket').addEventListener('click', () => mostrarPagina('pagina-ticket'));
+document.getElementById('btn-menu-pagamento').addEventListener('click', () => mostrarPagina('pagina-pagamento'));
+document.getElementById('btn-menu-validar').addEventListener('click', () => mostrarPagina('pagina-validar'));
+document.getElementById('btn-voltar-validar').addEventListener('click', () => mostrarPagina('pagina-menu'));
+document.getElementById('btn-voltar-pagamento').addEventListener('click', () => mostrarPagina('pagina-menu'));
 
 // -----------------------------------------------------------------
-// Leitura do QR code da NFC-e -- extrai chave e valor automaticamente
-// do conteúdo lido, sem campo de digitação manual (o leitor entrega o
-// conteúdo completo do QR, não só a chave de 44 dígitos, que sozinha
-// não contém o valor da compra).
+// Validar cupom -- extrai chave e valor automaticamente do conteúdo
+// lido do QR code (não da chave de 44 dígitos sozinha, que não traz
+// valor). Sem campo de digitação manual do valor.
 // -----------------------------------------------------------------
 function lerCupomFiscal(textoLido){
   let chave = null, valor = null;
@@ -512,34 +475,38 @@ function lerCupomFiscal(textoLido){
   return { chave, valor };
 }
 
-document.getElementById('btn-ir-validar').addEventListener('click', () => mostrarPagina('pagina-validar'));
-document.getElementById('btn-cancelar-validar').addEventListener('click', () => mostrarPagina('pagina-resultado'));
-
 async function processarLeituraCupom(){
+  const codigoTicket = document.getElementById('validar-codigo-ticket').value.trim();
   const texto = document.getElementById('validar-qr').value.trim();
-  if (!texto) return;
-  const erro = document.getElementById('erro-validar');
-  erro.style.display = 'none';
+  const resultado = document.getElementById('resultado-validar');
+  if (!codigoTicket || !texto) return;
+
   const { chave, valor } = lerCupomFiscal(texto);
   if (!chave || valor == null || isNaN(valor)){
-    erro.textContent = 'Não foi possível ler os dados do cupom. Tente novamente.';
-    erro.style.display = 'block';
+    resultado.className = 'resultado show err';
+    resultado.textContent = 'Não foi possível ler os dados do cupom. Tente novamente.';
     document.getElementById('validar-qr').value = '';
     return;
   }
   try{
     await chamarApi('POST', '/loja/validar-cupom', {
-      codigo_barras: codigoAtual, chave_acesso_nfce: chave, valor_compra: valor,
+      codigo_barras: codigoTicket, chave_acesso_nfce: chave, valor_compra: valor,
       unidade_id: sessao.unidade_operacional_id,
     });
-    const r = await verificarSaida(codigoAtual);
-    // Cupom não foi suficiente pra cobrir a tolerância (não se enquadrou
-    // no regulamento de cobrança) -- vai direto pro pagamento, sem exigir
-    // mais um toque do cliente na tela de resultado.
-    if (!r.liberar_cancela && r.valor_calculado > 0) irParaPagamento(r.valor_calculado);
+    const r = await chamarApi('GET', '/saida/verificar/' + encodeURIComponent(codigoTicket) + '?unidade_id=' + sessao.unidade_operacional_id);
+    if (r.liberar_cancela || r.valor_calculado <= 0){
+      resultado.className = 'resultado show ok';
+      resultado.textContent = 'Cupom validado! Você já pode seguir para a saída.';
+      document.getElementById('validar-qr').value = '';
+    }else{
+      // Cupom não foi suficiente pra cobrir a tolerância (não se
+      // enquadrou no regulamento de cobrança) -- vai direto pro
+      // pagamento, já com o valor calculado, sem exigir mais um toque.
+      irParaPagamentoComValor(r);
+    }
   }catch(e){
-    erro.textContent = e.message;
-    erro.style.display = 'block';
+    resultado.className = 'resultado show err';
+    resultado.textContent = e.message;
     document.getElementById('validar-qr').value = '';
   }
 }
@@ -547,40 +514,80 @@ async function processarLeituraCupom(){
 document.getElementById('validar-qr').addEventListener('keydown', (e) => {
   if (e.key === 'Enter') processarLeituraCupom();
 });
+document.getElementById('validar-codigo-ticket').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') document.getElementById('validar-qr').focus();
+});
 
 // -----------------------------------------------------------------
 // Pagamento -- botões diretos, sem menu (auto-atendimento, sem mouse)
 // -----------------------------------------------------------------
-function irParaPagamento(valor){
-  document.getElementById('pagamento-valor-titulo').textContent = `Valor a pagar: R$ ${valor.toFixed(2)}`;
-  document.getElementById('erro-pagamento').style.display = 'none';
+function irParaPagamentoComValor(r){
   mostrarPagina('pagina-pagamento');
+  ticketAtual = r.codigo_barras;
+  document.getElementById('consulta-codigo').value = r.codigo_barras;
+  document.getElementById('valor-devido').className = 'valor-devido show';
+  document.getElementById('bloco-pagamento').style.display = 'block';
+  document.getElementById('valor-num').textContent = `R$ ${r.valor_calculado.toFixed(2)}`;
 }
 
-document.getElementById('btn-ir-pagamento').addEventListener('click', () => {
-  irParaPagamento(ultimaVerificacao ? ultimaVerificacao.valor_calculado : 0);
+document.getElementById('btn-consultar').addEventListener('click', async () => {
+  const btn = document.getElementById('btn-consultar');
+  const valorDevido = document.getElementById('valor-devido');
+  const resultado = document.getElementById('resultado-pagamento');
+  btn.disabled = true;
+  resultado.className = 'resultado';
+  try{
+    const codigo = document.getElementById('consulta-codigo').value.trim();
+    const r = await chamarApi('GET', '/saida/verificar/' + encodeURIComponent(codigo) + '?unidade_id=' + sessao.unidade_operacional_id);
+    ticketAtual = r.codigo_barras;
+    if (r.liberar_cancela || r.valor_calculado <= 0){
+      valorDevido.className = 'valor-devido show';
+      document.getElementById('valor-num').textContent = 'R$ 0,00';
+      document.getElementById('bloco-pagamento').style.display = 'none';
+      resultado.className = 'resultado show ok';
+      resultado.textContent = 'Este ticket não tem valor pendente -- pode seguir para a saída.';
+    }else{
+      valorDevido.className = 'valor-devido show';
+      document.getElementById('bloco-pagamento').style.display = 'block';
+      document.getElementById('valor-num').textContent = `R$ ${r.valor_calculado.toFixed(2)}`;
+    }
+  }catch(e){
+    resultado.className = 'resultado show err';
+    resultado.textContent = e.message;
+    document.getElementById('valor-devido').className = 'valor-devido';
+  }finally{
+    btn.disabled = false;
+  }
 });
-document.getElementById('btn-cancelar-pagamento').addEventListener('click', () => mostrarPagina('pagina-resultado'));
+
+document.getElementById('consulta-codigo').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') document.getElementById('btn-consultar').click();
+});
 
 const NOMES_FORMA_PAGAMENTO = { pix: 'PIX', credito: 'Crédito', debito: 'Débito' };
 
 document.querySelectorAll('.btn-forma-pagamento').forEach(botao => {
   botao.addEventListener('click', async () => {
     const forma = botao.dataset.forma;
-    const erro = document.getElementById('erro-pagamento');
-    erro.style.display = 'none';
+    const resultado = document.getElementById('resultado-pagamento');
+    resultado.className = 'resultado';
     document.querySelectorAll('.btn-forma-pagamento').forEach(b => b.disabled = true);
     try{
-      const valor = ultimaVerificacao ? ultimaVerificacao.valor_calculado : 0;
+      const valorTexto = document.getElementById('valor-num').textContent.replace('R$', '').trim().replace(',', '.');
+      const valor = parseFloat(valorTexto);
       await chamarApi('POST', '/saida/pagamento', {
-        codigo_barras: codigoAtual, forma_pagamento: forma, valor,
+        codigo_barras: ticketAtual, forma_pagamento: forma, valor,
         unidade_id: sessao.unidade_operacional_id,
       });
-      imprimirComprovante(codigoAtual, valor, forma);
-      await verificarSaida(codigoAtual);
+      resultado.className = 'resultado show ok';
+      resultado.textContent = 'Pagamento registrado! Você já pode seguir para a saída.';
+      imprimirComprovante(ticketAtual, valor, forma);
+      document.getElementById('valor-devido').className = 'valor-devido';
+      document.getElementById('consulta-codigo').value = '';
+      ticketAtual = null;
     }catch(e){
-      erro.textContent = e.message;
-      erro.style.display = 'block';
+      resultado.className = 'resultado show err';
+      resultado.textContent = e.message;
     }finally{
       document.querySelectorAll('.btn-forma-pagamento').forEach(b => b.disabled = false);
     }

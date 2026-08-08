@@ -61,7 +61,7 @@ log (`AVISO: login do dono -> ...`) — troque depois de anotar.
 | `POST /entrada` | Totem emissor (ou operador) | Cria o ticket, retorna o código de barras para impressão |
 | `POST /loja/validar-cupom` | Totem de autoatendimento, totem de saída ou operador | Vincula a nota fiscal ao ticket, garantindo unicidade da chave. Funciona com o ticket ainda `aberto` (loja) ou já `tarifado` (revalidação na cancela de saída) |
 | `GET /saida/verificar/{codigo_barras}` | Totem leitor da cancela (ou operador) | Calcula permanência, aplica tolerância, decide se libera |
-| `POST /saida/pagamento` | Totem de pagamento (ou operador) | Registra pagamento quando o valor excedeu a tolerância |
+| `POST /saida/pagamento` | Totem de validação, totem de saída (caminho alternativo) ou operador | Registra pagamento quando o valor excedeu a tolerância |
 | `POST /credenciados/entrada` | Totem de entrada (leitura facial) | Reconhece credenciado/mensalista pelo identificador facial e libera entrada |
 | `POST /credenciados/saida` | Totem de saída (leitura facial) | Libera a saída do credenciado/mensalista reconhecido |
 | `POST /gestao/unidades` | Painel de gestão (dono) | Cadastra unidade (com mensalidade/tolerância próprias) + gera as 3 contas de totem dela |
@@ -186,14 +186,20 @@ Três tipos de superfície, cada uma com seu propósito:
   saída, pagamento, liberação manual (se tiver a permissão) e consulta de
   ticket. Sem acesso a nada de configuração.
 - **`http://localhost:8000/totem/entrada`**,
-  **`/totem/saida`**, **`/totem/pagamento`** — as telas reais de cada
+  **`/totem/saida`**, **`/totem/validacao`** — as telas reais de cada
   equipamento físico: login uma vez (fica salvo no aparelho), depois só a
-  ação daquele totem. A de saída inclui "revalidar cupom" — valida o cupom
-  fiscal ali mesmo, antes ou depois da decisão de tolerância.
+  ação daquele totem. Totem de saída controla a cancela -- foco em
+  "apresente o ticket", com validar cupom/pagar como páginas de
+  contingência caso o ticket não esteja liberado. Totem de validação não
+  controla cancela nenhuma -- valida cupom fiscal (leitura automática do
+  QR code da NFC-e, sem digitação) e processa pagamento, tipicamente
+  posicionado antes da fila da cancela pra agilizar o fluxo.
 - **`http://localhost:8000/simulador-totens`** — ambiente de
   desenvolvimento: os 5 totens (entrada/validação/saída/pagamento/facial)
   numa página só, com histórico de sessão, para testar o fluxo completo
-  sem precisar do equipamento físico.
+  sem precisar do equipamento físico. Ainda simula entrada, validação e
+  pagamento como painéis separados -- não reflete a fusão desses dois
+  últimos no totem de Validação (`/totem/validacao`), que é a tela real.
 
 ## Deploy para teste remoto (Railway)
 
@@ -248,14 +254,32 @@ reimplantar automaticamente (se você conectou via GitHub).
    unidades, mensalidade configurável por unidade, revalidação de cupom no
    totem de saída, auditoria unificada, CRUD de usuários e a manutenção do
    pátio. Rodar com `python -m pytest tests/ -v` (dependências de teste em
-   `requirements-dev.txt`). 96 testes no total.
+   `requirements-dev.txt`). 142 testes no total.
 7. ~~**Painel de gestão**~~ ✅ `http://localhost:8000/gestao` — unidades,
    estabelecimentos conveniados, credenciados/mensalistas, usuários,
    dashboard, conciliação financeira e auditoria unificada. Ver
    `app/rotas_gestao.py`.
 8. ~~**Operação assistida e telas de totem reais**~~ ✅ login de operador
    (`/operacao`) e as telas de cada equipamento (`/totem/entrada`,
-   `/totem/saida`, `/totem/pagamento`) — ver seção "Páginas" acima.
+   `/totem/saida`, `/totem/validacao`) — ver seção "Páginas" acima.
+
+## Tablets Android como totem (kiosk)
+
+As telas de totem (`/totem/entrada`, `/totem/saida`, `/totem/validacao`)
+já bloqueiam, via código, zoom por pinça, seleção de texto, o menu de
+segurar-o-dedo e o "puxar pra atualizar" — mas nenhuma página web
+consegue impedir sozinha o gesto de deslizar pra tela inicial do Android
+ou abrir as notificações, isso é proteção do próprio sistema. Pra travar
+de verdade o tablet numa única tela, ative o **"Fixar tela" (Screen
+Pinning)** do Android uma vez, por aparelho:
+
+1. Nas configurações do Android, ative *Segurança → Fixar app* (o nome
+   exato varia por fabricante/versão).
+2. Abra o navegador na URL do totem (ex: `/totem/entrada`).
+3. Abra a tela de apps recentes e "fixe" o navegador nessa tela.
+
+A partir daí, nenhum gesto de saída funciona até alguém digitar o
+PIN/padrão do aparelho pra desfixar.
 
 Este protótipo não foi testado contra o ambiente de execução real (o
 ambiente usado para criá-lo não tem acesso à internet para instalar as

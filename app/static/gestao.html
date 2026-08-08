@@ -956,7 +956,7 @@ async function carregarRelatorioTickets(){
         <td>${t.status}</td>
         <td>${t.tempo_permanencia_minutos ?? '—'} min</td>
         <td>R$ ${t.valor_calculado.toFixed(2)}</td>
-        <td>${sessao.pode_liberar_manualmente ? `<button class="secundario" onclick="excluirTicket(${t.id}, '${t.codigo_barras}')">Excluir</button>` : '—'}</td>
+        <td>${(sessao.pode_liberar_manualmente || ehNivelDono()) ? `<button class="secundario" onclick="excluirTicket(${t.id}, '${t.codigo_barras}')">Excluir</button>` : '—'}</td>
       `;
       tbody.appendChild(tr);
     });
@@ -1464,7 +1464,10 @@ async function iniciarApp(){
   document.getElementById('lm-unidade-wrap').style.display = nivelDono ? 'block' : 'none';
   document.getElementById('lp-unidade-wrap').style.display = nivelDono ? 'block' : 'none';
 
-  document.getElementById('tab-btn-acoes').style.display = sessao.pode_liberar_manualmente ? 'inline-block' : 'none';
+  // dono/gerente de operações sempre têm essa permissão no backend agora,
+  // independente da flag (ver security.exigir_liberacao_manual) -- a UI
+  // precisa refletir isso, senão a aba some pra eles sem motivo.
+  document.getElementById('tab-btn-acoes').style.display = (sessao.pode_liberar_manualmente || nivelDono) ? 'inline-block' : 'none';
 
   const selectPapel = document.getElementById('us-papel');
   if (!nivelDono){

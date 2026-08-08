@@ -187,6 +187,14 @@ class Ticket(Base):
     transacoes = relationship("Transacao", back_populates="ticket")
     credenciado = relationship("Credenciado", back_populates="tickets")
 
+    @property
+    def unidade_nome(self) -> "str | None":
+        """Nome da unidade pra aparecer no ticket impresso (não só a
+        marca genérica do sistema) -- populariza TicketOut sozinho via
+        from_attributes, sem precisar mudar cada endpoint que devolve um
+        ticket."""
+        return self.unidade.nome if self.unidade else None
+
 
 class CupomFiscal(Base):
     __tablename__ = "cupons_fiscais"

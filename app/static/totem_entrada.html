@@ -1,6 +1,7 @@
 <title>Totem de Entrada</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <style>
   :root{
     --navy:#142A4B;
@@ -10,6 +11,7 @@
   }
   *{box-sizing:border-box;}
   html,body{height:100%;}
+  html,body{overscroll-behavior:none;}
   body{
     margin:0;
     font-family:'Poppins',sans-serif;
@@ -21,17 +23,11 @@
     justify-content:center;
     min-height:100vh;
     padding:24px;
+    -webkit-user-select:none;
+    user-select:none;
+    -webkit-touch-callout:none;
+    touch-action:manipulation;
   }
-  .marca{
-    position:fixed;
-    top:20px;
-    left:24px;
-    font-weight:700;
-    font-size:14px;
-    letter-spacing:.5px;
-    color:#B9C2D6;
-  }
-  .marca span{color:var(--lime);}
   .config-link{
     position:fixed;
     top:20px;
@@ -77,21 +73,46 @@
     cursor:pointer;
     padding:4px 6px;
   }
+  .lista-unidades{display:flex;flex-direction:column;gap:12px;margin-top:8px;}
+  .btn-unidade{
+    background:#16294A;
+    border:1px solid #2C3E5C;
+    color:#fff;
+    padding:20px;
+    border-radius:12px;
+    font-family:inherit;
+    font-weight:700;
+    font-size:18px;
+    text-align:left;
+    cursor:pointer;
+  }
+  .btn-unidade:hover{border-color:var(--lime);}
   .kiosk{
     width:100%;
-    max-width:480px;
+    max-width:560px;
     text-align:center;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    flex:1;
+    justify-content:center;
   }
-  .kiosk .instrucao{font-size:16px;color:#B9C2D6;margin-bottom:36px;}
+  .logo-grande{
+    font-weight:800;
+    font-size:clamp(32px, 6vw, 52px);
+    letter-spacing:1px;
+    margin-bottom:56px;
+  }
+  .logo-grande span{color:var(--lime);}
   button.retirar{
     background:var(--lime);
     color:var(--navy);
     border:none;
-    border-radius:24px;
-    padding:56px 40px;
+    border-radius:32px;
+    padding:9vh 40px;
     font-family:inherit;
     font-weight:800;
-    font-size:28px;
+    font-size:clamp(26px, 4.5vw, 40px);
     cursor:pointer;
     width:100%;
     box-shadow:0 10px 30px rgba(219,255,0,.15);
@@ -129,8 +150,13 @@
     display:block;
   }
   .resultado.err .titulo{color:#FF8A75;}
-  .trocar-conta{
+  .rodape-conta{
     margin-top:40px;
+    display:flex;
+    gap:18px;
+    justify-content:center;
+  }
+  .rodape-conta button{
     font-size:12px;
     color:#6A7A9C;
     background:none;
@@ -166,13 +192,15 @@
       color:#000;
       text-align:center;
     }
-    #area-impressao .ip-marca{font-weight:800;font-size:18px;margin-bottom:16px;}
+    #area-impressao .ip-marca{font-weight:800;font-size:18px;margin-bottom:4px;}
+    #area-impressao .ip-unidade{font-size:13px;margin-bottom:16px;}
     #area-impressao .ip-codigo{font-family:'Courier New',monospace;font-size:22px;font-weight:700;letter-spacing:2px;margin:12px 0;}
+    #area-impressao .ip-qr{margin:12px auto;}
+    #area-impressao .ip-qr svg{width:140px;height:140px;}
     #area-impressao .ip-horario{font-size:13px;}
   }
 </style>
 
-<div class="marca">MY PARK<span>·</span>ENTRADA</div>
 <a class="config-link" href="/" id="link-inicio" style="display:none;">início</a>
 
 <div class="login-box" id="tela-login">
@@ -189,24 +217,37 @@
   <div class="erro" id="erro-login"></div>
 </div>
 
+<div class="login-box" id="tela-selecao-unidade" style="display:none;">
+  <h1>Selecione a unidade</h1>
+  <p>Esta conta tem acesso a mais de uma unidade. Escolha em qual este totem vai emitir tickets.</p>
+  <div class="lista-unidades" id="lista-unidades"></div>
+</div>
+
 <div class="kiosk" id="tela-kiosk" style="display:none;">
-  <div class="instrucao">Toque no botão abaixo para retirar seu ticket</div>
+  <div class="logo-grande">MY PARK<span>·</span>ENTRADA</div>
   <button class="retirar" id="btn-entrada">RETIRAR TICKET</button>
   <div class="resultado" id="resultado">
     <div class="titulo" id="resultado-titulo"></div>
     <div class="ticket-code" id="resultado-codigo"></div>
   </div>
   <button class="reimprimir" id="btn-reimprimir">Imprimir novamente</button>
-  <button class="trocar-conta" id="btn-trocar">trocar conta deste totem</button>
+  <div class="rodape-conta">
+    <button id="btn-trocar-unidade" style="display:none;">trocar unidade</button>
+    <button id="btn-trocar">trocar conta deste totem</button>
+  </div>
 </div>
 
 <div id="area-impressao">
-  <div class="ip-marca">MY PARK · TICKET DE ENTRADA</div>
+  <div class="ip-marca">MY PARK</div>
+  <div class="ip-unidade" id="ip-unidade"></div>
   <div class="ip-codigo" id="ip-codigo"></div>
+  <div class="ip-qr" id="ip-qr"></div>
   <div class="ip-horario" id="ip-horario"></div>
 </div>
 
 <script>
+document.addEventListener('contextmenu', e => e.preventDefault());
+
 const API = "";
 const CHAVE_SESSAO = 'sessao_totem_entrada';
 let sessao = null;
@@ -216,15 +257,83 @@ function carregarSessao(){
   if (salva) sessao = JSON.parse(salva);
 }
 
+function salvarSessao(){
+  localStorage.setItem(CHAVE_SESSAO, JSON.stringify(sessao));
+}
+
 function mostrarTela(){
-  const logado = !!sessao;
-  document.getElementById('tela-login').style.display = logado ? 'none' : 'block';
-  document.getElementById('tela-kiosk').style.display = logado ? 'block' : 'none';
-  document.getElementById('link-inicio').style.display = logado ? 'none' : 'block';
+  document.getElementById('tela-login').style.display = 'none';
+  document.getElementById('tela-selecao-unidade').style.display = 'none';
+  document.getElementById('tela-kiosk').style.display = 'none';
+  document.getElementById('link-inicio').style.display = 'none';
+
+  if (!sessao){
+    document.getElementById('tela-login').style.display = 'block';
+    document.getElementById('link-inicio').style.display = 'block';
+    return;
+  }
+  if (!sessao.unidade_operacional_id){
+    document.getElementById('tela-selecao-unidade').style.display = 'block';
+    return;
+  }
+  document.getElementById('tela-kiosk').style.display = 'flex';
+}
+
+// Igual ao mecanismo já usado em operacao.html: conta de totem normal
+// (papel totem_entrada) sempre tem 1 unidade só -- pula a seleção, zero
+// mudança de comportamento. Só quem enxerga mais de uma (dono/gerente de
+// operações, testando direto por aqui) vê a tela de escolha.
+async function resolverUnidadeOperacional(forcarSelecao){
+  try{
+    const resp = await fetch(API + '/auth/minhas-unidades', {
+      headers: { 'Authorization': `Bearer ${sessao.token}` },
+    });
+    if (resp.status === 401){
+      sessao = null;
+      localStorage.removeItem(CHAVE_SESSAO);
+      mostrarTela();
+      return;
+    }
+    const unidades = await resp.json();
+    document.getElementById('btn-trocar-unidade').style.display = unidades.length > 1 ? 'inline' : 'none';
+
+    if (unidades.length === 0){
+      alert('Esta conta não tem nenhuma unidade disponível.');
+      sessao = null;
+      localStorage.removeItem(CHAVE_SESSAO);
+      mostrarTela();
+      return;
+    }
+    if (unidades.length === 1){
+      sessao.unidade_operacional_id = unidades[0].id;
+      salvarSessao();
+      mostrarTela();
+      return;
+    }
+    if (!forcarSelecao && sessao.unidade_operacional_id && unidades.some(u => u.id === sessao.unidade_operacional_id)){
+      mostrarTela();
+      return;
+    }
+    sessao.unidade_operacional_id = null;
+    salvarSessao();
+    const lista = document.getElementById('lista-unidades');
+    lista.innerHTML = unidades.map(u => `<button class="btn-unidade" data-id="${u.id}">${u.nome}</button>`).join('');
+    lista.querySelectorAll('.btn-unidade').forEach(btn => {
+      btn.addEventListener('click', () => {
+        sessao.unidade_operacional_id = parseInt(btn.dataset.id, 10);
+        salvarSessao();
+        mostrarTela();
+      });
+    });
+    mostrarTela();
+  }catch(e){
+    alert('Erro ao carregar as unidades disponíveis: ' + e.message);
+  }
 }
 
 carregarSessao();
 mostrarTela();
+if (sessao) resolverUnidadeOperacional(false);
 
 document.querySelectorAll('.toggle-senha').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -249,12 +358,16 @@ document.getElementById('btn-login').addEventListener('click', async () => {
     const data = await resp.json();
     if (!resp.ok) throw new Error(data.detail || 'Login inválido');
     sessao = data;
-    localStorage.setItem(CHAVE_SESSAO, JSON.stringify(sessao));
-    mostrarTela();
+    salvarSessao();
+    await resolverUnidadeOperacional(false);
   }catch(e){
     erro.textContent = e.message;
     erro.style.display = 'block';
   }
+});
+
+document.getElementById('btn-trocar-unidade').addEventListener('click', () => {
+  resolverUnidadeOperacional(true);
 });
 
 document.getElementById('btn-trocar').addEventListener('click', async () => {
@@ -274,7 +387,7 @@ document.getElementById('btn-entrada').addEventListener('click', async () => {
   const resultado = document.getElementById('resultado');
   btn.disabled = true;
   try{
-    const resp = await fetch(API + '/entrada', {
+    const resp = await fetch(API + '/entrada?unidade_id=' + sessao.unidade_operacional_id, {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${sessao.token}` },
     });
@@ -307,7 +420,9 @@ let ultimoTicketImpresso = null;
 
 function imprimirTicket(t){
   ultimoTicketImpresso = t;
+  document.getElementById('ip-unidade').textContent = t.unidade_nome || '';
   document.getElementById('ip-codigo').textContent = t.codigo_barras;
+  document.getElementById('ip-qr').innerHTML = t.qr_code_svg || '';
   document.getElementById('ip-horario').textContent = new Date(t.data_hora_entrada).toLocaleString('pt-BR');
   window.print();
 }
