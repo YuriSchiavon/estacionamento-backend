@@ -286,6 +286,11 @@ const API = "";
 const CHAVE_SESSAO = 'sessao_totem_validacao';
 let sessao = null;
 let ticketAtual = null;
+// Não há cancela neste totem, mas o reset pro menu principal depois de
+// concluir uma ação segue o mesmo espírito -- dá tempo de ler a
+// confirmação antes de voltar sozinho pro próximo cliente.
+const ATRASO_RESET_MS = 6000;
+let timeoutAutoReset = null;
 
 function carregarSessao(){
   const salva = localStorage.getItem(CHAVE_SESSAO);
@@ -316,6 +321,7 @@ function mostrarTela(){
 }
 
 function mostrarPagina(id){
+  if (timeoutAutoReset){ clearTimeout(timeoutAutoReset); timeoutAutoReset = null; }
   document.querySelectorAll('.pagina').forEach(p => p.classList.remove('ativa'));
   document.getElementById(id).classList.add('ativa');
   if (id === 'pagina-validar'){
@@ -417,10 +423,12 @@ document.getElementById('btn-login').addEventListener('click', async () => {
 });
 
 document.getElementById('btn-trocar-unidade').addEventListener('click', () => {
+  if (timeoutAutoReset) clearTimeout(timeoutAutoReset);
   resolverUnidadeOperacional(true);
 });
 
 document.getElementById('btn-trocar').addEventListener('click', async () => {
+  if (timeoutAutoReset) clearTimeout(timeoutAutoReset);
   if (sessao){
     try{ await fetch(API + '/auth/logout', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -498,6 +506,7 @@ async function processarLeituraCupom(){
       resultado.className = 'resultado show ok';
       resultado.textContent = 'Cupom validado! Você já pode seguir para a saída.';
       document.getElementById('validar-qr').value = '';
+      timeoutAutoReset = setTimeout(() => mostrarPagina('pagina-menu'), ATRASO_RESET_MS);
     }else{
       // Cupom não foi suficiente pra cobrir a tolerância (não se
       // enquadrou no regulamento de cobrança) -- vai direto pro
@@ -585,6 +594,7 @@ document.querySelectorAll('.btn-forma-pagamento').forEach(botao => {
       document.getElementById('valor-devido').className = 'valor-devido';
       document.getElementById('consulta-codigo').value = '';
       ticketAtual = null;
+      timeoutAutoReset = setTimeout(() => mostrarPagina('pagina-menu'), ATRASO_RESET_MS);
     }catch(e){
       resultado.className = 'resultado show err';
       resultado.textContent = e.message;

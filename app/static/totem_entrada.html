@@ -367,10 +367,12 @@ document.getElementById('btn-login').addEventListener('click', async () => {
 });
 
 document.getElementById('btn-trocar-unidade').addEventListener('click', () => {
+  if (timeoutAutoReset) clearTimeout(timeoutAutoReset);
   resolverUnidadeOperacional(true);
 });
 
 document.getElementById('btn-trocar').addEventListener('click', async () => {
+  if (timeoutAutoReset) clearTimeout(timeoutAutoReset);
   if (sessao){
     try{ await fetch(API + '/auth/logout', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -418,6 +420,11 @@ document.getElementById('btn-entrada').addEventListener('click', async () => {
 // real -- ver driver de hardware no README para a integração futura.
 let ultimoTicketImpresso = null;
 
+// Simula o tempo do carro passar e a cancela fechar -- não há sensor
+// real de cancela integrado, então o reset automático usa um atraso fixo.
+const ATRASO_RESET_MS = 8000;
+let timeoutAutoReset = null;
+
 function imprimirTicket(t){
   ultimoTicketImpresso = t;
   document.getElementById('ip-unidade').textContent = t.unidade_nome || '';
@@ -425,6 +432,17 @@ function imprimirTicket(t){
   document.getElementById('ip-qr').innerHTML = t.qr_code_svg || '';
   document.getElementById('ip-horario').textContent = new Date(t.data_hora_entrada).toLocaleString('pt-BR');
   window.print();
+  if (timeoutAutoReset) clearTimeout(timeoutAutoReset);
+  timeoutAutoReset = setTimeout(resetarParaProximoTicket, ATRASO_RESET_MS);
+}
+
+function resetarParaProximoTicket(){
+  timeoutAutoReset = null;
+  ultimoTicketImpresso = null;
+  document.getElementById('resultado').className = 'resultado';
+  document.getElementById('resultado-titulo').textContent = '';
+  document.getElementById('resultado-codigo').textContent = '';
+  document.getElementById('btn-reimprimir').classList.remove('show');
 }
 
 document.getElementById('btn-reimprimir').addEventListener('click', () => {

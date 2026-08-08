@@ -277,6 +277,10 @@ const CHAVE_SESSAO = 'sessao_totem_saida';
 let sessao = null;
 let codigoAtual = null;
 let ultimaVerificacao = null;
+// Simula o tempo do carro passar e a cancela fechar -- não há sensor
+// real de cancela integrado, então o reset automático usa um atraso fixo.
+const ATRASO_RESET_MS = 8000;
+let timeoutAutoReset = null;
 
 function carregarSessao(){
   const salva = localStorage.getItem(CHAVE_SESSAO);
@@ -307,6 +311,7 @@ function mostrarTela(){
 }
 
 function mostrarPagina(id){
+  if (timeoutAutoReset){ clearTimeout(timeoutAutoReset); timeoutAutoReset = null; }
   document.querySelectorAll('.pagina').forEach(p => p.classList.remove('ativa'));
   document.getElementById(id).classList.add('ativa');
   if (id === 'pagina-ticket'){
@@ -404,10 +409,12 @@ document.getElementById('btn-login').addEventListener('click', async () => {
 });
 
 document.getElementById('btn-trocar-unidade').addEventListener('click', () => {
+  if (timeoutAutoReset) clearTimeout(timeoutAutoReset);
   resolverUnidadeOperacional(true);
 });
 
 document.getElementById('btn-trocar').addEventListener('click', async () => {
+  if (timeoutAutoReset) clearTimeout(timeoutAutoReset);
   if (sessao){
     try{ await fetch(API + '/auth/logout', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -458,6 +465,13 @@ function exibirResultado(r){
 
   document.getElementById('acoes-fallback').style.display = (!r.liberar_cancela) ? 'flex' : 'none';
   mostrarPagina('pagina-resultado');
+
+  // Cancela liberada -- assim que o carro passar e ela fechar (simulado
+  // por um atraso fixo), volta sozinho pro "apresente o ticket" pro
+  // próximo veículo, sem precisar de ninguém tocar em "Concluir".
+  if (r.liberar_cancela){
+    timeoutAutoReset = setTimeout(() => mostrarPagina('pagina-ticket'), ATRASO_RESET_MS);
+  }
 }
 
 async function verificarSaida(codigo){
