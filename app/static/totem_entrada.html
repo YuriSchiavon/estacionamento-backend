@@ -138,6 +138,38 @@
     cursor:pointer;
     text-decoration:underline;
   }
+  button.reimprimir{
+    margin-top:20px;
+    background:none;
+    color:var(--lime);
+    border:1px solid var(--lime);
+    padding:12px 20px;
+    border-radius:8px;
+    font-family:inherit;
+    font-weight:700;
+    font-size:14px;
+    cursor:pointer;
+    width:100%;
+    display:none;
+  }
+  button.reimprimir.show{display:block;}
+  #area-impressao{display:none;}
+  @media print{
+    body *{visibility:hidden;}
+    #area-impressao, #area-impressao *{visibility:visible;}
+    #area-impressao{
+      display:block;
+      position:fixed;
+      top:0; left:0;
+      width:100%;
+      padding:24px;
+      color:#000;
+      text-align:center;
+    }
+    #area-impressao .ip-marca{font-weight:800;font-size:18px;margin-bottom:16px;}
+    #area-impressao .ip-codigo{font-family:'Courier New',monospace;font-size:22px;font-weight:700;letter-spacing:2px;margin:12px 0;}
+    #area-impressao .ip-horario{font-size:13px;}
+  }
 </style>
 
 <div class="marca">MY PARK<span>·</span>ENTRADA</div>
@@ -164,7 +196,14 @@
     <div class="titulo" id="resultado-titulo"></div>
     <div class="ticket-code" id="resultado-codigo"></div>
   </div>
+  <button class="reimprimir" id="btn-reimprimir">Imprimir novamente</button>
   <button class="trocar-conta" id="btn-trocar">trocar conta deste totem</button>
+</div>
+
+<div id="area-impressao">
+  <div class="ip-marca">MY PARK · TICKET DE ENTRADA</div>
+  <div class="ip-codigo" id="ip-codigo"></div>
+  <div class="ip-horario" id="ip-horario"></div>
 </div>
 
 <script>
@@ -250,12 +289,30 @@ document.getElementById('btn-entrada').addEventListener('click', async () => {
     resultado.className = 'resultado show';
     document.getElementById('resultado-titulo').textContent = 'Retire seu ticket';
     document.getElementById('resultado-codigo').textContent = t.codigo_barras;
+    imprimirTicket(t);
+    document.getElementById('btn-reimprimir').classList.add('show');
   }catch(e){
     resultado.className = 'resultado show err';
     document.getElementById('resultado-titulo').textContent = e.message;
     document.getElementById('resultado-codigo').textContent = '';
+    document.getElementById('btn-reimprimir').classList.remove('show');
   }finally{
     btn.disabled = false;
   }
+});
+
+// window.print() é o substituto em software pra impressora térmica
+// real -- ver driver de hardware no README para a integração futura.
+let ultimoTicketImpresso = null;
+
+function imprimirTicket(t){
+  ultimoTicketImpresso = t;
+  document.getElementById('ip-codigo').textContent = t.codigo_barras;
+  document.getElementById('ip-horario').textContent = new Date(t.data_hora_entrada).toLocaleString('pt-BR');
+  window.print();
+}
+
+document.getElementById('btn-reimprimir').addEventListener('click', () => {
+  if (ultimoTicketImpresso) imprimirTicket(ultimoTicketImpresso);
 });
 </script>

@@ -20,6 +20,7 @@ Rodar localmente:
 Depois acesse http://localhost:8000/docs para testar tudo pela interface Swagger.
 """
 from pathlib import Path
+from typing import Optional
 
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.responses import FileResponse
@@ -31,7 +32,12 @@ from .database import Base, engine, get_db
 from .nfce import extrair_cnpj_emitente
 from .rotas_gestao import router as rotas_gestao_router
 from .seed import seed
-from .security import exigir_totem_entrada, exigir_totem_saida, exigir_totem_validacao_ou_saida
+from .security import (
+    exigir_totem_entrada,
+    exigir_totem_saida,
+    exigir_totem_validacao_ou_saida,
+    resolver_unidade_operacional,
+)
 
 Base.metadata.create_all(bind=engine)
 
@@ -95,10 +101,12 @@ def pagina_simulador():
 @app.post("/entrada", response_model=schemas.TicketOut)
 def registrar_entrada(
     gate_entrada: str = "entrada-1",
+    unidade_id: Optional[int] = None,
     db: Session = Depends(get_db),
     usuario: models.Usuario = Depends(exigir_totem_entrada),
 ):
-    ticket = models.Ticket(unidade_id=usuario.unidade_id, gate_entrada=gate_entrada)
+    unidade_id_resolvida = resolver_unidade_operacional(db, usuario, unidade_id)
+    ticket = models.Ticket(unidade_id=unidade_id_resolvida, gate_entrada=gate_entrada)
     db.add(ticket)
     db.commit()
     db.refresh(ticket)
@@ -124,8 +132,9 @@ def validar_cupom(
     db: Session = Depends(get_db),
     usuario: models.Usuario = Depends(exigir_totem_validacao_ou_saida),
 ):
+    unidade_id = resolver_unidade_operacional(db, usuario, payload.unidade_id)
     ticket = db.query(models.Ticket).filter_by(
-        codigo_barras=payload.codigo_barras, unidade_id=usuario.unidade_id
+        codigo_barras=payload.codigo_barras, unidade_id=unidade_id
     ).first()
     if not ticket:
         raise HTTPException(404, "Ticket não encontrado")
@@ -141,7 +150,7 @@ def validar_cupom(
     ).first()
     if ja_usado:
         db.add(models.TentativaCupomDuplicado(
-            unidade_id=usuario.unidade_id,
+            unidade_id=unidade_id,
             chave_acesso_nfce=payload.chave_acesso_nfce,
             codigo_barras_tentativa=payload.codigo_barras,
             ticket_original_id=ja_usado.ticket_id,
@@ -155,7 +164,7 @@ def validar_cupom(
         raise HTTPException(422, str(erro))
 
     estabelecimento = db.query(models.Estabelecimento).filter_by(
-        cnpj=cnpj, unidade_id=usuario.unidade_id, ativo=True
+        cnpj=cnpj, unidade_id=unidade_id, ativo=True
     ).first()
     if not estabelecimento:
         raise HTTPException(
@@ -186,11 +195,13 @@ def validar_cupom(
 @app.get("/saida/verificar/{codigo_barras}", response_model=schemas.VerificarSaidaResponse)
 def verificar_saida(
     codigo_barras: str,
+    unidade_id: Optional[int] = None,
     db: Session = Depends(get_db),
     usuario: models.Usuario = Depends(exigir_totem_saida),
 ):
+    unidade_id_resolvida = resolver_unidade_operacional(db, usuario, unidade_id)
     ticket = db.query(models.Ticket).filter_by(
-        codigo_barras=codigo_barras, unidade_id=usuario.unidade_id
+        codigo_barras=codigo_barras, unidade_id=unidade_id_resolvida
     ).first()
     if not ticket:
         raise HTTPException(404, "Ticket não encontrado")
@@ -218,8 +229,9 @@ def registrar_pagamento(
     db: Session = Depends(get_db),
     usuario: models.Usuario = Depends(exigir_totem_saida),
 ):
+    unidade_id = resolver_unidade_operacional(db, usuario, payload.unidade_id)
     ticket = db.query(models.Ticket).filter_by(
-        codigo_barras=payload.codigo_barras, unidade_id=usuario.unidade_id
+        codigo_barras=payload.codigo_barras, unidade_id=unidade_id
     ).first()
     if not ticket:
         raise HTTPException(404, "Ticket não encontrado")

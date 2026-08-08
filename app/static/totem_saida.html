@@ -163,8 +163,7 @@
   <div class="resultado" id="resultado">
     <div class="status" id="resultado-status"></div>
     <div class="linha"><span>Motivo</span><b id="resultado-motivo"></b></div>
-    <div class="linha"><span>Permanência</span><b id="resultado-permanencia"></b></div>
-    <div class="linha"><span>Valor</span><b id="resultado-valor"></b></div>
+    <div class="linha" id="linha-valor" style="display:none;"><span>Valor a pagar</span><b id="resultado-valor"></b></div>
   </div>
 
   <div class="cupom-box" id="cupom-box">
@@ -267,8 +266,13 @@ function exibirResultado(r){
   resultado.className = 'resultado show ' + (r.liberar_cancela ? 'ok' : 'err');
   document.getElementById('resultado-status').textContent = r.liberar_cancela ? 'CANCELA LIBERADA' : 'AGUARDANDO PAGAMENTO';
   document.getElementById('resultado-motivo').textContent = r.motivo;
-  document.getElementById('resultado-permanencia').textContent = `${r.tempo_permanencia_minutos} min`;
-  document.getElementById('resultado-valor').textContent = `R$ ${r.valor_calculado.toFixed(2)}`;
+  const linhaValor = document.getElementById('linha-valor');
+  if (r.valor_calculado > 0){
+    linhaValor.style.display = 'flex';
+    document.getElementById('resultado-valor').textContent = `R$ ${r.valor_calculado.toFixed(2)}`;
+  }else{
+    linhaValor.style.display = 'none';
+  }
 
   const cupomBox = document.getElementById('cupom-box');
   if (!r.liberar_cancela && r.valor_calculado > 0){
@@ -296,8 +300,7 @@ document.getElementById('btn-saida').addEventListener('click', async () => {
     resultado.className = 'resultado show err';
     document.getElementById('resultado-status').textContent = e.message;
     document.getElementById('resultado-motivo').textContent = '';
-    document.getElementById('resultado-permanencia').textContent = '';
-    document.getElementById('resultado-valor').textContent = '';
+    document.getElementById('linha-valor').style.display = 'none';
     document.getElementById('cupom-box').className = 'cupom-box';
   }finally{
     btn.disabled = false;

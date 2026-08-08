@@ -120,6 +120,11 @@ class ValidarCupomRequest(BaseModel):
     # cnpj_estabelecimento não é mais um campo de entrada: é derivado da
     # própria chave_acesso_nfce na validação, para não depender de um dado
     # que o totem poderia informar errado (ou falsificado).
+    # Obrigatório pra dono/gerente de operações/supervisor operando pela
+    # tela de Operação (não têm/nem sempre usam a unidade fixa do totem);
+    # ignorado pra quem já está preso a uma unidade -- ver
+    # security.resolver_unidade_operacional.
+    unidade_id: Optional[int] = None
 
 
 class VerificarSaidaResponse(BaseModel):
@@ -135,6 +140,7 @@ class PagamentoRequest(BaseModel):
     codigo_barras: str
     forma_pagamento: str  # pix | cartao | dinheiro
     valor: float
+    unidade_id: Optional[int] = None  # ver ValidarCupomRequest.unidade_id
 
 
 class CredenciadoIn(BaseModel):
@@ -352,6 +358,9 @@ class UsuarioIn(BaseModel):
     # hoje). Informada = usa essa senha em vez de gerar -- útil quando
     # quem cria já quer combinar a senha com a pessoa na hora.
     senha: Optional[str] = None
+    # Só se aplica a papel="operador": unidades extras (além de unidade_id,
+    # a principal) que essa conta pode escolher operar na tela de Operação.
+    unidades_autorizadas_ids: list[int] = []
 
 
 class UsuarioOut(BaseModel):
@@ -370,6 +379,20 @@ class UsuarioOut(BaseModel):
 class UsuarioCriadoResponse(BaseModel):
     usuario: UsuarioOut
     senha: str  # texto puro -- só aparece aqui, na criação, nunca mais
+
+
+class UnidadeSelecionavelOut(BaseModel):
+    """Usado por GET /auth/minhas-unidades -- lista enxuta (id + nome) pra
+    montar a tela de seleção de unidade na Operação."""
+    id: int
+    nome: str
+
+    class Config:
+        from_attributes = True
+
+
+class UnidadeAutorizadaIn(BaseModel):
+    unidade_id: int
 
 
 class UsuarioUpdate(BaseModel):

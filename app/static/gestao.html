@@ -238,6 +238,29 @@
     padding:10px 12px;
     margin-top:6px;
   }
+  .tabs{display:flex;gap:6px;margin-bottom:20px;flex-wrap:wrap;}
+  .tab-btn{
+    border:1px solid var(--border);
+    background:#fff;
+    color:var(--navy);
+    padding:10px 16px;
+    border-radius:8px;
+    font-family:inherit;
+    font-weight:600;
+    font-size:13px;
+    cursor:pointer;
+  }
+  .tab-btn.active{background:var(--navy);color:var(--lime);border-color:var(--navy);}
+  .panel{display:none;flex-direction:column;gap:24px;}
+  .panel.active{display:flex;}
+  .unidades-autorizadas-row{background:var(--bg);}
+  .unidades-autorizadas-row td{padding:14px 10px;}
+  .lista-check-unidades{display:flex;flex-wrap:wrap;gap:14px;}
+  .lista-check-unidades label{
+    display:flex;align-items:center;gap:6px;
+    font-size:13px;font-weight:400;color:var(--navy);margin:0;
+  }
+  .lista-check-unidades input{width:auto;}
 </style>
 
 <div id="tela-login">
@@ -273,38 +296,6 @@
   </div>
 
   <main>
-    <section class="card" id="secao-unidades" style="display:none;">
-      <h2>Unidades</h2>
-      <div class="desc">Cada unidade nova já ganha as 3 contas de totem (entrada/validação/saída) prontas — as senhas só aparecem aqui, uma vez, na criação. Anote e distribua para os equipamentos.</div>
-      <div class="grid-form">
-        <div>
-          <label>Nome da unidade</label>
-          <input id="u-nome" placeholder="ex: Estacionamento Shopping Central">
-        </div>
-        <div>
-          <label>Tolerância padrão sem cupom (min)</label>
-          <input id="u-tolerancia" type="number" value="15">
-        </div>
-        <div>
-          <label>Valor da mensalidade (R$)</label>
-          <input id="u-valor-mensalidade" type="number" step="0.01" value="200.00">
-        </div>
-        <div>
-          <label>Validade da mensalidade (dias)</label>
-          <input id="u-dias-mensalidade" type="number" value="30">
-        </div>
-        <div>
-          <button class="action" id="btn-cadastrar-unidade" style="width:100%;">Cadastrar unidade</button>
-        </div>
-      </div>
-      <div class="msg" id="msg-unidade"></div>
-      <div id="contas-criadas"></div>
-      <table>
-        <thead><tr><th>Nome</th><th>Status</th><th>Tolerância padrão</th><th>Mensalidade</th></tr></thead>
-        <tbody id="tabela-unidades"></tbody>
-      </table>
-    </section>
-
     <section class="card" id="secao-filtro-unidade" style="display:none; border-color:var(--navy); border-width:2px;">
       <h2>Visualizando</h2>
       <div class="desc">Tudo o que aparece abaixo (dashboard, conciliação, credenciados, usuários, auditoria, tickets) respeita este filtro.</div>
@@ -320,266 +311,327 @@
       </div>
     </section>
 
-    <section class="card">
-      <h2>Dashboard</h2>
-      <div class="desc">Movimento no período (inclusive acessos de credenciado/mensalista) + pátio em tempo real, independente do filtro de data.</div>
-      <div class="filtros">
-        <div><label>De</label><input type="datetime-local" id="db-inicio"></div>
-        <div><label>Até</label><input type="datetime-local" id="db-fim"></div>
-        <div><button class="action" id="btn-dashboard">Buscar</button></div>
-      </div>
-      <div class="resumo" id="resumo-dashboard"></div>
-    </section>
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="patio">Pátio</button>
+      <button class="tab-btn" data-tab="tickets">Tickets</button>
+      <button class="tab-btn" data-tab="credenciados">Credenciados</button>
+      <button class="tab-btn" data-tab="estabelecimentos">Estabelecimentos</button>
+      <button class="tab-btn" data-tab="financeiro">Financeiro</button>
+      <button class="tab-btn" data-tab="usuarios">Usuários</button>
+      <button class="tab-btn" data-tab="auditoria">Auditoria</button>
+      <button class="tab-btn" data-tab="acoes" id="tab-btn-acoes" style="display:none;">Ações</button>
+      <button class="tab-btn" data-tab="unidades" id="tab-btn-unidades" style="display:none;">Unidades</button>
+    </div>
 
-    <section class="card">
-      <h2>Pátio</h2>
-      <div class="desc">O que está acontecendo agora -- estacionados no pátio, já liberados, de credenciados/mensalistas, ou já pagos.</div>
-      <div class="filtros">
-        <div>
-          <label>Ver</label>
-          <select id="pt-filtro">
-            <option value="estacionados">Estacionados no pátio</option>
-            <option value="liberados">Liberados</option>
-            <option value="credenciados">Credenciados</option>
-            <option value="pagos">Pagos</option>
-          </select>
+    <div class="panel active" id="panel-patio">
+      <section class="card">
+        <h2>Dashboard</h2>
+        <div class="desc">Movimento no período (inclusive acessos de credenciado/mensalista) + pátio em tempo real, independente do filtro de data.</div>
+        <div class="filtros">
+          <div><label>De</label><input type="datetime-local" id="db-inicio"></div>
+          <div><label>Até</label><input type="datetime-local" id="db-fim"></div>
+          <div><button class="action" id="btn-dashboard">Buscar</button></div>
         </div>
-        <div><button class="action" id="btn-patio">Buscar</button></div>
-      </div>
-      <table>
-        <thead>
-          <tr><th>Código</th><th>Entrada</th><th>Saída</th><th>Status</th><th>Valor</th><th>Pago</th><th>Credenciado</th></tr>
-        </thead>
-        <tbody id="tabela-patio"></tbody>
-      </table>
-      <div class="empty" id="patio-vazio" style="display:none;">Nenhum ticket nesse filtro.</div>
-    </section>
+        <div class="resumo" id="resumo-dashboard"></div>
+      </section>
 
-    <section class="card">
-      <h2>Conciliação financeira</h2>
-      <div class="desc">Achar a diferença entre tickets impressos, pagos e liberados — o que deveria estar batendo com o extrato do banco/adquirente. Isento não é diferença; a diferença de verdade é ticket tarifado que saiu sem pagar.</div>
-      <div class="filtros">
-        <div><label>De</label><input type="datetime-local" id="cc-inicio"></div>
-        <div><label>Até</label><input type="datetime-local" id="cc-fim"></div>
-        <div><button class="action" id="btn-conciliacao">Buscar</button></div>
-      </div>
-      <div class="resumo" id="resumo-conciliacao"></div>
-    </section>
+      <section class="card">
+        <h2>Pátio</h2>
+        <div class="desc">O que está acontecendo agora -- estacionados no pátio, já liberados, de credenciados/mensalistas, ou já pagos.</div>
+        <div class="filtros">
+          <div>
+            <label>Ver</label>
+            <select id="pt-filtro">
+              <option value="estacionados">Estacionados no pátio</option>
+              <option value="liberados">Liberados</option>
+              <option value="credenciados">Credenciados</option>
+              <option value="pagos">Pagos</option>
+            </select>
+          </div>
+          <div><button class="action" id="btn-patio">Buscar</button></div>
+        </div>
+        <table>
+          <thead>
+            <tr><th>Código</th><th>Entrada</th><th>Saída</th><th>Status</th><th>Valor</th><th>Pago</th><th>Credenciado</th></tr>
+          </thead>
+          <tbody id="tabela-patio"></tbody>
+        </table>
+        <div class="empty" id="patio-vazio" style="display:none;">Nenhum ticket nesse filtro.</div>
+      </section>
+    </div>
 
-    <section class="card">
-      <h2>Estabelecimentos conveniados</h2>
-      <div class="desc">Cada estabelecimento tem seu próprio regulamento de tolerância (contratos diferentes). O CNPJ é conferido contra o embutido na chave de acesso da NFC-e lida no totem — cupom de fora não conta.</div>
-      <div class="grid-form">
-        <div>
-          <label>CNPJ (14 dígitos, sem pontuação)</label>
-          <input id="e-cnpj" placeholder="ex: 12345678000199" maxlength="14">
+    <div class="panel" id="panel-tickets">
+      <section class="card">
+        <h2>Relatório de tickets</h2>
+        <div class="filtros">
+          <div><label>De</label><input type="datetime-local" id="rt-inicio"></div>
+          <div><label>Até</label><input type="datetime-local" id="rt-fim"></div>
+          <div><button class="action" id="btn-relatorio-tickets">Buscar</button></div>
         </div>
-        <div>
-          <label>Nome</label>
-          <input id="e-nome" placeholder="ex: Supermercado Central">
-        </div>
-        <div id="e-unidade-wrap" style="display:none;">
-          <label>Unidade</label>
-          <select id="e-unidade"></select>
-        </div>
-        <div>
-          <button class="action" id="btn-cadastrar-estabelecimento" style="width:100%;">Cadastrar</button>
-        </div>
-      </div>
-      <div class="msg" id="msg-estabelecimento"></div>
-      <div id="lista-estabelecimentos" style="margin-top:20px;"></div>
-    </section>
+        <table>
+          <thead>
+            <tr><th>Código</th><th>Entrada</th><th>Saída</th><th>Status</th><th>Permanência</th><th>Valor</th><th>Ações</th></tr>
+          </thead>
+          <tbody id="tabela-tickets"></tbody>
+        </table>
+        <div class="empty" id="tickets-vazio" style="display:none;">Nenhum ticket no período.</div>
+      </section>
+    </div>
 
-    <section class="card">
-      <h2>Cadastrar credenciado / mensalista</h2>
-      <div class="desc">O identificador facial é o que a câmera do totem retorna ao reconhecer a pessoa — aqui, para teste, pode ser qualquer texto único.</div>
-      <div class="grid-form">
-        <div>
-          <label>Nome</label>
-          <input id="c-nome" placeholder="Nome completo">
+    <div class="panel" id="panel-credenciados">
+      <section class="card">
+        <h2>Cadastrar credenciado / mensalista</h2>
+        <div class="desc">O identificador facial é o que a câmera do totem retorna ao reconhecer a pessoa — aqui, para teste, pode ser qualquer texto único.</div>
+        <div class="grid-form">
+          <div>
+            <label>Nome</label>
+            <input id="c-nome" placeholder="Nome completo">
+          </div>
+          <div>
+            <label>Tipo</label>
+            <select id="c-tipo">
+              <option value="credenciado">Credenciado (100% liberado)</option>
+              <option value="mensalista">Mensalista (paga R$200 / 30 dias)</option>
+            </select>
+          </div>
+          <div>
+            <label>Identificador facial</label>
+            <input id="c-identificador" placeholder="ex: FACE-001">
+          </div>
+          <div>
+            <label>Documento (opcional)</label>
+            <input id="c-documento" placeholder="CPF">
+          </div>
+          <div>
+            <label>Placa (opcional)</label>
+            <input id="c-placa" placeholder="ABC1D23">
+          </div>
+          <div>
+            <label>Empresa/vínculo (opcional)</label>
+            <input id="c-empresa" placeholder="ex: Loja Parceira">
+          </div>
+          <div id="c-unidade-wrap" style="display:none;">
+            <label>Unidade</label>
+            <select id="c-unidade"></select>
+          </div>
+          <div>
+            <button class="action" id="btn-cadastrar" style="width:100%;">Cadastrar</button>
+          </div>
         </div>
-        <div>
-          <label>Tipo</label>
-          <select id="c-tipo">
-            <option value="credenciado">Credenciado (100% liberado)</option>
-            <option value="mensalista">Mensalista (paga R$200 / 30 dias)</option>
-          </select>
-        </div>
-        <div>
-          <label>Identificador facial</label>
-          <input id="c-identificador" placeholder="ex: FACE-001">
-        </div>
-        <div>
-          <label>Documento (opcional)</label>
-          <input id="c-documento" placeholder="CPF">
-        </div>
-        <div>
-          <label>Placa (opcional)</label>
-          <input id="c-placa" placeholder="ABC1D23">
-        </div>
-        <div>
-          <label>Empresa/vínculo (opcional)</label>
-          <input id="c-empresa" placeholder="ex: Loja Parceira">
-        </div>
-        <div id="c-unidade-wrap" style="display:none;">
-          <label>Unidade</label>
-          <select id="c-unidade"></select>
-        </div>
-        <div>
-          <button class="action" id="btn-cadastrar" style="width:100%;">Cadastrar</button>
-        </div>
-      </div>
-      <div class="msg" id="msg-cadastro"></div>
-    </section>
+        <div class="msg" id="msg-cadastro"></div>
+      </section>
 
-    <section class="card">
-      <h2>Credenciados cadastrados</h2>
-      <div class="desc">Mensalistas vencidos aparecem com validade em vermelho — use "Renovar" para dar mais 30 dias.</div>
-      <table>
-        <thead>
-          <tr>
-            <th>Nome</th><th>Tipo</th><th>Identificador facial</th><th>Placa</th>
-            <th>Status</th><th>Validade</th><th>Ações</th>
-          </tr>
-        </thead>
-        <tbody id="tabela-credenciados"></tbody>
-      </table>
-      <div class="empty" id="credenciados-vazio" style="display:none;">Nenhum credenciado cadastrado ainda.</div>
-    </section>
+      <section class="card">
+        <h2>Credenciados cadastrados</h2>
+        <div class="desc">Mensalistas vencidos aparecem com validade em vermelho — use "Renovar" para dar mais 30 dias.</div>
+        <table>
+          <thead>
+            <tr>
+              <th>Nome</th><th>Tipo</th><th>Identificador facial</th><th>Placa</th>
+              <th>Status</th><th>Validade</th><th>Ações</th>
+            </tr>
+          </thead>
+          <tbody id="tabela-credenciados"></tbody>
+        </table>
+        <div class="empty" id="credenciados-vazio" style="display:none;">Nenhum credenciado cadastrado ainda.</div>
+      </section>
+    </div>
 
-    <section class="card perigo" id="secao-liberacao-manual" style="display:none;">
-      <h2>Liberação manual de cancela</h2>
-      <div class="desc">Use só quando o fluxo automático falhou (ex: totem travou, ticket não foi emitido). Só quem tem permissão de liberação manual vê esta seção. Toda liberação fica registrada na auditoria abaixo.</div>
-      <div class="grid-form">
-        <div>
-          <label>Cancela</label>
-          <select id="lm-cancela">
-            <option value="entrada">Entrada</option>
-            <option value="saida">Saída</option>
-          </select>
+    <div class="panel" id="panel-estabelecimentos">
+      <section class="card">
+        <h2>Estabelecimentos conveniados</h2>
+        <div class="desc">Cada estabelecimento tem seu próprio regulamento de tolerância (contratos diferentes). O CNPJ é conferido contra o embutido na chave de acesso da NFC-e lida no totem — cupom de fora não conta.</div>
+        <div class="grid-form">
+          <div>
+            <label>CNPJ (14 dígitos, sem pontuação)</label>
+            <input id="e-cnpj" placeholder="ex: 12345678000199" maxlength="14">
+          </div>
+          <div>
+            <label>Nome</label>
+            <input id="e-nome" placeholder="ex: Supermercado Central">
+          </div>
+          <div id="e-unidade-wrap" style="display:none;">
+            <label>Unidade</label>
+            <select id="e-unidade"></select>
+          </div>
+          <div>
+            <button class="action" id="btn-cadastrar-estabelecimento" style="width:100%;">Cadastrar</button>
+          </div>
         </div>
-        <div>
-          <label>Ticket relacionado (opcional)</label>
-          <input id="lm-ticket-id" type="number" placeholder="ID do ticket, se existir">
-        </div>
-        <div id="lm-unidade-wrap" style="display:none;">
-          <label>Unidade (se não informar ticket)</label>
-          <select id="lm-unidade"></select>
-        </div>
-      </div>
-      <label style="margin-top:12px;">Motivo (obrigatório)</label>
-      <textarea id="lm-motivo" placeholder="Descreva por que a liberação manual é necessária"></textarea>
-      <button class="perigo" id="btn-liberacao-manual" style="margin-top:14px;">Liberar cancela manualmente</button>
-      <div class="msg" id="msg-liberacao-manual"></div>
-    </section>
+        <div class="msg" id="msg-estabelecimento"></div>
+        <div id="lista-estabelecimentos" style="margin-top:20px;"></div>
+      </section>
+    </div>
 
-    <section class="card perigo" id="secao-limpar-patio" style="display:none;">
-      <h2>Limpeza de pátio</h2>
-      <div class="desc">Finaliza de uma vez todos os tickets em aberto (ex: falha geral no sistema deixou vários carros sem conseguir sair). Não abre cancela nenhuma, só zera os tickets presos no sistema. Sempre exige uma unidade específica — nunca limpa "todas" de uma vez. Tickets de credenciado/mensalista não são afetados.</div>
-      <div class="grid-form">
-        <div id="lp-unidade-wrap" style="display:none;">
-          <label>Unidade</label>
-          <select id="lp-unidade"></select>
+    <div class="panel" id="panel-financeiro">
+      <section class="card">
+        <h2>Conciliação financeira</h2>
+        <div class="desc">Achar a diferença entre tickets impressos, pagos e liberados — o que deveria estar batendo com o extrato do banco/adquirente. Isento não é diferença; a diferença de verdade é ticket tarifado que saiu sem pagar.</div>
+        <div class="filtros">
+          <div><label>De</label><input type="datetime-local" id="cc-inicio"></div>
+          <div><label>Até</label><input type="datetime-local" id="cc-fim"></div>
+          <div><button class="action" id="btn-conciliacao">Buscar</button></div>
         </div>
-      </div>
-      <label style="margin-top:12px;">Motivo (obrigatório)</label>
-      <textarea id="lp-motivo" placeholder="Descreva a falha que exigiu a limpeza de pátio"></textarea>
-      <button class="perigo" id="btn-limpar-patio" style="margin-top:14px;">Limpar pátio</button>
-      <div class="msg" id="msg-limpar-patio"></div>
-    </section>
+        <div class="resumo" id="resumo-conciliacao"></div>
+      </section>
+    </div>
 
-    <section class="card" id="secao-usuarios" style="display:none;">
-      <h2>Usuários</h2>
-      <div class="desc">Contas de acesso ao sistema (além das contas de totem geradas automaticamente com cada unidade). Dono e gerente de operações criam qualquer papel para qualquer unidade (mesmo nível de acesso); supervisor só cria contas de operador para a própria unidade.</div>
-      <div class="grid-form">
-        <div>
-          <label>Nome</label>
-          <input id="us-nome" placeholder="Nome completo">
+    <div class="panel" id="panel-usuarios">
+      <section class="card" id="secao-usuarios">
+        <h2>Usuários</h2>
+        <div class="desc">Contas de acesso ao sistema (além das contas de totem geradas automaticamente com cada unidade). Dono e gerente de operações criam qualquer papel para qualquer unidade (mesmo nível de acesso); supervisor só cria contas de operador para a própria unidade. Operadores podem ser autorizados a operar em mais de uma unidade -- ver "Unidades" na tabela abaixo.</div>
+        <div class="grid-form">
+          <div>
+            <label>Nome</label>
+            <input id="us-nome" placeholder="Nome completo">
+          </div>
+          <div>
+            <label>Papel</label>
+            <select id="us-papel">
+              <option value="operador">Operador</option>
+              <option value="supervisor">Supervisor</option>
+              <option value="gerente_operacoes">Gerente de Operações</option>
+              <option value="dono">Dono</option>
+              <option value="totem_entrada">Totem de entrada</option>
+              <option value="totem_validacao">Totem de validação</option>
+              <option value="totem_saida">Totem de saída</option>
+            </select>
+          </div>
+          <div id="us-cpf-wrap">
+            <label>CPF (vira o usuário de login)</label>
+            <input id="us-cpf" placeholder="somente números" maxlength="11">
+          </div>
+          <div id="us-unidade-wrap" style="display:none;">
+            <label>Unidade (principal)</label>
+            <select id="us-unidade"></select>
+          </div>
+          <div>
+            <label>Senha (opcional -- em branco gera uma automática)</label>
+            <input id="us-senha" placeholder="deixe em branco para gerar automaticamente">
+          </div>
+          <div>
+            <label style="display:flex; align-items:center; gap:6px; margin-top:22px;">
+              <input type="checkbox" id="us-libera-manual" style="width:auto;"> Pode fazer liberação manual
+            </label>
+          </div>
+          <div>
+            <button class="action" id="btn-criar-usuario" style="width:100%;">Criar usuário</button>
+          </div>
         </div>
-        <div>
-          <label>Papel</label>
-          <select id="us-papel">
-            <option value="operador">Operador</option>
-            <option value="supervisor">Supervisor</option>
-            <option value="gerente_operacoes">Gerente de Operações</option>
-            <option value="dono">Dono</option>
-            <option value="totem_entrada">Totem de entrada</option>
-            <option value="totem_validacao">Totem de validação</option>
-            <option value="totem_saida">Totem de saída</option>
-          </select>
-        </div>
-        <div id="us-cpf-wrap">
-          <label>CPF (vira o usuário de login)</label>
-          <input id="us-cpf" placeholder="somente números" maxlength="11">
-        </div>
-        <div id="us-unidade-wrap" style="display:none;">
-          <label>Unidade</label>
-          <select id="us-unidade"></select>
-        </div>
-        <div>
-          <label>Senha (opcional -- em branco gera uma automática)</label>
-          <input id="us-senha" placeholder="deixe em branco para gerar automaticamente">
-        </div>
-        <div>
-          <label style="display:flex; align-items:center; gap:6px; margin-top:22px;">
-            <input type="checkbox" id="us-libera-manual" style="width:auto;"> Pode fazer liberação manual
-          </label>
-        </div>
-        <div>
-          <button class="action" id="btn-criar-usuario" style="width:100%;">Criar usuário</button>
-        </div>
-      </div>
-      <div class="msg" id="msg-usuario"></div>
-      <div id="conta-usuario-criado"></div>
-      <table>
-        <thead>
-          <tr><th>Nome</th><th>Usuário</th><th>Papel</th><th>Status</th><th>Libera manual</th><th>Ações</th></tr>
-        </thead>
-        <tbody id="tabela-usuarios"></tbody>
-      </table>
-      <div class="empty" id="usuarios-vazio" style="display:none;">Nenhum usuário cadastrado ainda.</div>
-    </section>
+        <div class="msg" id="msg-usuario"></div>
+        <div id="conta-usuario-criado"></div>
+        <table>
+          <thead>
+            <tr><th>Nome</th><th>Usuário</th><th>Papel</th><th>Status</th><th>Libera manual</th><th>Ações</th></tr>
+          </thead>
+          <tbody id="tabela-usuarios"></tbody>
+        </table>
+        <div class="empty" id="usuarios-vazio" style="display:none;">Nenhum usuário cadastrado ainda.</div>
+      </section>
+    </div>
 
-    <section class="card">
-      <h2>Auditoria</h2>
-      <div class="desc">Liberações manuais, limpezas de pátio, exclusões de ticket e tentativas de cupom fiscal duplicado — tudo num só lugar, com quem fez cada ação.</div>
-      <div class="filtros">
-        <div>
-          <label>Tipo</label>
-          <select id="ad-tipo">
-            <option value="">Todos</option>
-            <option value="liberacao_manual">Liberação manual / limpeza de pátio</option>
-            <option value="exclusao_ticket">Exclusão de ticket</option>
-            <option value="cupom_duplicado">Cupom fiscal duplicado</option>
-          </select>
+    <div class="panel" id="panel-auditoria">
+      <section class="card">
+        <h2>Auditoria</h2>
+        <div class="desc">Liberações manuais, limpezas de pátio, exclusões de ticket e tentativas de cupom fiscal duplicado — tudo num só lugar, com quem fez cada ação.</div>
+        <div class="filtros">
+          <div>
+            <label>Tipo</label>
+            <select id="ad-tipo">
+              <option value="">Todos</option>
+              <option value="liberacao_manual">Liberação manual / limpeza de pátio</option>
+              <option value="exclusao_ticket">Exclusão de ticket</option>
+              <option value="cupom_duplicado">Cupom fiscal duplicado</option>
+            </select>
+          </div>
+          <div><button class="action" id="btn-auditoria">Atualizar</button></div>
         </div>
-        <div><button class="action" id="btn-auditoria">Atualizar</button></div>
-      </div>
-      <table>
-        <thead>
-          <tr><th>Tipo</th><th>Descrição</th><th>Usuário</th><th>Quando</th></tr>
-        </thead>
-        <tbody id="tabela-auditoria"></tbody>
-      </table>
-      <div class="empty" id="auditoria-vazio" style="display:none;">Nenhum evento de auditoria registrado.</div>
-    </section>
+        <table>
+          <thead>
+            <tr><th>Tipo</th><th>Descrição</th><th>Usuário</th><th>Quando</th></tr>
+          </thead>
+          <tbody id="tabela-auditoria"></tbody>
+        </table>
+        <div class="empty" id="auditoria-vazio" style="display:none;">Nenhum evento de auditoria registrado.</div>
+      </section>
+    </div>
 
-    <section class="card">
-      <h2>Relatório de tickets</h2>
-      <div class="filtros">
-        <div><label>De</label><input type="datetime-local" id="rt-inicio"></div>
-        <div><label>Até</label><input type="datetime-local" id="rt-fim"></div>
-        <div><button class="action" id="btn-relatorio-tickets">Buscar</button></div>
-      </div>
-      <table>
-        <thead>
-          <tr><th>Código</th><th>Entrada</th><th>Saída</th><th>Status</th><th>Permanência</th><th>Valor</th><th>Ações</th></tr>
-        </thead>
-        <tbody id="tabela-tickets"></tbody>
-      </table>
-      <div class="empty" id="tickets-vazio" style="display:none;">Nenhum ticket no período.</div>
-    </section>
+    <div class="panel" id="panel-acoes">
+      <section class="card perigo" id="secao-liberacao-manual">
+        <h2>Liberação manual de cancela</h2>
+        <div class="desc">Use só quando o fluxo automático falhou (ex: totem travou, ticket não foi emitido). Só quem tem permissão de liberação manual vê esta seção. Toda liberação fica registrada na auditoria abaixo.</div>
+        <div class="grid-form">
+          <div>
+            <label>Cancela</label>
+            <select id="lm-cancela">
+              <option value="entrada">Entrada</option>
+              <option value="saida">Saída</option>
+            </select>
+          </div>
+          <div>
+            <label>Ticket relacionado (opcional)</label>
+            <input id="lm-ticket-id" type="number" placeholder="ID do ticket, se existir">
+          </div>
+          <div id="lm-unidade-wrap" style="display:none;">
+            <label>Unidade (se não informar ticket)</label>
+            <select id="lm-unidade"></select>
+          </div>
+        </div>
+        <label style="margin-top:12px;">Motivo (obrigatório)</label>
+        <textarea id="lm-motivo" placeholder="Descreva por que a liberação manual é necessária"></textarea>
+        <button class="perigo" id="btn-liberacao-manual" style="margin-top:14px;">Liberar cancela manualmente</button>
+        <div class="msg" id="msg-liberacao-manual"></div>
+      </section>
 
+      <section class="card perigo" id="secao-limpar-patio">
+        <h2>Limpeza de pátio</h2>
+        <div class="desc">Finaliza de uma vez todos os tickets em aberto (ex: falha geral no sistema deixou vários carros sem conseguir sair). Não abre cancela nenhuma, só zera os tickets presos no sistema. Sempre exige uma unidade específica — nunca limpa "todas" de uma vez. Tickets de credenciado/mensalista não são afetados.</div>
+        <div class="grid-form">
+          <div id="lp-unidade-wrap" style="display:none;">
+            <label>Unidade</label>
+            <select id="lp-unidade"></select>
+          </div>
+        </div>
+        <label style="margin-top:12px;">Motivo (obrigatório)</label>
+        <textarea id="lp-motivo" placeholder="Descreva a falha que exigiu a limpeza de pátio"></textarea>
+        <button class="perigo" id="btn-limpar-patio" style="margin-top:14px;">Limpar pátio</button>
+        <div class="msg" id="msg-limpar-patio"></div>
+      </section>
+    </div>
+
+    <div class="panel" id="panel-unidades">
+      <section class="card" id="secao-unidades">
+        <h2>Unidades</h2>
+        <div class="desc">Cada unidade nova já ganha as 3 contas de totem (entrada/validação/saída) prontas — as senhas só aparecem aqui, uma vez, na criação. Anote e distribua para os equipamentos.</div>
+        <div class="grid-form">
+          <div>
+            <label>Nome da unidade</label>
+            <input id="u-nome" placeholder="ex: Estacionamento Shopping Central">
+          </div>
+          <div>
+            <label>Tolerância padrão sem cupom (min)</label>
+            <input id="u-tolerancia" type="number" value="15">
+          </div>
+          <div>
+            <label>Valor da mensalidade (R$)</label>
+            <input id="u-valor-mensalidade" type="number" step="0.01" value="200.00">
+          </div>
+          <div>
+            <label>Validade da mensalidade (dias)</label>
+            <input id="u-dias-mensalidade" type="number" value="30">
+          </div>
+          <div>
+            <button class="action" id="btn-cadastrar-unidade" style="width:100%;">Cadastrar unidade</button>
+          </div>
+        </div>
+        <div class="msg" id="msg-unidade"></div>
+        <div id="contas-criadas"></div>
+        <table>
+          <thead><tr><th>Nome</th><th>Status</th><th>Tolerância padrão</th><th>Mensalidade</th></tr></thead>
+          <tbody id="tabela-unidades"></tbody>
+        </table>
+      </section>
+    </div>
   </main>
 </div>
 
@@ -654,6 +706,15 @@ document.querySelectorAll('.toggle-senha').forEach(btn => {
     const visivel = input.type === 'text';
     input.type = visivel ? 'password' : 'text';
     btn.textContent = visivel ? 'mostrar' : 'ocultar';
+  });
+});
+
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('panel-' + btn.dataset.tab).classList.add('active');
   });
 });
 
@@ -1263,15 +1324,19 @@ document.getElementById('btn-criar-usuario').addEventListener('click', async () 
   }
 });
 
+let ultimaListaUsuarios = [];
+
 async function carregarUsuarios(){
   const tbody = document.getElementById('tabela-usuarios');
   const vazio = document.getElementById('usuarios-vazio');
   try{
     const lista = await api('GET', `/gestao/usuarios?${query()}`);
+    ultimaListaUsuarios = lista;
     tbody.innerHTML = '';
     vazio.style.display = lista.length ? 'none' : 'block';
     lista.forEach(u => {
       const tr = document.createElement('tr');
+      const podeGerenciarUnidades = u.papel === 'operador' && listaUnidades.length > 1;
       tr.innerHTML = `
         <td>${u.nome}</td>
         <td><code>${u.username}</code></td>
@@ -1281,13 +1346,69 @@ async function carregarUsuarios(){
         <td>
           <button class="secundario" onclick="alternarAtivoUsuario(${u.id}, ${u.ativo})">${u.ativo ? 'Desativar' : 'Ativar'}</button>
           <button class="secundario" onclick="alternarLiberaManualUsuario(${u.id}, ${u.pode_liberar_manualmente})">${u.pode_liberar_manualmente ? 'Tirar liberação manual' : 'Dar liberação manual'}</button>
+          ${podeGerenciarUnidades ? `<button class="secundario" onclick="alternarPainelUnidadesAutorizadas(${u.id})">Unidades</button>` : ''}
           ${ehNivelDono() ? `<button class="secundario" onclick="excluirUsuario(${u.id}, '${u.nome.replace(/'/g, "\\'")}')">Excluir</button>` : ''}
         </td>
       `;
       tbody.appendChild(tr);
+      if (podeGerenciarUnidades){
+        const trExtra = document.createElement('tr');
+        trExtra.className = 'unidades-autorizadas-row';
+        trExtra.id = `unidades-row-${u.id}`;
+        trExtra.style.display = 'none';
+        trExtra.innerHTML = `<td colspan="6"><div class="lista-check-unidades" id="lista-check-${u.id}">Carregando...</div></td>`;
+        tbody.appendChild(trExtra);
+      }
     });
   }catch(e){
     alert(e.message);
+  }
+}
+
+// Unidades extras (além da principal) que um operador pode escolher operar
+// na tela de Operação -- clique no checkbox concede/revoga na hora.
+async function alternarPainelUnidadesAutorizadas(usuarioId){
+  const linha = document.getElementById(`unidades-row-${usuarioId}`);
+  const abrindo = linha.style.display === 'none';
+  linha.style.display = abrindo ? 'table-row' : 'none';
+  if (!abrindo) return;
+
+  const container = document.getElementById(`lista-check-${usuarioId}`);
+  const usuario = ultimaListaUsuarios.find(u => u.id === usuarioId);
+  try{
+    const autorizadas = await api('GET', `/gestao/usuarios/${usuarioId}/unidades-autorizadas`);
+    const idsAutorizados = new Set(autorizadas.map(a => a.id));
+    const outrasUnidades = listaUnidades.filter(un => un.id !== usuario.unidade_id);
+    if (!outrasUnidades.length){
+      container.innerHTML = '<span class="empty">Nenhuma outra unidade cadastrada ainda.</span>';
+      return;
+    }
+    container.innerHTML = outrasUnidades.map(un => `
+      <label>
+        <input type="checkbox" data-unidade-id="${un.id}" ${idsAutorizados.has(un.id) ? 'checked' : ''}>
+        ${un.nome}
+      </label>
+    `).join('');
+    container.querySelectorAll('input[type=checkbox]').forEach(chk => {
+      chk.addEventListener('change', async () => {
+        const unidadeId = parseInt(chk.dataset.unidadeId, 10);
+        chk.disabled = true;
+        try{
+          if (chk.checked){
+            await api('POST', `/gestao/usuarios/${usuarioId}/unidades-autorizadas`, { unidade_id: unidadeId });
+          }else{
+            await api('DELETE', `/gestao/usuarios/${usuarioId}/unidades-autorizadas/${unidadeId}`);
+          }
+        }catch(e){
+          alert(e.message);
+          chk.checked = !chk.checked;
+        }finally{
+          chk.disabled = false;
+        }
+      });
+    });
+  }catch(e){
+    container.innerHTML = `<span class="empty">${e.message}</span>`;
   }
 }
 
@@ -1336,17 +1457,15 @@ async function iniciarApp(){
   document.getElementById('usuario-papel').textContent = sessao.papel;
 
   const nivelDono = ehNivelDono();
-  document.getElementById('secao-unidades').style.display = nivelDono ? 'block' : 'none';
+  document.getElementById('tab-btn-unidades').style.display = nivelDono ? 'inline-block' : 'none';
   document.getElementById('secao-filtro-unidade').style.display = nivelDono ? 'block' : 'none';
   document.getElementById('e-unidade-wrap').style.display = nivelDono ? 'block' : 'none';
   document.getElementById('c-unidade-wrap').style.display = nivelDono ? 'block' : 'none';
   document.getElementById('lm-unidade-wrap').style.display = nivelDono ? 'block' : 'none';
   document.getElementById('lp-unidade-wrap').style.display = nivelDono ? 'block' : 'none';
 
-  document.getElementById('secao-liberacao-manual').style.display = sessao.pode_liberar_manualmente ? 'block' : 'none';
-  document.getElementById('secao-limpar-patio').style.display = sessao.pode_liberar_manualmente ? 'block' : 'none';
+  document.getElementById('tab-btn-acoes').style.display = sessao.pode_liberar_manualmente ? 'inline-block' : 'none';
 
-  document.getElementById('secao-usuarios').style.display = 'block';
   const selectPapel = document.getElementById('us-papel');
   if (!nivelDono){
     // supervisor só cria operador -- esconde as demais opções

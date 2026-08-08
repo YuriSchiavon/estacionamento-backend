@@ -121,6 +121,42 @@
     margin-left:auto;
     margin-right:auto;
   }
+  .botoes-pagamento{
+    display:grid;
+    grid-template-columns:1fr 1fr 1fr;
+    gap:10px;
+    margin-top:10px;
+  }
+  button.btn-forma-pagamento{
+    background:#16294A;
+    color:#fff;
+    border:2px solid #2C3E5C;
+    border-radius:12px;
+    padding:22px 8px;
+    font-family:inherit;
+    font-weight:700;
+    font-size:15px;
+    cursor:pointer;
+  }
+  button.btn-forma-pagamento:hover{border-color:var(--lime);}
+  button.btn-forma-pagamento:disabled{opacity:.5;cursor:default;}
+  #area-impressao{display:none;}
+  @media print{
+    body *{visibility:hidden;}
+    #area-impressao, #area-impressao *{visibility:visible;}
+    #area-impressao{
+      display:block;
+      position:fixed;
+      top:0; left:0;
+      width:100%;
+      padding:24px;
+      color:#000;
+      text-align:center;
+    }
+    #area-impressao .ip-marca{font-weight:800;font-size:18px;margin-bottom:16px;}
+    #area-impressao .ip-codigo{font-family:'Courier New',monospace;font-size:20px;font-weight:700;letter-spacing:2px;margin:10px 0;}
+    #area-impressao .ip-linha{font-size:13px;margin:4px 0;}
+  }
 </style>
 
 <div class="marca">MY PARK<span>·</span>PAGAMENTO</div>
@@ -149,18 +185,25 @@
     <div class="label">Valor a pagar</div>
     <div class="num" id="valor-num">R$ 0,00</div>
     <div id="bloco-pagamento">
-      <label>Forma de pagamento</label>
-      <select id="pag-forma">
-        <option value="pix">PIX</option>
-        <option value="cartao">Cartão</option>
-        <option value="dinheiro">Dinheiro</option>
-      </select>
-      <button class="principal" id="btn-pagar">PAGAR</button>
+      <label>Toque na forma de pagamento</label>
+      <div class="botoes-pagamento">
+        <button class="btn-forma-pagamento" data-forma="pix">PIX</button>
+        <button class="btn-forma-pagamento" data-forma="credito">Crédito</button>
+        <button class="btn-forma-pagamento" data-forma="debito">Débito</button>
+      </div>
     </div>
   </div>
 
   <div class="resultado" id="resultado"></div>
   <button class="trocar-conta" id="btn-trocar">trocar conta deste totem</button>
+</div>
+
+<div id="area-impressao">
+  <div class="ip-marca">MY PARK · COMPROVANTE DE PAGAMENTO</div>
+  <div class="ip-codigo" id="ip-codigo"></div>
+  <div class="ip-linha" id="ip-valor"></div>
+  <div class="ip-linha" id="ip-forma"></div>
+  <div class="ip-linha" id="ip-horario"></div>
 </div>
 
 <script>
@@ -286,30 +329,45 @@ document.getElementById('consulta-codigo').addEventListener('keydown', (e) => {
   if (e.key === 'Enter') document.getElementById('btn-consultar').click();
 });
 
-document.getElementById('btn-pagar').addEventListener('click', async () => {
-  const btn = document.getElementById('btn-pagar');
-  btn.disabled = true;
-  limparResultado();
-  try{
-    const valorTexto = document.getElementById('valor-num').textContent.replace('R$', '').trim().replace(',', '.');
-    const payload = {
-      codigo_barras: ticketAtual,
-      forma_pagamento: document.getElementById('pag-forma').value,
-      valor: parseFloat(valorTexto),
-    };
-    await chamarApi('POST', '/saida/pagamento', payload);
-    const resultado = document.getElementById('resultado');
-    resultado.className = 'resultado show ok';
-    resultado.textContent = 'Pagamento registrado! Siga para a cancela de saída.';
-    document.getElementById('valor-devido').className = 'valor-devido';
-    document.getElementById('consulta-codigo').value = '';
-    ticketAtual = null;
-  }catch(e){
-    const resultado = document.getElementById('resultado');
-    resultado.className = 'resultado show err';
-    resultado.textContent = e.message;
-  }finally{
-    btn.disabled = false;
-  }
+const NOMES_FORMA_PAGAMENTO = { pix: 'PIX', credito: 'Crédito', debito: 'Débito' };
+
+// Auto-atendimento, equipamento fixo sem mouse: tocar na forma de
+// pagamento já dispara o pagamento direto -- sem um passo extra de
+// "confirmar", já que cada botão é a própria confirmação.
+document.querySelectorAll('.btn-forma-pagamento').forEach(botao => {
+  botao.addEventListener('click', async () => {
+    const forma = botao.dataset.forma;
+    document.querySelectorAll('.btn-forma-pagamento').forEach(b => b.disabled = true);
+    limparResultado();
+    try{
+      const valorTexto = document.getElementById('valor-num').textContent.replace('R$', '').trim().replace(',', '.');
+      const valor = parseFloat(valorTexto);
+      const payload = { codigo_barras: ticketAtual, forma_pagamento: forma, valor };
+      await chamarApi('POST', '/saida/pagamento', payload);
+      const resultado = document.getElementById('resultado');
+      resultado.className = 'resultado show ok';
+      resultado.textContent = 'Pagamento registrado! Siga para a cancela de saída.';
+      imprimirComprovante(ticketAtual, valor, forma);
+      document.getElementById('valor-devido').className = 'valor-devido';
+      document.getElementById('consulta-codigo').value = '';
+      ticketAtual = null;
+    }catch(e){
+      const resultado = document.getElementById('resultado');
+      resultado.className = 'resultado show err';
+      resultado.textContent = e.message;
+    }finally{
+      document.querySelectorAll('.btn-forma-pagamento').forEach(b => b.disabled = false);
+    }
+  });
 });
+
+// window.print() é o substituto em software pra impressora térmica real
+// -- ver driver de hardware no README para a integração futura.
+function imprimirComprovante(codigo, valor, forma){
+  document.getElementById('ip-codigo').textContent = codigo;
+  document.getElementById('ip-valor').textContent = `Valor pago: R$ ${valor.toFixed(2)}`;
+  document.getElementById('ip-forma').textContent = `Forma: ${NOMES_FORMA_PAGAMENTO[forma] || forma}`;
+  document.getElementById('ip-horario').textContent = new Date().toLocaleString('pt-BR');
+  window.print();
+}
 </script>

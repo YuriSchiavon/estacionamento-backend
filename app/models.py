@@ -97,6 +97,24 @@ class Usuario(Base):
     unidade = relationship("Unidade")
 
 
+class UnidadeAutorizada(Base):
+    """Unidades extras que um operador pode escolher operar, além da
+    `unidade_id` principal em Usuario. Só operador usa isso na prática --
+    dono/gerente_operacoes já enxergam todas via PAPEIS_NIVEL_DONO, e
+    supervisor/totem_* ficam presos à própria unidade."""
+    __tablename__ = "unidades_autorizadas"
+    __table_args__ = (
+        UniqueConstraint("usuario_id", "unidade_id", name="uq_usuario_unidade_autorizada"),
+    )
+
+    id = Column(Integer, primary_key=True)
+    usuario_id = Column(Integer, ForeignKey("usuarios.id"), nullable=False)
+    unidade_id = Column(Integer, ForeignKey("unidades.id"), nullable=False)
+
+    usuario = relationship("Usuario", backref="unidades_autorizadas")
+    unidade = relationship("Unidade")
+
+
 class Sessao(Base):
     """Token de login opaco -- revogável na hora (basta apagar a linha),
     diferente de um JWT auto-contido que continuaria válido até expirar."""

@@ -46,30 +46,35 @@ def _exigir_papel(*papeis_permitidos: models.PapelUsuario):
     return dependencia
 
 
-# Dependências nomeadas em nível de módulo -- ver docstring do arquivo
-# sobre por que isso importa pros overrides de teste.
-#
-# `operador` reaproveita as permissões dos totens: quando o estacionamento
-# é assistido, uma pessoa loga como operador e faz manualmente as mesmas
-# ações que o totem faria sozinho (emitir ticket, validar cupom, verificar
-# saída, pagamento) -- por isso cada exigir_totem_* também aceita operador.
-exigir_totem_entrada = _exigir_papel(models.PapelUsuario.totem_entrada, models.PapelUsuario.operador)
-exigir_totem_validacao = _exigir_papel(models.PapelUsuario.totem_validacao, models.PapelUsuario.operador)
-exigir_totem_saida = _exigir_papel(models.PapelUsuario.totem_saida, models.PapelUsuario.operador)
-
-# Validar cupom fiscal (/loja/validar-cupom) também pode ser chamado do
-# totem de saída -- "revalidação": se o cliente chegou na cancela sem ter
-# validado na loja, dá pra validar ali mesmo, antes da decisão de tolerância.
-exigir_totem_validacao_ou_saida = _exigir_papel(
-    models.PapelUsuario.totem_validacao, models.PapelUsuario.totem_saida, models.PapelUsuario.operador
-)
-
 # "gerente_operacoes" tem exatamente as mesmas permissões do "dono"
 # (multi-unidade, acesso total) -- é um cargo separado só pra distinguir
 # quem é o dono de fato de quem administra em nome dele, não um nível de
 # acesso mais restrito. Toda checagem que hoje é "papel == dono" deve
 # tratar os dois igual -- ver PAPEIS_NIVEL_DONO abaixo.
 PAPEIS_NIVEL_DONO = (models.PapelUsuario.dono, models.PapelUsuario.gerente_operacoes)
+
+# Dependências nomeadas em nível de módulo -- ver docstring do arquivo
+# sobre por que isso importa pros overrides de teste.
+#
+# `operador` reaproveita as permissões dos totens: quando o estacionamento
+# é assistido, uma pessoa loga como operador e faz manualmente as mesmas
+# ações que o totem faria sozinho (emitir ticket, validar cupom, verificar
+# saída, pagamento). dono/gerente_operacoes/supervisor também podem "ser o
+# totem" pela tela de Operação -- todos escolhem/confirmam a unidade em
+# que estão atuando via resolver_unidade_operacional, abaixo.
+_PAPEIS_OPERACAO_AMPLIADOS = (
+    models.PapelUsuario.operador, models.PapelUsuario.supervisor, *PAPEIS_NIVEL_DONO,
+)
+exigir_totem_entrada = _exigir_papel(models.PapelUsuario.totem_entrada, *_PAPEIS_OPERACAO_AMPLIADOS)
+exigir_totem_validacao = _exigir_papel(models.PapelUsuario.totem_validacao, *_PAPEIS_OPERACAO_AMPLIADOS)
+exigir_totem_saida = _exigir_papel(models.PapelUsuario.totem_saida, *_PAPEIS_OPERACAO_AMPLIADOS)
+
+# Validar cupom fiscal (/loja/validar-cupom) também pode ser chamado do
+# totem de saída -- "revalidação": se o cliente chegou na cancela sem ter
+# validado na loja, dá pra validar ali mesmo, antes da decisão de tolerância.
+exigir_totem_validacao_ou_saida = _exigir_papel(
+    models.PapelUsuario.totem_validacao, models.PapelUsuario.totem_saida, *_PAPEIS_OPERACAO_AMPLIADOS
+)
 
 exigir_gestao = _exigir_papel(models.PapelUsuario.dono, models.PapelUsuario.gerente_operacoes, models.PapelUsuario.supervisor)
 
@@ -100,14 +105,70 @@ def exigir_liberacao_manual(usuario: models.Usuario = Depends(usuario_logado)) -
     return usuario
 
 
-def escopo_unidade(usuario: models.Usuario, unidade_id_query: Optional[int]) -> Optional[int]:
+def escopo_unidade(db: Session, usuario: models.Usuario, unidade_id_query: Optional[int]) -> Optional[int]:
     """Resolve qual unidade uma consulta de relatório deve enxergar.
 
     Supervisor nunca sai da própria unidade -- ignora qualquer valor vindo
     do cliente, nunca confia em tenant id informado por quem já está preso
     a uma unidade. Dono/gerente de operações podem filtrar por uma unidade
     específica ou ver tudo (retorno None = "geral", agrega todas as
-    unidades)."""
+    unidades). Operador pode consultar a própria unidade OU uma das
+    autorizadas (ex: pátio/tickets da unidade que selecionou operar na
+    tela de Operação) -- qualquer outro valor é ignorado, cai na própria."""
     if usuario.papel in PAPEIS_NIVEL_DONO:
         return unidade_id_query
+    if (
+        usuario.papel == models.PapelUsuario.operador
+        and unidade_id_query and unidade_id_query != usuario.unidade_id
+        and db.query(models.UnidadeAutorizada).filter_by(
+            usuario_id=usuario.id, unidade_id=unidade_id_query
+        ).first()
+    ):
+        return unidade_id_query
+    return usuario.unidade_id
+
+
+def unidades_selecionaveis(db: Session, usuario: models.Usuario) -> list["models.Unidade"]:
+    """Lista de unidades que essa conta pode escolher pra operar na tela de
+    Operação (GET /auth/minhas-unidades). Dono/gerente de operações: todas
+    as unidades ativas. Demais papéis: a própria unidade + as extras
+    autorizadas (tabela UnidadeAutorizada) -- na prática só operador tem
+    unidades extras, mas a função vale pra qualquer papel com unidade
+    fixa."""
+    if usuario.papel in PAPEIS_NIVEL_DONO:
+        return db.query(models.Unidade).filter_by(ativo=True).order_by(models.Unidade.nome).all()
+
+    ids = {usuario.unidade_id}
+    ids.update(
+        ua.unidade_id for ua in
+        db.query(models.UnidadeAutorizada).filter_by(usuario_id=usuario.id).all()
+    )
+    ids.discard(None)
+    return db.query(models.Unidade).filter(models.Unidade.id.in_(ids)).order_by(models.Unidade.nome).all()
+
+
+def resolver_unidade_operacional(
+    db: Session, usuario: models.Usuario, unidade_id_informado: Optional[int]
+) -> int:
+    """Resolve em qual unidade uma ação de totem/operação (entrada, validar
+    cupom, verificar saída, pagamento) deve mexer.
+
+    Dono/gerente de operações não têm unidade fixa -- precisam informar
+    qual, sempre. Contas com unidade fixa (supervisor, totem_*, operador):
+    se a unidade informada bate com a própria ou está entre as autorizadas,
+    usa ela; caso contrário ignora o que veio e usa a própria -- nunca deixa
+    uma conta agir fora do que foi de fato autorizado, mesmo que o cliente
+    mande um unidade_id diferente."""
+    if usuario.papel in PAPEIS_NIVEL_DONO:
+        if not unidade_id_informado:
+            raise HTTPException(422, "Informe a unidade_id (seu usuário atua em mais de uma unidade)")
+        return unidade_id_informado
+
+    if unidade_id_informado and unidade_id_informado != usuario.unidade_id:
+        autorizada = db.query(models.UnidadeAutorizada).filter_by(
+            usuario_id=usuario.id, unidade_id=unidade_id_informado
+        ).first()
+        if autorizada:
+            return unidade_id_informado
+
     return usuario.unidade_id

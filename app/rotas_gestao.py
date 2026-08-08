@@ -205,7 +205,7 @@ def criar_credenciado(payload: schemas.CredenciadoIn, db: Session = Depends(get_
 def listar_credenciados(
     unidade_id: Optional[int] = None, db: Session = Depends(get_db), usuario: models.Usuario = Depends(exigir_gestao)
 ):
-    escopo = escopo_unidade(usuario, unidade_id)
+    escopo = escopo_unidade(db, usuario, unidade_id)
     query = db.query(models.Credenciado)
     if escopo is not None:
         query = query.filter_by(unidade_id=escopo)
@@ -300,7 +300,7 @@ def criar_estabelecimento(payload: schemas.EstabelecimentoIn, db: Session = Depe
 def listar_estabelecimentos(
     unidade_id: Optional[int] = None, db: Session = Depends(get_db), usuario: models.Usuario = Depends(exigir_gestao)
 ):
-    escopo = escopo_unidade(usuario, unidade_id)
+    escopo = escopo_unidade(db, usuario, unidade_id)
     query = db.query(models.Estabelecimento)
     if escopo is not None:
         query = query.filter_by(unidade_id=escopo)
@@ -409,7 +409,7 @@ def relatorio_tickets(
     inicio: Optional[datetime] = None, fim: Optional[datetime] = None, unidade_id: Optional[int] = None,
     db: Session = Depends(get_db), usuario: models.Usuario = Depends(exigir_operacao),
 ):
-    escopo = escopo_unidade(usuario, unidade_id)
+    escopo = escopo_unidade(db, usuario, unidade_id)
     query = db.query(models.Ticket)
     if escopo is not None:
         query = query.filter_by(unidade_id=escopo)
@@ -433,7 +433,7 @@ def relatorio_patio(
     unidade_id: Optional[int] = None,
     db: Session = Depends(get_db), usuario: models.Usuario = Depends(exigir_operacao),
 ):
-    escopo = escopo_unidade(usuario, unidade_id)
+    escopo = escopo_unidade(db, usuario, unidade_id)
     query = db.query(models.Ticket)
     if escopo is not None:
         query = query.filter_by(unidade_id=escopo)
@@ -471,7 +471,7 @@ def relatorio_conciliacao(
     inicio: Optional[datetime] = None, fim: Optional[datetime] = None, unidade_id: Optional[int] = None,
     db: Session = Depends(get_db), usuario: models.Usuario = Depends(exigir_gestao),
 ):
-    escopo = escopo_unidade(usuario, unidade_id)
+    escopo = escopo_unidade(db, usuario, unidade_id)
     return montar_conciliacao(db, inicio, fim, escopo)
 
 
@@ -480,7 +480,7 @@ def dashboard(
     inicio: Optional[datetime] = None, fim: Optional[datetime] = None, unidade_id: Optional[int] = None,
     db: Session = Depends(get_db), usuario: models.Usuario = Depends(exigir_gestao),
 ):
-    escopo = escopo_unidade(usuario, unidade_id)
+    escopo = escopo_unidade(db, usuario, unidade_id)
     return montar_dashboard(db, inicio, fim, escopo)
 
 
@@ -488,7 +488,7 @@ def dashboard(
 def relatorio_cupons_duplicados(
     unidade_id: Optional[int] = None, db: Session = Depends(get_db), usuario: models.Usuario = Depends(exigir_gestao)
 ):
-    escopo = escopo_unidade(usuario, unidade_id)
+    escopo = escopo_unidade(db, usuario, unidade_id)
     query = db.query(models.TentativaCupomDuplicado)
     if escopo is not None:
         query = query.filter_by(unidade_id=escopo)
@@ -540,7 +540,7 @@ def liberar_manualmente(
 def relatorio_liberacoes_manuais(
     unidade_id: Optional[int] = None, db: Session = Depends(get_db), usuario: models.Usuario = Depends(exigir_gestao)
 ):
-    escopo = escopo_unidade(usuario, unidade_id)
+    escopo = escopo_unidade(db, usuario, unidade_id)
     query = db.query(models.LiberacaoManual)
     if escopo is not None:
         query = query.filter_by(unidade_id=escopo)
@@ -638,7 +638,7 @@ def excluir_ticket(
 def relatorio_exclusoes_tickets(
     unidade_id: Optional[int] = None, db: Session = Depends(get_db), usuario: models.Usuario = Depends(exigir_gestao)
 ):
-    escopo = escopo_unidade(usuario, unidade_id)
+    escopo = escopo_unidade(db, usuario, unidade_id)
     query = db.query(models.ExclusaoTicket)
     if escopo is not None:
         query = query.filter_by(unidade_id=escopo)
@@ -657,7 +657,7 @@ def relatorio_auditoria(
     inicio: Optional[datetime] = None, fim: Optional[datetime] = None, unidade_id: Optional[int] = None,
     db: Session = Depends(get_db), usuario: models.Usuario = Depends(exigir_gestao),
 ):
-    escopo = escopo_unidade(usuario, unidade_id)
+    escopo = escopo_unidade(db, usuario, unidade_id)
     eventos: List[schemas.AuditoriaEvento] = []
 
     if tipo in (None, "liberacao_manual"):
@@ -774,16 +774,107 @@ def criar_usuario_avulso(
         db, username, senha, payload.nome, papel,
         unidade_id=unidade_id, pode_liberar_manualmente=payload.pode_liberar_manualmente,
     )
+
+    # Unidades extras (além da unidade_id principal) que um operador pode
+    # escolher operar na tela de Operação -- só faz sentido pra esse papel.
+    if papel == models.PapelUsuario.operador:
+        for extra_id in set(payload.unidades_autorizadas_ids):
+            if extra_id == unidade_id:
+                continue
+            db.add(models.UnidadeAutorizada(usuario_id=novo_usuario.id, unidade_id=extra_id))
+
     db.commit()
     db.refresh(novo_usuario)
     return schemas.UsuarioCriadoResponse(usuario=novo_usuario, senha=senha)
+
+
+@router.get("/gestao/usuarios/{usuario_id}/unidades-autorizadas", response_model=List[schemas.UnidadeSelecionavelOut])
+def listar_unidades_autorizadas(
+    usuario_id: int, db: Session = Depends(get_db), usuario: models.Usuario = Depends(exigir_gestao),
+):
+    alvo = db.get(models.Usuario, usuario_id)
+    if not alvo:
+        raise HTTPException(404, "Usuário não encontrado")
+    if usuario.papel not in PAPEIS_NIVEL_DONO and alvo.unidade_id != usuario.unidade_id:
+        raise HTTPException(404, "Usuário não encontrado")
+
+    ids = [
+        ua.unidade_id for ua in
+        db.query(models.UnidadeAutorizada).filter_by(usuario_id=usuario_id).all()
+    ]
+    if not ids:
+        return []
+    return db.query(models.Unidade).filter(models.Unidade.id.in_(ids)).order_by(models.Unidade.nome).all()
+
+
+@router.post("/gestao/usuarios/{usuario_id}/unidades-autorizadas", response_model=List[schemas.UnidadeSelecionavelOut])
+def conceder_unidade_autorizada(
+    usuario_id: int, payload: schemas.UnidadeAutorizadaIn, db: Session = Depends(get_db),
+    usuario: models.Usuario = Depends(exigir_gestao),
+):
+    # Conceder acesso a OUTRA unidade só faz sentido pra quem enxerga mais
+    # de uma -- supervisor é preso à própria e não tem autoridade sobre
+    # nenhuma outra, então não pode conceder (mesmo pra um operador da
+    # própria unidade). Diferente de excluir/desativar, aqui não existe
+    # "só os da própria unidade" porque a unidade sendo concedida nunca é
+    # a própria.
+    if usuario.papel not in PAPEIS_NIVEL_DONO:
+        raise HTTPException(403, "Só dono ou gerente de operações pode conceder acesso a outra unidade")
+
+    alvo = db.get(models.Usuario, usuario_id)
+    if not alvo:
+        raise HTTPException(404, "Usuário não encontrado")
+    if alvo.papel != models.PapelUsuario.operador:
+        raise HTTPException(409, "Unidades autorizadas só se aplicam a contas de operador")
+
+    unidade = db.get(models.Unidade, payload.unidade_id)
+    if not unidade:
+        raise HTTPException(404, "Unidade não encontrada")
+    if payload.unidade_id == alvo.unidade_id:
+        raise HTTPException(409, "Essa já é a unidade principal do operador")
+
+    ja_existe = db.query(models.UnidadeAutorizada).filter_by(
+        usuario_id=usuario_id, unidade_id=payload.unidade_id
+    ).first()
+    if not ja_existe:
+        db.add(models.UnidadeAutorizada(usuario_id=usuario_id, unidade_id=payload.unidade_id))
+        db.commit()
+
+    ids = [
+        ua.unidade_id for ua in
+        db.query(models.UnidadeAutorizada).filter_by(usuario_id=usuario_id).all()
+    ]
+    return db.query(models.Unidade).filter(models.Unidade.id.in_(ids)).order_by(models.Unidade.nome).all()
+
+
+@router.delete("/gestao/usuarios/{usuario_id}/unidades-autorizadas/{unidade_id}", response_model=List[schemas.UnidadeSelecionavelOut])
+def revogar_unidade_autorizada(
+    usuario_id: int, unidade_id: int, db: Session = Depends(get_db),
+    usuario: models.Usuario = Depends(exigir_gestao),
+):
+    alvo = db.get(models.Usuario, usuario_id)
+    if not alvo:
+        raise HTTPException(404, "Usuário não encontrado")
+    if usuario.papel not in PAPEIS_NIVEL_DONO and alvo.unidade_id != usuario.unidade_id:
+        raise HTTPException(404, "Usuário não encontrado")
+
+    db.query(models.UnidadeAutorizada).filter_by(usuario_id=usuario_id, unidade_id=unidade_id).delete()
+    db.commit()
+
+    ids = [
+        ua.unidade_id for ua in
+        db.query(models.UnidadeAutorizada).filter_by(usuario_id=usuario_id).all()
+    ]
+    if not ids:
+        return []
+    return db.query(models.Unidade).filter(models.Unidade.id.in_(ids)).order_by(models.Unidade.nome).all()
 
 
 @router.get("/gestao/usuarios", response_model=List[schemas.UsuarioOut])
 def listar_usuarios(
     unidade_id: Optional[int] = None, db: Session = Depends(get_db), usuario: models.Usuario = Depends(exigir_gestao)
 ):
-    escopo = escopo_unidade(usuario, unidade_id)
+    escopo = escopo_unidade(db, usuario, unidade_id)
     query = db.query(models.Usuario)
     if escopo is not None:
         query = query.filter_by(unidade_id=escopo)
@@ -824,6 +915,7 @@ def excluir_usuario(
         raise HTTPException(422, "Não é possível excluir a própria conta enquanto estiver logado nela")
 
     db.query(models.Sessao).filter_by(usuario_id=alvo.id).delete()
+    db.query(models.UnidadeAutorizada).filter_by(usuario_id=alvo.id).delete()
     db.delete(alvo)
     db.commit()
     return {"detail": "Usuário excluído"}

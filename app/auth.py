@@ -15,9 +15,11 @@ import bcrypt
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from typing import List
+
 from . import models, schemas
 from .database import get_db
-from .security import usuario_logado
+from .security import unidades_selecionaveis, usuario_logado
 from .tempo import agora_utc
 
 DURACAO_SESSAO_HORAS = 24
@@ -113,6 +115,16 @@ def logout(payload: schemas.LogoutRequest, db: Session = Depends(get_db)):
     db.query(models.Sessao).filter_by(token=payload.token).delete()
     db.commit()
     return {"detail": "Sessão encerrada"}
+
+
+@router.get("/auth/minhas-unidades", response_model=List[schemas.UnidadeSelecionavelOut])
+def minhas_unidades(db: Session = Depends(get_db), usuario: models.Usuario = Depends(usuario_logado)):
+    """Lista de unidades que a conta logada pode escolher operar na tela de
+    Operação -- todas, se dono/gerente de operações; a própria + as extras
+    autorizadas, se for uma conta com unidade fixa (ver
+    security.unidades_selecionaveis). Sem restrição de papel: qualquer
+    conta logada pode consultar a própria lista."""
+    return unidades_selecionaveis(db, usuario)
 
 
 @router.post("/auth/trocar-senha")

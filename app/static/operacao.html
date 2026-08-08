@@ -145,6 +145,21 @@
     justify-content:space-between;
   }
   .lista-tickets .item b{color:var(--navy);font-family:'Courier New',monospace;}
+  .lista-unidades{display:flex;flex-direction:column;gap:10px;margin-top:8px;}
+  .btn-unidade{
+    background:#fff;
+    border:1px solid var(--border);
+    color:var(--navy);
+    padding:16px;
+    border-radius:10px;
+    font-family:inherit;
+    font-weight:600;
+    font-size:15px;
+    text-align:left;
+    cursor:pointer;
+  }
+  .btn-unidade:hover{border-color:var(--navy);}
+  #unidade-atual-info{font-size:12px;color:#B9C2D6;}
 </style>
 
 <header>
@@ -154,8 +169,11 @@
   </div>
   <div class="quem-esta-logado" id="quem-logado" style="display:none;">
     <span>Logado como <b id="nome-logado"></b></span>
+    <span id="unidade-atual-info"></span>
+    <button class="btn-sair" id="btn-trocar-unidade" style="display:none;">Trocar unidade</button>
     <button class="btn-sair" id="btn-trocar-senha">Trocar senha</button>
     <button class="btn-sair" id="btn-sair">Sair</button>
+    <a class="btn-sair" href="/" style="text-decoration:none;">← início</a>
   </div>
 </header>
 
@@ -171,6 +189,13 @@
   </div>
   <button class="action" id="btn-login">Entrar</button>
   <div class="erro-login" id="erro-login"></div>
+  <a href="/" style="display:block;text-align:center;margin-top:16px;font-size:12px;color:var(--gray);">← voltar ao início</a>
+</div>
+
+<div class="login-card" id="tela-selecao-unidade" style="display:none;">
+  <h2>Selecione a unidade</h2>
+  <div class="desc">Sua conta tem acesso a mais de uma unidade. Escolha em qual você vai operar agora (ativa os totens dessa unidade).</div>
+  <div class="lista-unidades" id="lista-unidades"></div>
 </div>
 
 <main id="tela-operacao" style="display:none;">
@@ -273,7 +298,13 @@
 <script>
 const API = "";
 let sessao = null;
-const PAPEIS_COM_ACESSO_A_OPERACAO = ['operador', 'totem_entrada', 'totem_validacao', 'totem_saida'];
+// dono/gerente_operacoes/supervisor também podem operar por aqui (útil
+// pra assumir o totem em qualquer unidade) -- todos escolhem/confirmam a
+// unidade em que estão atuando, ver resolverUnidadeOperacional().
+const PAPEIS_COM_ACESSO_A_OPERACAO = [
+  'operador', 'totem_entrada', 'totem_validacao', 'totem_saida',
+  'dono', 'gerente_operacoes', 'supervisor',
+];
 
 function carregarSessao(){
   const salva = localStorage.getItem('sessao_operacao');
@@ -285,16 +316,83 @@ function salvarSessao(){
 }
 
 function mostrarTela(){
-  if (sessao){
-    document.getElementById('tela-login').style.display = 'none';
-    document.getElementById('tela-operacao').style.display = 'block';
-    document.getElementById('quem-logado').style.display = 'flex';
-    document.getElementById('nome-logado').textContent = `${sessao.nome} (${sessao.papel})`;
-    document.getElementById('tab-liberacao').style.display = sessao.pode_liberar_manualmente ? 'inline-block' : 'none';
-  }else{
+  document.getElementById('tela-login').style.display = 'none';
+  document.getElementById('tela-selecao-unidade').style.display = 'none';
+  document.getElementById('tela-operacao').style.display = 'none';
+  document.getElementById('quem-logado').style.display = 'none';
+
+  if (!sessao){
     document.getElementById('tela-login').style.display = 'block';
-    document.getElementById('tela-operacao').style.display = 'none';
-    document.getElementById('quem-logado').style.display = 'none';
+    return;
+  }
+  document.getElementById('quem-logado').style.display = 'flex';
+  document.getElementById('nome-logado').textContent = `${sessao.nome} (${sessao.papel})`;
+  document.getElementById('tab-liberacao').style.display = sessao.pode_liberar_manualmente ? 'inline-block' : 'none';
+
+  if (!sessao.unidade_operacional_id){
+    document.getElementById('tela-selecao-unidade').style.display = 'block';
+    return;
+  }
+  document.getElementById('unidade-atual-info').textContent = `Unidade: ${sessao.unidade_operacional_nome}`;
+  document.getElementById('tela-operacao').style.display = 'block';
+}
+
+// Busca as unidades que a conta logada pode operar (GET /auth/minhas-unidades)
+// e decide o que mostrar: 1 unidade só -> segue direto (sem tela extra,
+// comportamento de sempre pra operador de unidade única); mais de uma ->
+// tela de seleção, a menos que a unidade já escolhida antes ainda seja
+// válida e `forcarSelecao` não tenha sido pedido (ex: reload de página).
+async function resolverUnidadeOperacional(forcarSelecao){
+  try{
+    const resp = await fetch(API + '/auth/minhas-unidades', {
+      headers: { 'Authorization': `Bearer ${sessao.token}` },
+    });
+    if (resp.status === 401){
+      sessao = null;
+      localStorage.removeItem('sessao_operacao');
+      mostrarTela();
+      return;
+    }
+    const unidades = await resp.json();
+    document.getElementById('btn-trocar-unidade').style.display = unidades.length > 1 ? 'inline-block' : 'none';
+
+    if (unidades.length === 0){
+      alert('Sua conta não tem nenhuma unidade disponível para operar. Contate o administrador.');
+      sessao = null;
+      localStorage.removeItem('sessao_operacao');
+      mostrarTela();
+      return;
+    }
+
+    if (unidades.length === 1){
+      sessao.unidade_operacional_id = unidades[0].id;
+      sessao.unidade_operacional_nome = unidades[0].nome;
+      salvarSessao();
+      mostrarTela();
+      return;
+    }
+
+    if (!forcarSelecao && sessao.unidade_operacional_id && unidades.some(u => u.id === sessao.unidade_operacional_id)){
+      mostrarTela();
+      return;
+    }
+
+    sessao.unidade_operacional_id = null;
+    sessao.unidade_operacional_nome = null;
+    salvarSessao();
+    const lista = document.getElementById('lista-unidades');
+    lista.innerHTML = unidades.map(u => `<button class="btn-unidade" data-id="${u.id}" data-nome="${u.nome}">${u.nome}</button>`).join('');
+    lista.querySelectorAll('.btn-unidade').forEach(btn => {
+      btn.addEventListener('click', () => {
+        sessao.unidade_operacional_id = parseInt(btn.dataset.id, 10);
+        sessao.unidade_operacional_nome = btn.dataset.nome;
+        salvarSessao();
+        mostrarTela();
+      });
+    });
+    mostrarTela();
+  }catch(e){
+    alert('Erro ao carregar as unidades disponíveis: ' + e.message);
   }
 }
 
@@ -306,6 +404,7 @@ if (sessao && !PAPEIS_COM_ACESSO_A_OPERACAO.includes(sessao.papel)){
   localStorage.removeItem('sessao_operacao');
 }
 mostrarTela();
+if (sessao) resolverUnidadeOperacional(false);
 
 document.querySelectorAll('.toggle-senha').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -338,7 +437,7 @@ document.getElementById('btn-login').addEventListener('click', async () => {
     }
     sessao = data;
     salvarSessao();
-    mostrarTela();
+    await resolverUnidadeOperacional(false);
   }catch(e){
     erro.textContent = e.message;
     erro.style.display = 'block';
@@ -353,6 +452,10 @@ document.getElementById('btn-sair').addEventListener('click', async () => {
   sessao = null;
   localStorage.removeItem('sessao_operacao');
   mostrarTela();
+});
+
+document.getElementById('btn-trocar-unidade').addEventListener('click', () => {
+  resolverUnidadeOperacional(true);
 });
 
 document.getElementById('btn-trocar-senha').addEventListener('click', async () => {
@@ -420,7 +523,7 @@ document.getElementById('btn-entrada').addEventListener('click', async () => {
   const btn = document.getElementById('btn-entrada');
   btn.disabled = true;
   try{
-    const t = await chamarApi('POST', '/entrada');
+    const t = await chamarApi('POST', '/entrada?unidade_id=' + sessao.unidade_operacional_id);
     setCodigo(t.codigo_barras);
     showResult('result-entrada', true, `
       <div class="row"><span>Ticket criado</span><b>#${t.id}</b></div>
@@ -442,6 +545,7 @@ document.getElementById('btn-loja').addEventListener('click', async () => {
       codigo_barras: document.getElementById('loja-codigo').value,
       chave_acesso_nfce: document.getElementById('loja-chave').value,
       valor_compra: parseFloat(document.getElementById('loja-valor').value || '0'),
+      unidade_id: sessao.unidade_operacional_id,
     };
     const t = await chamarApi('POST', '/loja/validar-cupom', payload);
     showResult('result-loja', true, `
@@ -460,7 +564,7 @@ document.getElementById('btn-saida').addEventListener('click', async () => {
   btn.disabled = true;
   try{
     const codigo = document.getElementById('saida-codigo').value;
-    const r = await chamarApi('GET', '/saida/verificar/' + encodeURIComponent(codigo));
+    const r = await chamarApi('GET', '/saida/verificar/' + encodeURIComponent(codigo) + '?unidade_id=' + sessao.unidade_operacional_id);
     showResult('result-saida', r.liberar_cancela, `
       <div class="row"><span>${r.liberar_cancela ? 'CANCELA LIBERADA' : 'AGUARDANDO PAGAMENTO'}</span></div>
       <div class="row"><span>Motivo</span><b>${r.motivo}</b></div>
@@ -487,6 +591,7 @@ document.getElementById('btn-pagamento').addEventListener('click', async () => {
       codigo_barras: document.getElementById('pag-codigo').value,
       forma_pagamento: document.getElementById('pag-forma').value,
       valor: parseFloat(document.getElementById('pag-valor').value || '0'),
+      unidade_id: sessao.unidade_operacional_id,
     };
     const t = await chamarApi('POST', '/saida/pagamento', payload);
     showResult('result-pagamento', true, `
@@ -508,9 +613,10 @@ document.getElementById('btn-liberacao').addEventListener('click', async () => {
     const payload = {
       cancela: document.getElementById('lib-cancela').value,
       motivo: document.getElementById('lib-motivo').value,
+      unidade_id: sessao.unidade_operacional_id,
     };
     if (codigo){
-      const tickets = await chamarApi('GET', '/gestao/relatorio/tickets');
+      const tickets = await chamarApi('GET', '/gestao/relatorio/tickets?unidade_id=' + sessao.unidade_operacional_id);
       const alvo = tickets.find(t => t.codigo_barras === codigo);
       if (!alvo) throw new Error('Ticket não encontrado');
       payload.ticket_id = alvo.id;
@@ -535,7 +641,7 @@ document.getElementById('btn-consulta').addEventListener('click', async () => {
   const lista = document.getElementById('lista-consulta');
   try{
     const filtro = document.getElementById('consulta-codigo').value.trim().toUpperCase();
-    const tickets = await chamarApi('GET', '/gestao/relatorio/tickets');
+    const tickets = await chamarApi('GET', '/gestao/relatorio/tickets?unidade_id=' + sessao.unidade_operacional_id);
     const encontrados = tickets.filter(t => t.codigo_barras.toUpperCase().includes(filtro));
     if (encontrados.length === 0){
       lista.innerHTML = '<div class="item">Nenhum ticket encontrado.</div>';
@@ -560,7 +666,7 @@ async function carregarPatio(){
   btn.disabled = true;
   try{
     const filtro = document.getElementById('pt-filtro').value;
-    const dados = await chamarApi('GET', `/gestao/relatorio/patio?filtro=${filtro}`);
+    const dados = await chamarApi('GET', `/gestao/relatorio/patio?filtro=${filtro}&unidade_id=${sessao.unidade_operacional_id}`);
     if (dados.length === 0){
       lista.innerHTML = '<div class="item">Nenhum ticket nesse filtro.</div>';
     }else{
