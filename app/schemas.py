@@ -133,6 +133,9 @@ class TicketOut(ComDatasUTC):
     tempo_permanencia_minutos: Optional[int]
     tolerancia_aplicada_minutos: Optional[int]
     valor_calculado: float
+    # Só preenchida quando o operador digita na entrada (ex: terminal
+    # POS sem leitor automático) -- totens continuam sem isso.
+    placa: Optional[str] = None
     # Nome da unidade pro ticket impresso (todo TicketOut já traz, via
     # Ticket.unidade_nome) -- não só a marca genérica do sistema.
     unidade_nome: Optional[str] = None
@@ -415,6 +418,68 @@ class DashboardResponse(ComDatasUTC):
     veiculos_no_patio_mensalista: int
 
     por_forma_pagamento: dict
+
+
+class RelatorioCaixaOut(ComDatasUTC):
+    """Movimento de um turno de caixa (abertura -> agora/fechamento) --
+    mesmas 4 categorias de GET /gestao/relatorio/patio, só que contadas
+    dentro da janela de tempo do turno."""
+    periodo_inicio: datetime
+    periodo_fim: datetime
+
+    tickets_estacionados: int
+    tickets_liberados: int
+    tickets_credenciados: int
+    tickets_pagos: int
+
+    por_forma_pagamento: dict
+
+
+class CaixaOut(ComDatasUTC):
+    id: int
+    unidade_id: int
+    status: str
+    data_hora_abertura: datetime
+    usuario_abertura_nome: str
+    data_hora_fechamento: Optional[datetime]
+    usuario_fechamento_nome: Optional[str]
+    valor_contado_dinheiro: Optional[float]
+    diferenca_dinheiro: Optional[float]
+
+    class Config:
+        from_attributes = True
+
+
+class CaixaAtualOut(BaseModel):
+    """GET /gestao/caixa/atual -- caixa/relatorio só vêm preenchidos
+    quando há um caixa aberto na unidade; em_intervalo reflete o próprio
+    usuário logado (não o caixa em si -- cada colaborador bate o próprio
+    intervalo)."""
+    aberto: bool
+    caixa: Optional[CaixaOut] = None
+    relatorio: Optional[RelatorioCaixaOut] = None
+    em_intervalo: bool = False
+
+
+class CaixaFecharRequest(BaseModel):
+    valor_contado_dinheiro: float
+    unidade_id: Optional[int] = None
+
+
+class CaixaFechamentoOut(BaseModel):
+    caixa: CaixaOut
+    relatorio: RelatorioCaixaOut
+
+
+class RegistroPontoOut(ComDatasUTC):
+    id: int
+    unidade_id: int
+    tipo: str
+    usuario_nome: str
+    data_hora: datetime
+
+    class Config:
+        from_attributes = True
 
 
 class UsuarioIn(BaseModel):

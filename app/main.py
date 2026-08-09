@@ -105,6 +105,14 @@ def pagina_simulador():
     return FileResponse(STATIC_DIR / "simulador.html", headers=_SEM_CACHE)
 
 
+@app.get("/pos", include_in_schema=False)
+def pagina_pos():
+    """Terminal POS: operação assistida sem hardware de automação (sem
+    impressora/câmera acionada por sensor) -- o operador digita a placa
+    na entrada. Mesmos endpoints de operacao.html, visual de app/totem."""
+    return FileResponse(STATIC_DIR / "pos.html", headers=_SEM_CACHE)
+
+
 # ---------------------------------------------------------------------
 # ENTRADA — chamado pelo totem emissor quando o botão é pressionado
 # ---------------------------------------------------------------------
@@ -114,6 +122,7 @@ def registrar_entrada(
     unidade_id: Optional[int] = None,
     pre_pago: bool = False,
     forma_pagamento: Optional[Literal["pix", "credito", "debito"]] = None,
+    placa: Optional[str] = None,
     db: Session = Depends(get_db),
     usuario: models.Usuario = Depends(exigir_totem_entrada),
 ):
@@ -130,7 +139,10 @@ def registrar_entrada(
         if not forma_pagamento:
             raise HTTPException(422, "Informe a forma de pagamento para o pré-pagamento")
 
-    ticket = models.Ticket(unidade_id=unidade_id_resolvida, gate_entrada=gate_entrada, pre_pago=pre_pago)
+    ticket = models.Ticket(
+        unidade_id=unidade_id_resolvida, gate_entrada=gate_entrada, pre_pago=pre_pago,
+        placa=placa.strip().upper() if placa else None,
+    )
     db.add(ticket)
     db.flush()
     if pre_pago:

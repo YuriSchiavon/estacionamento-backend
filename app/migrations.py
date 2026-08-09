@@ -32,6 +32,7 @@ _COLUNAS_NOVAS = [
     ("unidades", "valor_pre_pagamento", "FLOAT"),
     ("estabelecimentos", "tipo_beneficio", "VARCHAR DEFAULT 'tolerancia'"),
     ("tickets", "pre_pago", "BOOLEAN DEFAULT FALSE"),
+    ("tickets", "placa", "VARCHAR"),
 ]
 
 

@@ -158,3 +158,44 @@ def montar_dashboard(db: Session, inicio: Optional[datetime], fim: Optional[date
         veiculos_no_patio_mensalista=_no_patio_agora(models.TipoCredenciado.mensalista),
         por_forma_pagamento=por_forma_pagamento,
     )
+
+
+def montar_relatorio_caixa(db: Session, inicio: datetime, fim: Optional[datetime], unidade_id: Optional[int]) -> dict:
+    """Relatório de um turno de caixa (abertura -> agora/fechamento):
+    tickets por categoria (mesmas 4 de GET /gestao/relatorio/patio,
+    contadas por data_hora_entrada dentro da janela) + formas de
+    pagamento apuradas no período -- ver Caixa/RegistroPonto em
+    app/models.py."""
+    def _contar_tickets(filtro_extra=None):
+        query = _filtrar_unidade(db.query(models.Ticket), models.Ticket.unidade_id, unidade_id)
+        query = query.filter(models.Ticket.data_hora_entrada >= inicio)
+        if fim:
+            query = query.filter(models.Ticket.data_hora_entrada <= fim)
+        if filtro_extra is not None:
+            query = filtro_extra(query)
+        return query.count()
+
+    tickets_estacionados = _contar_tickets(lambda q: q.filter(models.Ticket.status != models.StatusTicket.finalizado))
+    tickets_liberados = _contar_tickets(lambda q: q.filter(models.Ticket.status == models.StatusTicket.finalizado))
+    tickets_credenciados = _contar_tickets(lambda q: q.filter(models.Ticket.credenciado_id.isnot(None)))
+    tickets_pagos = _contar_tickets(lambda q: q.join(models.Transacao))
+
+    query_transacoes = _filtrar_unidade(
+        db.query(models.Transacao).join(models.Ticket), models.Ticket.unidade_id, unidade_id
+    )
+    query_transacoes = query_transacoes.filter(models.Transacao.data_hora >= inicio)
+    if fim:
+        query_transacoes = query_transacoes.filter(models.Transacao.data_hora <= fim)
+    por_forma_pagamento: dict = {}
+    for tr in query_transacoes.all():
+        por_forma_pagamento[tr.forma_pagamento] = por_forma_pagamento.get(tr.forma_pagamento, 0.0) + tr.valor
+
+    return dict(
+        periodo_inicio=inicio,
+        periodo_fim=fim or agora_utc(),
+        tickets_estacionados=tickets_estacionados,
+        tickets_liberados=tickets_liberados,
+        tickets_credenciados=tickets_credenciados,
+        tickets_pagos=tickets_pagos,
+        por_forma_pagamento=por_forma_pagamento,
+    )

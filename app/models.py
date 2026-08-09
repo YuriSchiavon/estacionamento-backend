@@ -223,6 +223,10 @@ class Ticket(Base):
     # app/services.py processar_saida.
     pre_pago = Column(Boolean, nullable=False, default=False)
 
+    # Só preenchida quando o operador digita na entrada (ex: terminal
+    # POS sem leitor automático de placa) -- totens continuam sem isso.
+    placa = Column(String, nullable=True)
+
     # Preenchido só quando a entrada/saída aconteceu por reconhecimento
     # facial (credenciado/mensalista) em vez do fluxo normal de ticket.
     credenciado_id = Column(Integer, ForeignKey("credenciados.id"), nullable=True)
@@ -414,3 +418,62 @@ class ExclusaoTicket(Base):
     motivo = Column(String, nullable=False)
     usuario_nome = Column(String, nullable=False)
     data_hora = Column(DateTime, default=agora_utc)
+
+
+class TipoRegistroPonto(str, enum.Enum):
+    entrada = "entrada"
+    inicio_intervalo = "inicio_intervalo"
+    fim_intervalo = "fim_intervalo"
+    saida = "saida"
+
+
+class RegistroPonto(Base):
+    """Batida de ponto do colaborador -- entrada/saída batem junto com
+    abrir/fechar o caixa (ver Caixa abaixo); início/fim de intervalo são
+    ações à parte, no meio do turno. Só registra -- não calcula banco de
+    horas/fechamento de folha ainda (ver GET /gestao/ponto)."""
+    __tablename__ = "registros_ponto"
+
+    id = Column(Integer, primary_key=True)
+    unidade_id = Column(Integer, ForeignKey("unidades.id"), nullable=False)
+    tipo = Column(Enum(TipoRegistroPonto), nullable=False)
+    # Só pra checar o estado da PRÓPRIA conta logada (ex: "já estou em
+    # intervalo?") -- nullable porque a conta pode ser excluída depois
+    # (dono tem esse poder) sem quebrar o histórico.
+    usuario_id = Column(Integer, ForeignKey("usuarios.id"), nullable=True)
+    # Snapshot do nome -- mesmo padrão de LiberacaoManual/ExclusaoTicket,
+    # sobrevive à exclusão da conta.
+    usuario_nome = Column(String, nullable=False)
+    data_hora = Column(DateTime, default=agora_utc)
+
+
+class StatusCaixa(str, enum.Enum):
+    aberto = "aberto"
+    fechado = "fechado"
+
+
+class Caixa(Base):
+    """Turno de caixa -- estacionamento assistido (não autônomo) abre e
+    fecha um caixa por turno pra controlar o que foi movimentado. Só um
+    `aberto` por vez por unidade (checado na rota, não é constraint de
+    banco -- mesmo padrão de outras checagens de duplicidade do sistema,
+    ex. CNPJ de estabelecimento). Não trava nenhuma operação do dia a dia
+    (emitir ticket, pagamento etc.) -- é só controle/relatório em
+    paralelo; unidades 100% autônomas (só totem) nunca usam isso."""
+    __tablename__ = "caixas"
+
+    id = Column(Integer, primary_key=True)
+    unidade_id = Column(Integer, ForeignKey("unidades.id"), nullable=False)
+    status = Column(Enum(StatusCaixa), nullable=False, default=StatusCaixa.aberto)
+
+    data_hora_abertura = Column(DateTime, default=agora_utc)
+    usuario_abertura_nome = Column(String, nullable=False)
+
+    data_hora_fechamento = Column(DateTime, nullable=True)
+    usuario_fechamento_nome = Column(String, nullable=True)
+
+    # Conferência cega no fechamento: quanto o colaborador contou em
+    # dinheiro físico vs. quanto o sistema apurou em "dinheiro" no
+    # período do turno (ver diferenca_dinheiro).
+    valor_contado_dinheiro = Column(Float, nullable=True)
+    diferenca_dinheiro = Column(Float, nullable=True)

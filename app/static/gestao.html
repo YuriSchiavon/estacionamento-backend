@@ -319,6 +319,7 @@
       <button class="tab-btn" data-tab="regulamento">Regulamento</button>
       <button class="tab-btn" data-tab="financeiro">Financeiro</button>
       <button class="tab-btn" data-tab="usuarios">Usuários</button>
+      <button class="tab-btn" data-tab="ponto">Ponto</button>
       <button class="tab-btn" data-tab="auditoria">Auditoria</button>
       <button class="tab-btn" data-tab="acoes" id="tab-btn-acoes" style="display:none;">Ações</button>
       <button class="tab-btn" data-tab="unidades" id="tab-btn-unidades" style="display:none;">Unidades</button>
@@ -629,6 +630,39 @@
           <tbody id="tabela-usuarios"></tbody>
         </table>
         <div class="empty" id="usuarios-vazio" style="display:none;">Nenhum usuário cadastrado ainda.</div>
+      </section>
+    </div>
+
+    <div class="panel" id="panel-ponto">
+      <section class="card">
+        <h2>Ponto</h2>
+        <div class="desc">Batidas de ponto dos colaboradores -- entrada/saída acontecem junto com abrir/fechar o caixa (aba Caixa da tela de Operação); início/fim de intervalo são batidos à parte, no meio do turno. Ainda não calcula banco de horas/fechamento de folha, só lista os registros.</div>
+        <div class="filtros">
+          <div>
+            <label>Tipo</label>
+            <select id="pt-ponto-tipo">
+              <option value="">Todos</option>
+              <option value="entrada">Entrada</option>
+              <option value="inicio_intervalo">Início do intervalo</option>
+              <option value="fim_intervalo">Fim do intervalo</option>
+              <option value="saida">Saída</option>
+            </select>
+          </div>
+          <div>
+            <label>Colaborador (opcional)</label>
+            <input id="pt-ponto-colaborador" placeholder="nome ou parte dele">
+          </div>
+          <div><label>De</label><input type="datetime-local" id="pt-ponto-inicio"></div>
+          <div><label>Até</label><input type="datetime-local" id="pt-ponto-fim"></div>
+          <div><button class="action" id="btn-ponto">Buscar</button></div>
+        </div>
+        <table>
+          <thead>
+            <tr><th>Colaborador</th><th>Tipo</th><th>Quando</th></tr>
+          </thead>
+          <tbody id="tabela-ponto"></tbody>
+        </table>
+        <div class="empty" id="ponto-vazio" style="display:none;">Nenhum registro de ponto no período.</div>
       </section>
     </div>
 
@@ -1298,6 +1332,41 @@ async function carregarAuditoria(){
 
 document.getElementById('btn-auditoria').addEventListener('click', carregarAuditoria);
 
+const NOMES_TIPO_PONTO = {
+  entrada: 'Entrada', inicio_intervalo: 'Início do intervalo',
+  fim_intervalo: 'Fim do intervalo', saida: 'Saída',
+};
+
+async function carregarPonto(){
+  const tbody = document.getElementById('tabela-ponto');
+  const vazio = document.getElementById('ponto-vazio');
+  const tipo = document.getElementById('pt-ponto-tipo').value;
+  const colaborador = document.getElementById('pt-ponto-colaborador').value.trim();
+  const inicio = document.getElementById('pt-ponto-inicio').value;
+  const fim = document.getElementById('pt-ponto-fim').value;
+  try{
+    const params = new URLSearchParams(query(inicio, fim));
+    if (tipo) params.set('tipo', tipo);
+    if (colaborador) params.set('usuario_nome', colaborador);
+    const lista = await api('GET', `/gestao/ponto?${params.toString()}`);
+    tbody.innerHTML = '';
+    vazio.style.display = lista.length ? 'none' : 'block';
+    lista.forEach(r => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${r.usuario_nome}</td>
+        <td>${NOMES_TIPO_PONTO[r.tipo] || r.tipo}</td>
+        <td>${fmtData(r.data_hora)}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }catch(e){
+    alert(e.message);
+  }
+}
+
+document.getElementById('btn-ponto').addEventListener('click', carregarPonto);
+
 document.getElementById('btn-liberacao-manual').addEventListener('click', async () => {
   const msg = document.getElementById('msg-liberacao-manual');
   msg.className = 'msg';
@@ -1707,6 +1776,7 @@ async function alternarLiberaManualUsuario(id, atual){
 function carregarTudo(){
   carregarCredenciados();
   carregarAuditoria();
+  carregarPonto();
   carregarEstabelecimentos();
   carregarDashboard();
   carregarPatio();

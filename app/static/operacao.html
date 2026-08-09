@@ -119,6 +119,15 @@
   }
   button.action:hover{filter:brightness(0.95);}
   button.action:disabled{opacity:.6;cursor:default;}
+  button.action.secundaria{background:#fff;color:var(--navy);border:1px solid var(--border);}
+  button.action.perigo{background:var(--danger);color:#fff;}
+  .caixa-info{margin-top:4px;font-size:13px;color:var(--gray);}
+  .caixa-relatorio{margin-top:16px;border:1px solid var(--border);border-radius:10px;padding:16px;}
+  .caixa-relatorio h3{margin:0 0 8px;font-size:14px;color:var(--navy);}
+  .caixa-relatorio h3:not(:first-child){margin-top:14px;}
+  .caixa-relatorio .row{display:flex;justify-content:space-between;padding:4px 0;font-size:13px;}
+  .caixa-fechar-form{margin-top:20px;border-top:1px solid var(--border);padding-top:16px;display:none;}
+  .caixa-fechar-form.show{display:block;}
   .result{margin-top:18px;border-radius:10px;padding:16px;font-size:13px;display:none;}
   .result.show{display:block;}
   .result.ok{background:#EAF7EE;border:1px solid var(--ok);color:#155C33;}
@@ -205,6 +214,7 @@
     <button class="tab-btn" data-tab="loja">Validar Cupom</button>
     <button class="tab-btn" data-tab="saida">Verificar Saída</button>
     <button class="tab-btn" data-tab="pagamento">Pagamento</button>
+    <button class="tab-btn" data-tab="caixa">Caixa</button>
     <button class="tab-btn" data-tab="liberacao" id="tab-liberacao" style="display:none;">Liberação Manual</button>
     <button class="tab-btn" data-tab="consulta">Consultar Ticket</button>
   </div>
@@ -267,6 +277,36 @@
     <input id="pag-valor" type="number" step="0.01">
     <button class="action" id="btn-pagamento">Registrar pagamento</button>
     <div class="result" id="result-pagamento"></div>
+  </section>
+
+  <section class="panel" id="panel-caixa">
+    <h2>Caixa</h2>
+    <div class="desc">Abertura e fechamento de turno -- bate ponto de entrada/saída junto com o caixa. Não trava nenhuma outra ação desta tela.</div>
+
+    <div id="caixa-sem-abertura">
+      <button class="action" id="btn-caixa-abrir">Bater ponto e abrir caixa</button>
+    </div>
+
+    <div id="caixa-aberto" style="display:none;">
+      <div class="caixa-info" id="caixa-info"></div>
+
+      <div class="caixa-relatorio" id="caixa-relatorio"></div>
+
+      <button class="action secundaria" id="btn-caixa-atualizar">Atualizar relatório</button>
+      <button class="action secundaria" id="btn-intervalo-inicio">Iniciar intervalo (almoço)</button>
+      <button class="action secundaria" id="btn-intervalo-fim" style="display:none;">Voltar do intervalo</button>
+
+      <button class="action perigo" id="btn-caixa-ir-fechar">Fechar caixa</button>
+
+      <div class="caixa-fechar-form" id="caixa-fechar-form">
+        <label>Valor contado em dinheiro (R$)</label>
+        <input id="caixa-valor-contado" type="number" step="0.01">
+        <button class="action perigo" id="btn-caixa-fechar-confirmar">Confirmar fechamento</button>
+        <button class="action secundaria" id="btn-caixa-cancelar-fechar">cancelar</button>
+      </div>
+    </div>
+
+    <div class="result" id="result-caixa"></div>
   </section>
 
   <section class="panel" id="panel-liberacao">
@@ -492,7 +532,123 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
     btn.classList.add('active');
     document.getElementById('panel-' + btn.dataset.tab).classList.add('active');
+    if (btn.dataset.tab === 'caixa') carregarCaixaAtual();
   });
+});
+
+function fmtDinheiro(v){ return `R$ ${Number(v).toFixed(2)}`; }
+function fmtDataHora(iso){ return new Date(iso).toLocaleString('pt-BR'); }
+
+function renderizarRelatorioCaixa(r){
+  const el = document.getElementById('caixa-relatorio');
+  const formas = Object.entries(r.por_forma_pagamento);
+  el.innerHTML = `
+    <h3>Tickets no turno</h3>
+    <div class="row"><span>Estacionados</span><b>${r.tickets_estacionados}</b></div>
+    <div class="row"><span>Liberados</span><b>${r.tickets_liberados}</b></div>
+    <div class="row"><span>Credenciados</span><b>${r.tickets_credenciados}</b></div>
+    <div class="row"><span>Pagos</span><b>${r.tickets_pagos}</b></div>
+    <h3>Formas de pagamento</h3>
+    ${formas.length
+      ? formas.map(([forma, valor]) => `<div class="row"><span>${forma}</span><b>${fmtDinheiro(valor)}</b></div>`).join('')
+      : '<div class="row"><span>Nenhum pagamento ainda</span></div>'}
+  `;
+}
+
+function renderizarCaixaAtual(data){
+  const semAbertura = document.getElementById('caixa-sem-abertura');
+  const aberto = document.getElementById('caixa-aberto');
+  if (!data.aberto){
+    semAbertura.style.display = 'block';
+    aberto.style.display = 'none';
+    return;
+  }
+  semAbertura.style.display = 'none';
+  aberto.style.display = 'block';
+  document.getElementById('caixa-info').textContent =
+    `Aberto por ${data.caixa.usuario_abertura_nome} às ${fmtDataHora(data.caixa.data_hora_abertura)}`;
+  renderizarRelatorioCaixa(data.relatorio);
+  document.getElementById('btn-intervalo-inicio').style.display = data.em_intervalo ? 'none' : 'block';
+  document.getElementById('btn-intervalo-fim').style.display = data.em_intervalo ? 'block' : 'none';
+  document.getElementById('caixa-fechar-form').classList.remove('show');
+}
+
+async function carregarCaixaAtual(){
+  try{
+    const data = await chamarApi('GET', '/gestao/caixa/atual?unidade_id=' + sessao.unidade_operacional_id);
+    renderizarCaixaAtual(data);
+  }catch(e){
+    showResult('result-caixa', false, e.message);
+  }
+}
+
+document.getElementById('btn-caixa-abrir').addEventListener('click', async () => {
+  const btn = document.getElementById('btn-caixa-abrir');
+  btn.disabled = true;
+  try{
+    const data = await chamarApi('POST', '/gestao/caixa/abrir?unidade_id=' + sessao.unidade_operacional_id);
+    renderizarCaixaAtual(data);
+  }catch(e){
+    showResult('result-caixa', false, e.message);
+  }finally{
+    btn.disabled = false;
+  }
+});
+
+document.getElementById('btn-caixa-atualizar').addEventListener('click', carregarCaixaAtual);
+
+document.getElementById('btn-intervalo-inicio').addEventListener('click', async () => {
+  try{
+    await chamarApi('POST', '/gestao/ponto/intervalo-inicio?unidade_id=' + sessao.unidade_operacional_id);
+    await carregarCaixaAtual();
+  }catch(e){
+    showResult('result-caixa', false, e.message);
+  }
+});
+
+document.getElementById('btn-intervalo-fim').addEventListener('click', async () => {
+  try{
+    await chamarApi('POST', '/gestao/ponto/intervalo-fim?unidade_id=' + sessao.unidade_operacional_id);
+    await carregarCaixaAtual();
+  }catch(e){
+    showResult('result-caixa', false, e.message);
+  }
+});
+
+document.getElementById('btn-caixa-ir-fechar').addEventListener('click', () => {
+  document.getElementById('caixa-fechar-form').classList.add('show');
+  document.getElementById('caixa-valor-contado').value = '';
+  document.getElementById('caixa-valor-contado').focus();
+});
+
+document.getElementById('btn-caixa-cancelar-fechar').addEventListener('click', () => {
+  document.getElementById('caixa-fechar-form').classList.remove('show');
+});
+
+document.getElementById('btn-caixa-fechar-confirmar').addEventListener('click', async () => {
+  const valorTexto = document.getElementById('caixa-valor-contado').value;
+  if (valorTexto === ''){
+    showResult('result-caixa', false, 'Informe o valor contado em dinheiro.');
+    return;
+  }
+  const btn = document.getElementById('btn-caixa-fechar-confirmar');
+  btn.disabled = true;
+  try{
+    const data = await chamarApi('POST', '/gestao/caixa/fechar', {
+      valor_contado_dinheiro: parseFloat(valorTexto),
+      unidade_id: sessao.unidade_operacional_id,
+    });
+    showResult('result-caixa', true, `
+      <div class="row"><span>Caixa fechado</span><b>OK</b></div>
+      <div class="row"><span>Valor contado</span><b>${fmtDinheiro(data.caixa.valor_contado_dinheiro)}</b></div>
+      <div class="row"><span>Diferença</span><b>${fmtDinheiro(data.caixa.diferenca_dinheiro)}</b></div>
+    `);
+    await carregarCaixaAtual();
+  }catch(e){
+    showResult('result-caixa', false, e.message);
+  }finally{
+    btn.disabled = false;
+  }
 });
 
 function showResult(id, ok, html){
