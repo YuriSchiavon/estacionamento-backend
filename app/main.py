@@ -50,6 +50,13 @@ app.include_router(rotas_gestao_router)
 
 STATIC_DIR = Path(__file__).parent / "static"
 
+# Os totens ficam com a aba aberta por dias/semanas sem recarregar --
+# sem isso, o navegador pode servir a página antiga da memória/cache
+# indefinidamente mesmo depois de um deploy novo. Força sempre revalidar
+# com o servidor (ETag/Last-Modified, que o FileResponse já manda),
+# nunca usar uma cópia antiga sem checar primeiro.
+_SEM_CACHE = {"Cache-Control": "no-cache, must-revalidate"}
+
 
 @app.on_event("startup")
 def startup():
@@ -59,43 +66,43 @@ def startup():
 @app.get("/", include_in_schema=False)
 def pagina_inicial():
     """Landing: links para o painel de gestão, operação e totens."""
-    return FileResponse(STATIC_DIR / "inicio.html")
+    return FileResponse(STATIC_DIR / "inicio.html", headers=_SEM_CACHE)
 
 
 @app.get("/gestao", include_in_schema=False)
 def painel_de_gestao():
     """Painel de gestão: credenciados/mensalistas e relatórios."""
-    return FileResponse(STATIC_DIR / "gestao.html")
+    return FileResponse(STATIC_DIR / "gestao.html", headers=_SEM_CACHE)
 
 
 @app.get("/operacao", include_in_schema=False)
 def pagina_operacao():
     """Login único de operador + ações do dia a dia (estacionamento assistido)."""
-    return FileResponse(STATIC_DIR / "operacao.html")
+    return FileResponse(STATIC_DIR / "operacao.html", headers=_SEM_CACHE)
 
 
 @app.get("/totem/entrada", include_in_schema=False)
 def pagina_totem_entrada():
     """Tela real do totem de entrada: um botão, emite o ticket."""
-    return FileResponse(STATIC_DIR / "totem_entrada.html")
+    return FileResponse(STATIC_DIR / "totem_entrada.html", headers=_SEM_CACHE)
 
 
 @app.get("/totem/saida", include_in_schema=False)
 def pagina_totem_saida():
     """Tela real do totem de saída: leitura do ticket + revalidação de cupom."""
-    return FileResponse(STATIC_DIR / "totem_saida.html")
+    return FileResponse(STATIC_DIR / "totem_saida.html", headers=_SEM_CACHE)
 
 
 @app.get("/totem/validacao", include_in_schema=False)
 def pagina_totem_validacao():
     """Tela real do totem de validação/pagamento -- sem controle de cancela."""
-    return FileResponse(STATIC_DIR / "totem_validacao.html")
+    return FileResponse(STATIC_DIR / "totem_validacao.html", headers=_SEM_CACHE)
 
 
 @app.get("/simulador-totens", include_in_schema=False)
 def pagina_simulador():
     """Simulador dos 5 totens numa página só, para testar sem hardware."""
-    return FileResponse(STATIC_DIR / "simulador.html")
+    return FileResponse(STATIC_DIR / "simulador.html", headers=_SEM_CACHE)
 
 
 # ---------------------------------------------------------------------
