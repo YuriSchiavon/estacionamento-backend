@@ -29,6 +29,7 @@ from sqlalchemy.orm import Session
 from . import models, schemas, services
 from .auth import router as auth_router
 from .database import Base, engine, get_db
+from .migrations import migrar_colunas_novas
 from .nfce import extrair_cnpj_emitente
 from .qrcode_util import gerar_qr_svg
 from .rotas_gestao import router as rotas_gestao_router
@@ -40,6 +41,7 @@ from .security import (
     resolver_unidade_operacional,
 )
 
+migrar_colunas_novas(engine)
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Estacionamento - Controle de Acesso")
