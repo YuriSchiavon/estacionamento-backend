@@ -20,7 +20,7 @@ Rodar localmente:
 Depois acesse http://localhost:8000/docs para testar tudo pela interface Swagger.
 """
 from pathlib import Path
-from typing import Optional
+from typing import Literal, Optional
 
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.responses import FileResponse
@@ -103,12 +103,31 @@ def pagina_simulador():
 def registrar_entrada(
     gate_entrada: str = "entrada-1",
     unidade_id: Optional[int] = None,
+    pre_pago: bool = False,
+    forma_pagamento: Optional[Literal["pix", "credito", "debito"]] = None,
     db: Session = Depends(get_db),
     usuario: models.Usuario = Depends(exigir_totem_entrada),
 ):
     unidade_id_resolvida = resolver_unidade_operacional(db, usuario, unidade_id)
-    ticket = models.Ticket(unidade_id=unidade_id_resolvida, gate_entrada=gate_entrada)
+    unidade = db.get(models.Unidade, unidade_id_resolvida)
+
+    # Pré-pagamento por preço fixo -- opção extra da unidade (ver
+    # GET /gestao/unidades/{id}/config-totem). Nunca confia só no
+    # cliente: reconfirma no servidor que a unidade permite, mesmo
+    # padrão da checagem de valor de pagamento na saída.
+    if pre_pago:
+        if not unidade.permite_pre_pagamento:
+            raise HTTPException(422, "Esta unidade não permite pré-pagamento por preço fixo")
+        if not forma_pagamento:
+            raise HTTPException(422, "Informe a forma de pagamento para o pré-pagamento")
+
+    ticket = models.Ticket(unidade_id=unidade_id_resolvida, gate_entrada=gate_entrada, pre_pago=pre_pago)
     db.add(ticket)
+    db.flush()
+    if pre_pago:
+        db.add(models.Transacao(
+            ticket_id=ticket.id, forma_pagamento=forma_pagamento, valor=unidade.valor_pre_pagamento,
+        ))
     db.commit()
     db.refresh(ticket)
     # Aqui é onde o driver do totem deve:
@@ -119,6 +138,8 @@ def registrar_entrada(
     # QR code do código do ticket -- só aqui, pra poder ser lido direto
     # pelo scanner no totem de saída/validação, sem precisar digitar.
     resposta.qr_code_svg = gerar_qr_svg(ticket.codigo_barras)
+    resposta.ticket_texto_extra = unidade.ticket_texto_extra
+    resposta.imprimir_automaticamente = unidade.imprimir_automaticamente
     return resposta
 
 
@@ -242,6 +263,18 @@ def registrar_pagamento(
         raise HTTPException(404, "Ticket não encontrado")
     if ticket.status != models.StatusTicket.tarifado:
         raise HTTPException(409, f"Ticket não está aguardando pagamento (status: {ticket.status})")
+    # Nunca confia no valor que o totem manda pra decidir se o ticket foi
+    # pago -- o valor de verdade é o que o próprio backend calculou em
+    # /saida/verificar. Sem essa checagem, um totem comprometido (ou um
+    # bug de frontend) poderia "pagar" qualquer valor e liberar a cancela.
+    # Tolerância de 1 centavo pra arredondamento de ponto flutuante;
+    # sobrepagamento (troco/gorjeta) é permitido, subpagamento não.
+    if payload.valor < ticket.valor_calculado - 0.01:
+        raise HTTPException(
+            422,
+            f"Valor informado (R$ {payload.valor:.2f}) é menor que o valor devido "
+            f"(R$ {ticket.valor_calculado:.2f})",
+        )
 
     transacao = models.Transacao(
         ticket_id=ticket.id,

@@ -179,6 +179,48 @@
     display:none;
   }
   button.reimprimir.show{display:block;}
+  .subtitulo{color:#B9C2D6;font-size:15px;margin-bottom:28px;}
+  .opcao-entrada{
+    background:var(--lime);
+    color:var(--navy);
+    border:none;
+    border-radius:16px;
+    padding:24px;
+    font-family:inherit;
+    font-weight:700;
+    font-size:clamp(16px, 2.4vw, 19px);
+    cursor:pointer;
+    width:100%;
+  }
+  .opcao-entrada.contorno{background:none;border:2px solid var(--lime);color:var(--lime);}
+  .opcao-entrada + .opcao-entrada{margin-top:14px;}
+  .botoes-pagamento{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;width:100%;margin-top:8px;}
+  button.btn-forma-pagamento{
+    background:#16294A;
+    color:#fff;
+    border:2px solid #2C3E5C;
+    border-radius:14px;
+    padding:34px 8px;
+    font-family:inherit;
+    font-weight:700;
+    font-size:clamp(16px,2vw,19px);
+    cursor:pointer;
+  }
+  button.btn-forma-pagamento:hover{border-color:var(--lime);}
+  button.btn-forma-pagamento:disabled{opacity:.5;cursor:default;}
+  button.voltar-pre-pagamento{
+    margin-top:20px;
+    background:none;
+    color:#B9C2D6;
+    border:1px solid #2C3E5C;
+    padding:12px 20px;
+    border-radius:8px;
+    font-family:inherit;
+    font-weight:700;
+    font-size:14px;
+    cursor:pointer;
+    width:100%;
+  }
   #area-impressao{display:none;}
   @media print{
     body *{visibility:hidden;}
@@ -198,6 +240,7 @@
     #area-impressao .ip-qr{margin:12px auto;}
     #area-impressao .ip-qr svg{width:140px;height:140px;}
     #area-impressao .ip-horario{font-size:13px;}
+    #area-impressao .ip-texto-extra{font-size:11px;margin-top:12px;color:#333;}
   }
 </style>
 
@@ -232,8 +275,42 @@
   </div>
   <button class="reimprimir" id="btn-reimprimir">Imprimir novamente</button>
   <div class="rodape-conta">
-    <button id="btn-trocar-unidade" style="display:none;">trocar unidade</button>
-    <button id="btn-trocar">trocar conta deste totem</button>
+    <button class="btn-trocar-unidade" style="display:none;">trocar unidade</button>
+    <button class="btn-trocar">trocar conta deste totem</button>
+  </div>
+</div>
+
+<!-- Só aparece se a unidade tiver permite_pre_pagamento ligado no
+     regulamento (ver GET /gestao/unidades/{id}/config-totem); senão o
+     fluxo nunca sai da tela-kiosk acima, idêntico a sempre. -->
+<div class="kiosk" id="tela-escolha-entrada" style="display:none;">
+  <div class="logo-grande">MY PARK<span>·</span>ENTRADA</div>
+  <div class="subtitulo">Como prefere pagar?</div>
+  <button class="opcao-entrada" id="btn-pagamento-saida">Pagamento na saída (normal)</button>
+  <button class="opcao-entrada contorno" id="btn-ir-pre-pagamento"></button>
+  <div class="rodape-conta">
+    <button class="btn-trocar-unidade" style="display:none;">trocar unidade</button>
+    <button class="btn-trocar">trocar conta deste totem</button>
+  </div>
+</div>
+
+<div class="kiosk" id="tela-pre-pagamento" style="display:none;">
+  <div class="logo-grande">MY PARK<span>·</span>ENTRADA</div>
+  <div class="subtitulo" id="pre-pagamento-valor">Toque na forma de pagamento</div>
+  <div class="botoes-pagamento">
+    <button class="btn-forma-pagamento" data-forma="pix">PIX</button>
+    <button class="btn-forma-pagamento" data-forma="credito">Crédito</button>
+    <button class="btn-forma-pagamento" data-forma="debito">Débito</button>
+  </div>
+  <div class="erro" id="erro-pre-pagamento"></div>
+  <button class="voltar-pre-pagamento" id="btn-cancelar-pre-pagamento">voltar</button>
+</div>
+
+<div class="kiosk" id="tela-resultado-pre-pago" style="display:none;">
+  <div class="logo-grande">MY PARK<span>·</span>ENTRADA</div>
+  <div class="resultado show">
+    <div class="titulo">Pago! Retire seu ticket</div>
+    <div class="ticket-code" id="resultado-pre-pago-codigo"></div>
   </div>
 </div>
 
@@ -243,6 +320,7 @@
   <div class="ip-codigo" id="ip-codigo"></div>
   <div class="ip-qr" id="ip-qr"></div>
   <div class="ip-horario" id="ip-horario"></div>
+  <div class="ip-texto-extra" id="ip-texto-extra"></div>
 </div>
 
 <script>
@@ -261,10 +339,30 @@ function salvarSessao(){
   localStorage.setItem(CHAVE_SESSAO, JSON.stringify(sessao));
 }
 
+// Config da unidade relevante pro totem (ver GET /gestao/unidades/{id}/config-totem)
+// -- carregada assim que a unidade operacional é conhecida. Sem ela (ou
+// com permite_pre_pagamento false, o padrão), o fluxo é exatamente o de
+// sempre: mostrarTela() vai direto pra tela-kiosk.
+let configTotem = null;
+
+async function carregarConfigTotem(){
+  try{
+    const resp = await fetch(API + `/gestao/unidades/${sessao.unidade_operacional_id}/config-totem`, {
+      headers: { 'Authorization': `Bearer ${sessao.token}` },
+    });
+    configTotem = resp.ok ? await resp.json() : { permite_pre_pagamento: false };
+  }catch(e){
+    configTotem = { permite_pre_pagamento: false };
+  }
+}
+
 function mostrarTela(){
   document.getElementById('tela-login').style.display = 'none';
   document.getElementById('tela-selecao-unidade').style.display = 'none';
   document.getElementById('tela-kiosk').style.display = 'none';
+  document.getElementById('tela-escolha-entrada').style.display = 'none';
+  document.getElementById('tela-pre-pagamento').style.display = 'none';
+  document.getElementById('tela-resultado-pre-pago').style.display = 'none';
   document.getElementById('link-inicio').style.display = 'none';
 
   if (!sessao){
@@ -274,6 +372,12 @@ function mostrarTela(){
   }
   if (!sessao.unidade_operacional_id){
     document.getElementById('tela-selecao-unidade').style.display = 'block';
+    return;
+  }
+  if (configTotem && configTotem.permite_pre_pagamento){
+    document.getElementById('btn-ir-pre-pagamento').textContent =
+      `Pagar R$ ${configTotem.valor_pre_pagamento.toFixed(2)} agora e sair quando quiser`;
+    document.getElementById('tela-escolha-entrada').style.display = 'flex';
     return;
   }
   document.getElementById('tela-kiosk').style.display = 'flex';
@@ -295,7 +399,9 @@ async function resolverUnidadeOperacional(forcarSelecao){
       return;
     }
     const unidades = await resp.json();
-    document.getElementById('btn-trocar-unidade').style.display = unidades.length > 1 ? 'inline' : 'none';
+    document.querySelectorAll('.btn-trocar-unidade').forEach(b => {
+      b.style.display = unidades.length > 1 ? 'inline' : 'none';
+    });
 
     if (unidades.length === 0){
       alert('Esta conta não tem nenhuma unidade disponível.');
@@ -307,10 +413,12 @@ async function resolverUnidadeOperacional(forcarSelecao){
     if (unidades.length === 1){
       sessao.unidade_operacional_id = unidades[0].id;
       salvarSessao();
+      await carregarConfigTotem();
       mostrarTela();
       return;
     }
     if (!forcarSelecao && sessao.unidade_operacional_id && unidades.some(u => u.id === sessao.unidade_operacional_id)){
+      await carregarConfigTotem();
       mostrarTela();
       return;
     }
@@ -319,9 +427,10 @@ async function resolverUnidadeOperacional(forcarSelecao){
     const lista = document.getElementById('lista-unidades');
     lista.innerHTML = unidades.map(u => `<button class="btn-unidade" data-id="${u.id}">${u.nome}</button>`).join('');
     lista.querySelectorAll('.btn-unidade').forEach(btn => {
-      btn.addEventListener('click', () => {
+      btn.addEventListener('click', async () => {
         sessao.unidade_operacional_id = parseInt(btn.dataset.id, 10);
         salvarSessao();
+        await carregarConfigTotem();
         mostrarTela();
       });
     });
@@ -366,22 +475,26 @@ document.getElementById('btn-login').addEventListener('click', async () => {
   }
 });
 
-document.getElementById('btn-trocar-unidade').addEventListener('click', () => {
-  if (timeoutAutoReset) clearTimeout(timeoutAutoReset);
-  resolverUnidadeOperacional(true);
+document.querySelectorAll('.btn-trocar-unidade').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (timeoutAutoReset) clearTimeout(timeoutAutoReset);
+    resolverUnidadeOperacional(true);
+  });
 });
 
-document.getElementById('btn-trocar').addEventListener('click', async () => {
-  if (timeoutAutoReset) clearTimeout(timeoutAutoReset);
-  if (sessao){
-    try{ await fetch(API + '/auth/logout', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token: sessao.token }),
-    }); }catch(e){}
-  }
-  sessao = null;
-  localStorage.removeItem(CHAVE_SESSAO);
-  mostrarTela();
+document.querySelectorAll('.btn-trocar').forEach(btn => {
+  btn.addEventListener('click', async () => {
+    if (timeoutAutoReset) clearTimeout(timeoutAutoReset);
+    if (sessao){
+      try{ await fetch(API + '/auth/logout', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: sessao.token }),
+      }); }catch(e){}
+    }
+    sessao = null;
+    localStorage.removeItem(CHAVE_SESSAO);
+    mostrarTela();
+  });
 });
 
 document.getElementById('btn-entrada').addEventListener('click', async () => {
@@ -404,6 +517,9 @@ document.getElementById('btn-entrada').addEventListener('click', async () => {
     resultado.className = 'resultado show';
     document.getElementById('resultado-titulo').textContent = 'Retire seu ticket';
     document.getElementById('resultado-codigo').textContent = t.codigo_barras;
+    document.getElementById('btn-reimprimir').textContent =
+      t.imprimir_automaticamente === false ? 'Imprimir ticket' : 'Imprimir novamente';
+    origemResultadoAtual = 'normal';
     imprimirTicket(t);
     document.getElementById('btn-reimprimir').classList.add('show');
   }catch(e){
@@ -416,6 +532,56 @@ document.getElementById('btn-entrada').addEventListener('click', async () => {
   }
 });
 
+document.getElementById('btn-pagamento-saida').addEventListener('click', () => {
+  document.getElementById('tela-escolha-entrada').style.display = 'none';
+  document.getElementById('tela-kiosk').style.display = 'flex';
+});
+
+document.getElementById('btn-ir-pre-pagamento').addEventListener('click', () => {
+  document.getElementById('erro-pre-pagamento').style.display = 'none';
+  document.getElementById('tela-escolha-entrada').style.display = 'none';
+  document.getElementById('tela-pre-pagamento').style.display = 'flex';
+});
+
+document.getElementById('btn-cancelar-pre-pagamento').addEventListener('click', () => {
+  document.getElementById('tela-pre-pagamento').style.display = 'none';
+  document.getElementById('tela-escolha-entrada').style.display = 'flex';
+});
+
+document.querySelectorAll('.btn-forma-pagamento').forEach(botao => {
+  botao.addEventListener('click', () => emitirPrePago(botao.dataset.forma));
+});
+
+async function emitirPrePago(forma){
+  const erro = document.getElementById('erro-pre-pagamento');
+  erro.style.display = 'none';
+  document.querySelectorAll('.btn-forma-pagamento').forEach(b => b.disabled = true);
+  try{
+    const resp = await fetch(
+      API + `/entrada?unidade_id=${sessao.unidade_operacional_id}&pre_pago=true&forma_pagamento=${forma}`,
+      { method: 'POST', headers: { 'Authorization': `Bearer ${sessao.token}` } },
+    );
+    const t = await resp.json();
+    if (resp.status === 401){
+      sessao = null;
+      localStorage.removeItem(CHAVE_SESSAO);
+      mostrarTela();
+      return;
+    }
+    if (!resp.ok) throw new Error(t.detail || 'Erro ao emitir ticket');
+    document.getElementById('tela-pre-pagamento').style.display = 'none';
+    document.getElementById('tela-resultado-pre-pago').style.display = 'flex';
+    document.getElementById('resultado-pre-pago-codigo').textContent = t.codigo_barras;
+    origemResultadoAtual = 'pre_pago';
+    imprimirTicket(t);
+  }catch(e){
+    erro.textContent = e.message;
+    erro.style.display = 'block';
+  }finally{
+    document.querySelectorAll('.btn-forma-pagamento').forEach(b => b.disabled = false);
+  }
+}
+
 // window.print() é o substituto em software pra impressora térmica
 // real -- ver driver de hardware no README para a integração futura.
 let ultimoTicketImpresso = null;
@@ -425,13 +591,19 @@ let ultimoTicketImpresso = null;
 const ATRASO_RESET_MS = 8000;
 let timeoutAutoReset = null;
 
+// De qual tela veio o ticket atual -- decide pra onde resetarParaProximoTicket()
+// volta: 'normal' fica na própria tela-kiosk (sempre existiu); 'pre_pago'
+// volta pra tela-escolha-entrada, já que o pagamento fixo foi feito ali.
+let origemResultadoAtual = 'normal';
+
 function imprimirTicket(t){
   ultimoTicketImpresso = t;
   document.getElementById('ip-unidade').textContent = t.unidade_nome || '';
   document.getElementById('ip-codigo').textContent = t.codigo_barras;
   document.getElementById('ip-qr').innerHTML = t.qr_code_svg || '';
   document.getElementById('ip-horario').textContent = new Date(t.data_hora_entrada).toLocaleString('pt-BR');
-  window.print();
+  document.getElementById('ip-texto-extra').textContent = t.ticket_texto_extra || '';
+  if (t.imprimir_automaticamente !== false) window.print();
   if (timeoutAutoReset) clearTimeout(timeoutAutoReset);
   timeoutAutoReset = setTimeout(resetarParaProximoTicket, ATRASO_RESET_MS);
 }
@@ -439,6 +611,11 @@ function imprimirTicket(t){
 function resetarParaProximoTicket(){
   timeoutAutoReset = null;
   ultimoTicketImpresso = null;
+  if (origemResultadoAtual === 'pre_pago'){
+    document.getElementById('resultado-pre-pago-codigo').textContent = '';
+    mostrarTela();
+    return;
+  }
   document.getElementById('resultado').className = 'resultado';
   document.getElementById('resultado-titulo').textContent = '';
   document.getElementById('resultado-codigo').textContent = '';

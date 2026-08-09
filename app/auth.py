@@ -23,6 +23,19 @@ from .security import unidades_selecionaveis, usuario_logado
 from .tempo import agora_utc
 
 DURACAO_SESSAO_HORAS = 24
+# Totens ficam logados uma vez, no equipamento, presumivelmente pra sempre
+# (é o que as próprias telas de totem prometem: "faça login uma vez, fica
+# salvo neste equipamento"). Sessão de 24h faria todo totem parar de
+# funcionar sozinho todo dia até alguém notar e logar de novo na mão --
+# inviável pra um equipamento desassistido rodando 24/7. 90 dias dá uma
+# folga grande sem ser "para sempre" (facilita revogar girando a senha
+# periodicamente, se algum dia quiser).
+DURACAO_SESSAO_TOTEM_HORAS = 24 * 90
+PAPEIS_TOTEM = (
+    models.PapelUsuario.totem_entrada,
+    models.PapelUsuario.totem_validacao,
+    models.PapelUsuario.totem_saida,
+)
 
 router = APIRouter()
 
@@ -83,10 +96,11 @@ def username_disponivel(db: Session, username: str) -> str:
 
 
 def criar_sessao(db: Session, usuario: models.Usuario) -> models.Sessao:
+    duracao = DURACAO_SESSAO_TOTEM_HORAS if usuario.papel in PAPEIS_TOTEM else DURACAO_SESSAO_HORAS
     sessao = models.Sessao(
         usuario_id=usuario.id,
         token=secrets.token_hex(32),
-        expira_em=agora_utc() + timedelta(hours=DURACAO_SESSAO_HORAS),
+        expira_em=agora_utc() + timedelta(hours=duracao),
     )
     db.add(sessao)
     db.commit()

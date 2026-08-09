@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, time, timezone
 from typing import Literal, Optional
 
 from pydantic import BaseModel, model_validator
@@ -51,11 +51,29 @@ class UnidadeIn(BaseModel):
 
 
 class UnidadeUpdate(BaseModel):
+    """Regulamento da unidade -- cadastro (UnidadeIn) só pede o básico
+    na criação; o resto se ajusta depois por aqui, na aba Regulamento
+    do painel."""
     nome: Optional[str] = None
     ativo: Optional[bool] = None
     tolerancia_padrao_minutos: Optional[int] = None
     valor_mensalidade: Optional[float] = None
     dias_validade_mensalidade: Optional[int] = None
+    # Tarifa
+    valor_primeira_hora: Optional[float] = None
+    incremento_por_hora: Optional[float] = None
+    valor_diaria: Optional[float] = None
+    granularidade_cobranca: Optional[Literal["hora_cheia", "fracao_15min"]] = None
+    # Horário de funcionamento (informativo)
+    funcionamento_24h: Optional[bool] = None
+    horario_abertura: Optional[time] = None
+    horario_fechamento: Optional[time] = None
+    # Impressão do ticket
+    ticket_texto_extra: Optional[str] = None
+    imprimir_automaticamente: Optional[bool] = None
+    # Pré-pagamento por preço fixo
+    permite_pre_pagamento: Optional[bool] = None
+    valor_pre_pagamento: Optional[float] = None
 
 
 class UnidadeOut(BaseModel):
@@ -65,6 +83,30 @@ class UnidadeOut(BaseModel):
     tolerancia_padrao_minutos: int
     valor_mensalidade: float
     dias_validade_mensalidade: int
+    valor_primeira_hora: float
+    incremento_por_hora: float
+    valor_diaria: float
+    granularidade_cobranca: str
+    funcionamento_24h: bool
+    horario_abertura: Optional[time] = None
+    horario_fechamento: Optional[time] = None
+    ticket_texto_extra: Optional[str] = None
+    imprimir_automaticamente: bool
+    permite_pre_pagamento: bool
+    valor_pre_pagamento: Optional[float] = None
+
+    class Config:
+        from_attributes = True
+
+
+class ConfigTotemOut(BaseModel):
+    """Só os campos do regulamento que um totem precisa pra decidir o
+    que mostrar -- não exige exigir_gestao, só login (ver GET
+    /gestao/unidades/{id}/config-totem)."""
+    permite_pre_pagamento: bool
+    valor_pre_pagamento: Optional[float] = None
+    ticket_texto_extra: Optional[str] = None
+    imprimir_automaticamente: bool
 
     class Config:
         from_attributes = True
@@ -98,6 +140,10 @@ class TicketOut(ComDatasUTC):
     # popula isso na resposta de POST /entrada; os demais endpoints que
     # devolvem TicketOut deixam None (o frontend deles ignora o campo).
     qr_code_svg: Optional[str] = None
+    # Config de impressão da unidade -- também só populado por POST
+    # /entrada, pro totem decidir o que imprimir no comprovante.
+    ticket_texto_extra: Optional[str] = None
+    imprimir_automaticamente: bool = True
 
     class Config:
         from_attributes = True
@@ -145,7 +191,10 @@ class VerificarSaidaResponse(BaseModel):
 
 class PagamentoRequest(BaseModel):
     codigo_barras: str
-    forma_pagamento: str  # pix | cartao | dinheiro
+    # "cartao"/"dinheiro" são os valores usados na Operação (humano
+    # assistindo); "credito"/"debito" são os botões dos totens de
+    # auto-atendimento (sem opção de dinheiro ali, de propósito).
+    forma_pagamento: Literal["pix", "credito", "debito", "cartao", "dinheiro"]
     valor: float
     unidade_id: Optional[int] = None  # ver ValidarCupomRequest.unidade_id
 
@@ -190,7 +239,7 @@ class RenovarMensalidadeRequest(BaseModel):
     # None = usa o valor configurado na unidade do credenciado; informado
     # permite um ajuste pontual (ex: promoção).
     valor: Optional[float] = None
-    forma_pagamento: str = "pix"
+    forma_pagamento: Literal["pix", "credito", "debito", "cartao", "dinheiro"] = "pix"
 
 
 class IdentificacaoFacialRequest(BaseModel):
@@ -256,9 +305,30 @@ class RegraToleranciaOut(BaseModel):
         from_attributes = True
 
 
+class RegraDescontoIn(BaseModel):
+    # None = "qualquer cupom desse estabelecimento, sem valor mínimo"
+    valor_minimo_compra: Optional[float] = None
+    percentual_desconto: float
+    horas_fixas: int
+
+
+class RegraDescontoOut(BaseModel):
+    id: int
+    valor_minimo_compra: Optional[float]
+    percentual_desconto: float
+    horas_fixas: int
+
+    class Config:
+        from_attributes = True
+
+
 class EstabelecimentoIn(BaseModel):
     cnpj: str  # 14 dígitos, sem pontuação
     nome: str
+    # tolerancia = minutos grátis por valor de compra (padrão);
+    # desconto_percentual = % de desconto na tarifa, válido só até um
+    # número fixo de horas (ver RegraDescontoIn).
+    tipo_beneficio: Literal["tolerancia", "desconto_percentual"] = "tolerancia"
     unidade_id: Optional[int] = None  # obrigatório pra dono/gerente de operações, ignorado pra supervisor
 
 
@@ -273,7 +343,9 @@ class EstabelecimentoOut(BaseModel):
     cnpj: str
     nome: str
     ativo: bool
+    tipo_beneficio: str
     regras_tolerancia: list[RegraToleranciaOut] = []
+    regras_desconto: list[RegraDescontoOut] = []
 
     class Config:
         from_attributes = True

@@ -315,7 +315,8 @@
       <button class="tab-btn active" data-tab="patio">Pátio</button>
       <button class="tab-btn" data-tab="tickets">Tickets</button>
       <button class="tab-btn" data-tab="credenciados">Credenciados</button>
-      <button class="tab-btn" data-tab="estabelecimentos">Estabelecimentos</button>
+      <button class="tab-btn" data-tab="estabelecimentos">Convênios</button>
+      <button class="tab-btn" data-tab="regulamento">Regulamento</button>
       <button class="tab-btn" data-tab="financeiro">Financeiro</button>
       <button class="tab-btn" data-tab="usuarios">Usuários</button>
       <button class="tab-btn" data-tab="auditoria">Auditoria</button>
@@ -439,8 +440,8 @@
 
     <div class="panel" id="panel-estabelecimentos">
       <section class="card">
-        <h2>Estabelecimentos conveniados</h2>
-        <div class="desc">Cada estabelecimento tem seu próprio regulamento de tolerância (contratos diferentes). O CNPJ é conferido contra o embutido na chave de acesso da NFC-e lida no totem — cupom de fora não conta.</div>
+        <h2>Convênios</h2>
+        <div class="desc">Cada convênio tem seu próprio regulamento (contratos diferentes) — ou dá minutos grátis de tolerância por valor de compra, ou dá desconto percentual na tarifa, válido só até um número fixo de horas. O CNPJ é conferido contra o embutido na chave de acesso da NFC-e lida no totem — cupom de fora não conta.</div>
         <div class="grid-form">
           <div>
             <label>CNPJ (14 dígitos, sem pontuação)</label>
@@ -449,6 +450,13 @@
           <div>
             <label>Nome</label>
             <input id="e-nome" placeholder="ex: Supermercado Central">
+          </div>
+          <div>
+            <label>Tipo de benefício</label>
+            <select id="e-tipo-beneficio">
+              <option value="tolerancia">Tolerância (minutos grátis)</option>
+              <option value="desconto_percentual">Desconto percentual na tarifa</option>
+            </select>
           </div>
           <div id="e-unidade-wrap" style="display:none;">
             <label>Unidade</label>
@@ -460,6 +468,100 @@
         </div>
         <div class="msg" id="msg-estabelecimento"></div>
         <div id="lista-estabelecimentos" style="margin-top:20px;"></div>
+      </section>
+    </div>
+
+    <div class="panel" id="panel-regulamento">
+      <section class="card">
+        <h2>Regulamento da unidade</h2>
+        <div class="desc">Tarifa, tolerância, mensalidade, horário de funcionamento, impressão do ticket e pré-pagamento — tudo específico de uma única unidade. Não existe "regulamento geral".</div>
+        <div class="empty" id="regulamento-aviso">Selecione uma unidade específica no filtro "Visualizando", no topo da página, para ver e editar o regulamento dela.</div>
+        <div id="regulamento-form" style="display:none;">
+          <h3 style="margin-top:0;">Tarifa</h3>
+          <div class="grid-form">
+            <div>
+              <label>Valor da 1ª hora (R$)</label>
+              <input id="rg-valor-primeira-hora" type="number" step="0.01">
+            </div>
+            <div>
+              <label>Incremento por hora adicional (R$)</label>
+              <input id="rg-incremento-por-hora" type="number" step="0.01">
+            </div>
+            <div>
+              <label>Valor da diária / teto (R$)</label>
+              <input id="rg-valor-diaria" type="number" step="0.01">
+            </div>
+            <div>
+              <label>Granularidade da cobrança</label>
+              <select id="rg-granularidade">
+                <option value="hora_cheia">Hora cheia</option>
+                <option value="fracao_15min">Fração de 15 min</option>
+              </select>
+            </div>
+          </div>
+
+          <h3>Tolerância e mensalidade</h3>
+          <div class="grid-form">
+            <div>
+              <label>Tolerância padrão sem cupom (min)</label>
+              <input id="rg-tolerancia" type="number">
+            </div>
+            <div>
+              <label>Valor da mensalidade (R$)</label>
+              <input id="rg-valor-mensalidade" type="number" step="0.01">
+            </div>
+            <div>
+              <label>Validade da mensalidade (dias)</label>
+              <input id="rg-dias-mensalidade" type="number">
+            </div>
+          </div>
+
+          <h3>Horário de funcionamento</h3>
+          <div class="desc">Só informativo por enquanto — nenhum totem é bloqueado por isso.</div>
+          <div class="grid-form">
+            <div>
+              <label style="display:flex; align-items:center; gap:6px; margin-top:22px;">
+                <input type="checkbox" id="rg-funcionamento-24h" style="width:auto;"> Funciona 24h
+              </label>
+            </div>
+            <div id="rg-horario-abertura-wrap">
+              <label>Abertura</label>
+              <input id="rg-horario-abertura" type="time">
+            </div>
+            <div id="rg-horario-fechamento-wrap">
+              <label>Fechamento</label>
+              <input id="rg-horario-fechamento" type="time">
+            </div>
+          </div>
+
+          <h3>Impressão do ticket</h3>
+          <div class="grid-form">
+            <div>
+              <label style="display:flex; align-items:center; gap:6px; margin-top:22px;">
+                <input type="checkbox" id="rg-imprimir-automaticamente" style="width:auto;"> Imprimir automaticamente na entrada
+              </label>
+            </div>
+          </div>
+          <label>Texto extra impresso no ticket (opcional)</label>
+          <textarea id="rg-ticket-texto-extra" placeholder="ex: Não nos responsabilizamos por objetos deixados no veículo"></textarea>
+
+          <h3>Pré-pagamento por preço fixo</h3>
+          <div class="desc">Se ligado, o totem de Entrada passa a oferecer a opção de pagar um valor fixo já na entrada e sair quando quiser, sem cobrança por tempo. Desligado, o totem de Entrada continua exatamente como hoje.</div>
+          <div class="grid-form">
+            <div>
+              <label style="display:flex; align-items:center; gap:6px; margin-top:22px;">
+                <input type="checkbox" id="rg-permite-pre-pagamento" style="width:auto;"> Permitir pré-pagamento
+              </label>
+            </div>
+            <div id="rg-valor-pre-pagamento-wrap">
+              <label>Valor fixo do pré-pagamento (R$)</label>
+              <input id="rg-valor-pre-pagamento" type="number" step="0.01">
+            </div>
+          </div>
+
+          <button class="action" id="btn-salvar-regulamento" style="margin-top:14px;">Salvar regulamento</button>
+          <div class="msg" id="msg-regulamento"></div>
+        </div>
       </section>
     </div>
 
@@ -715,6 +817,7 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
     btn.classList.add('active');
     document.getElementById('panel-' + btn.dataset.tab).classList.add('active');
+    if (btn.dataset.tab === 'regulamento') renderRegulamento();
   });
 });
 
@@ -791,6 +894,7 @@ document.getElementById('btn-aplicar-filtro-unidade').addEventListener('click', 
   unidadeFiltro = document.getElementById('seletor-unidade').value;
   atualizarBadgeFiltro();
   carregarTudo();
+  renderRegulamento();
 });
 
 function preencherSelectsDeUnidade(){
@@ -823,6 +927,103 @@ async function carregarUnidades(){
     </tr>
   `).join('');
 }
+
+function unidadeRegulamentoAtual(){
+  // dono/gerente de operações: a unidade escolhida no filtro "Visualizando"
+  // (null se estiver em "Todas (geral)" -- não existe regulamento geral).
+  // supervisor/operador: sempre a própria unidade, já conhecida no login.
+  if (ehNivelDono()) return unidadeFiltro ? parseInt(unidadeFiltro, 10) : null;
+  return sessao.unidade_id;
+}
+
+function atualizarCamposHorarioRegulamento(){
+  const is24h = document.getElementById('rg-funcionamento-24h').checked;
+  document.getElementById('rg-horario-abertura-wrap').style.display = is24h ? 'none' : 'block';
+  document.getElementById('rg-horario-fechamento-wrap').style.display = is24h ? 'none' : 'block';
+}
+
+function atualizarCampoPrePagamentoRegulamento(){
+  const permite = document.getElementById('rg-permite-pre-pagamento').checked;
+  document.getElementById('rg-valor-pre-pagamento-wrap').style.display = permite ? 'block' : 'none';
+}
+
+document.getElementById('rg-funcionamento-24h').addEventListener('change', atualizarCamposHorarioRegulamento);
+document.getElementById('rg-permite-pre-pagamento').addEventListener('change', atualizarCampoPrePagamentoRegulamento);
+
+function renderRegulamento(){
+  const aviso = document.getElementById('regulamento-aviso');
+  const form = document.getElementById('regulamento-form');
+  const id = unidadeRegulamentoAtual();
+  if (!id){
+    aviso.style.display = 'block';
+    aviso.textContent = 'Selecione uma unidade específica no filtro "Visualizando", no topo da página, para ver e editar o regulamento dela.';
+    form.style.display = 'none';
+    return;
+  }
+  const unidade = listaUnidades.find(u => u.id === id);
+  if (!unidade){
+    aviso.style.display = 'block';
+    aviso.textContent = 'Carregando dados da unidade...';
+    form.style.display = 'none';
+    return;
+  }
+  aviso.style.display = 'none';
+  form.style.display = 'block';
+
+  document.getElementById('rg-valor-primeira-hora').value = unidade.valor_primeira_hora;
+  document.getElementById('rg-incremento-por-hora').value = unidade.incremento_por_hora;
+  document.getElementById('rg-valor-diaria').value = unidade.valor_diaria;
+  document.getElementById('rg-granularidade').value = unidade.granularidade_cobranca;
+  document.getElementById('rg-tolerancia').value = unidade.tolerancia_padrao_minutos;
+  document.getElementById('rg-valor-mensalidade').value = unidade.valor_mensalidade;
+  document.getElementById('rg-dias-mensalidade').value = unidade.dias_validade_mensalidade;
+  document.getElementById('rg-funcionamento-24h').checked = unidade.funcionamento_24h;
+  document.getElementById('rg-horario-abertura').value = unidade.horario_abertura ? unidade.horario_abertura.slice(0, 5) : '';
+  document.getElementById('rg-horario-fechamento').value = unidade.horario_fechamento ? unidade.horario_fechamento.slice(0, 5) : '';
+  document.getElementById('rg-ticket-texto-extra').value = unidade.ticket_texto_extra || '';
+  document.getElementById('rg-imprimir-automaticamente').checked = unidade.imprimir_automaticamente;
+  document.getElementById('rg-permite-pre-pagamento').checked = unidade.permite_pre_pagamento;
+  document.getElementById('rg-valor-pre-pagamento').value = unidade.valor_pre_pagamento != null ? unidade.valor_pre_pagamento : '';
+
+  atualizarCamposHorarioRegulamento();
+  atualizarCampoPrePagamentoRegulamento();
+}
+
+document.getElementById('btn-salvar-regulamento').addEventListener('click', async () => {
+  const msg = document.getElementById('msg-regulamento');
+  msg.className = 'msg';
+  msg.textContent = '';
+  const id = unidadeRegulamentoAtual();
+  if (!id) return;
+  const is24h = document.getElementById('rg-funcionamento-24h').checked;
+  const permitePrePagamento = document.getElementById('rg-permite-pre-pagamento').checked;
+  try{
+    const payload = {
+      valor_primeira_hora: parseFloat(document.getElementById('rg-valor-primeira-hora').value),
+      incremento_por_hora: parseFloat(document.getElementById('rg-incremento-por-hora').value),
+      valor_diaria: parseFloat(document.getElementById('rg-valor-diaria').value),
+      granularidade_cobranca: document.getElementById('rg-granularidade').value,
+      tolerancia_padrao_minutos: parseInt(document.getElementById('rg-tolerancia').value, 10),
+      valor_mensalidade: parseFloat(document.getElementById('rg-valor-mensalidade').value),
+      dias_validade_mensalidade: parseInt(document.getElementById('rg-dias-mensalidade').value, 10),
+      funcionamento_24h: is24h,
+      horario_abertura: is24h ? null : (document.getElementById('rg-horario-abertura').value || null),
+      horario_fechamento: is24h ? null : (document.getElementById('rg-horario-fechamento').value || null),
+      ticket_texto_extra: document.getElementById('rg-ticket-texto-extra').value || null,
+      imprimir_automaticamente: document.getElementById('rg-imprimir-automaticamente').checked,
+      permite_pre_pagamento: permitePrePagamento,
+      valor_pre_pagamento: permitePrePagamento ? parseFloat(document.getElementById('rg-valor-pre-pagamento').value || '0') : null,
+    };
+    const atualizada = await api('PATCH', `/gestao/unidades/${id}`, payload);
+    const idx = listaUnidades.findIndex(u => u.id === id);
+    if (idx !== -1) listaUnidades[idx] = atualizada;
+    msg.className = 'msg ok';
+    msg.textContent = 'Regulamento salvo com sucesso.';
+  }catch(e){
+    msg.className = 'msg err';
+    msg.textContent = e.message;
+  }
+});
 
 document.getElementById('btn-cadastrar-unidade').addEventListener('click', async () => {
   const msg = document.getElementById('msg-unidade');
@@ -1142,19 +1343,30 @@ async function carregarEstabelecimentos(){
       container.innerHTML = '<div class="empty">Nenhum estabelecimento cadastrado ainda.</div>';
       return;
     }
-    container.innerHTML = lista.map(e => `
-      <div style="border:1px solid var(--border); border-radius:10px; padding:16px; margin-bottom:12px;">
-        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
-          <div>
-            <strong style="color:var(--navy);">${e.nome}</strong>
-            <span style="color:var(--gray); font-size:12px;"> — CNPJ <code>${e.cnpj}</code></span>
-          </div>
-          <div>
-            ${badgeStatus(e.ativo)}
-            <button class="secundario" onclick="alternarAtivoEstabelecimento(${e.id}, ${e.ativo})">${e.ativo ? 'Desativar' : 'Ativar'}</button>
-            ${ehNivelDono() ? `<button class="secundario" onclick="excluirEstabelecimento(${e.id}, '${e.nome.replace(/'/g, "\\'")}')">Excluir</button>` : ''}
-          </div>
+    container.innerHTML = lista.map(e => {
+      const ehDesconto = e.tipo_beneficio === 'desconto_percentual';
+      const badgeTipo = `<span class="badge" style="background:${ehDesconto ? 'var(--laranja, #f59e0b)' : 'var(--azul, #3b82f6)'}; color:#fff;">${ehDesconto ? 'Desconto %' : 'Tolerância'}</span>`;
+      const tabelaRegras = ehDesconto ? `
+        <table style="margin-top:10px;">
+          <thead><tr><th>Valor mínimo</th><th>Desconto</th><th>Válido até</th><th></th></tr></thead>
+          <tbody>
+            ${e.regras_desconto.length ? e.regras_desconto.map(r => `
+              <tr>
+                <td>${r.valor_minimo_compra != null ? 'R$ ' + r.valor_minimo_compra.toFixed(2) : 'qualquer valor'}</td>
+                <td>${r.percentual_desconto}%</td>
+                <td>${r.horas_fixas}h</td>
+                <td><button class="secundario" onclick="removerRegraDesconto(${e.id}, ${r.id})">Remover</button></td>
+              </tr>
+            `).join('') : '<tr><td colspan="4" class="empty">Nenhuma regra cadastrada — nenhum cupom desse convênio vai dar desconto ainda.</td></tr>'}
+          </tbody>
+        </table>
+        <div style="display:flex; gap:8px; margin-top:10px; align-items:end; flex-wrap:wrap;">
+          <div><label>Valor mínimo (R$, vazio = qualquer valor)</label><input type="number" step="0.01" id="nova-regra-desconto-valor-${e.id}" style="width:160px;"></div>
+          <div><label>Desconto (%)</label><input type="number" step="0.01" id="nova-regra-desconto-percentual-${e.id}" style="width:100px;"></div>
+          <div><label>Válido até (horas)</label><input type="number" id="nova-regra-desconto-horas-${e.id}" style="width:100px;"></div>
+          <button class="secundario" onclick="adicionarRegraDesconto(${e.id})">Adicionar regra</button>
         </div>
+      ` : `
         <table style="margin-top:10px;">
           <thead><tr><th>Valor mínimo</th><th>Tolerância</th><th></th></tr></thead>
           <tbody>
@@ -1164,7 +1376,7 @@ async function carregarEstabelecimentos(){
                 <td>${r.tolerancia_minutos} min</td>
                 <td><button class="secundario" onclick="removerRegra(${e.id}, ${r.id})">Remover</button></td>
               </tr>
-            `).join('') : '<tr><td colspan="3" class="empty">Nenhuma regra cadastrada — nenhum cupom desse estabelecimento vai liberar tolerância ainda.</td></tr>'}
+            `).join('') : '<tr><td colspan="3" class="empty">Nenhuma regra cadastrada — nenhum cupom desse convênio vai liberar tolerância ainda.</td></tr>'}
           </tbody>
         </table>
         <div style="display:flex; gap:8px; margin-top:10px; align-items:end; flex-wrap:wrap;">
@@ -1172,8 +1384,25 @@ async function carregarEstabelecimentos(){
           <div><label>Tolerância (min)</label><input type="number" id="nova-regra-minutos-${e.id}" style="width:100px;"></div>
           <button class="secundario" onclick="adicionarRegra(${e.id})">Adicionar regra</button>
         </div>
+      `;
+      return `
+      <div style="border:1px solid var(--border); border-radius:10px; padding:16px; margin-bottom:12px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+          <div>
+            <strong style="color:var(--navy);">${e.nome}</strong>
+            <span style="color:var(--gray); font-size:12px;"> — CNPJ <code>${e.cnpj}</code></span>
+            ${badgeTipo}
+          </div>
+          <div>
+            ${badgeStatus(e.ativo)}
+            <button class="secundario" onclick="alternarAtivoEstabelecimento(${e.id}, ${e.ativo})">${e.ativo ? 'Desativar' : 'Ativar'}</button>
+            ${ehNivelDono() ? `<button class="secundario" onclick="excluirEstabelecimento(${e.id}, '${e.nome.replace(/'/g, "\\'")}')">Excluir</button>` : ''}
+          </div>
+        </div>
+        ${tabelaRegras}
       </div>
-    `).join('');
+    `;
+    }).join('');
   }catch(err){
     container.innerHTML = `<div class="msg err">${err.message}</div>`;
   }
@@ -1226,6 +1455,36 @@ async function removerRegra(estabelecimentoId, regraId){
   }
 }
 
+async function adicionarRegraDesconto(estabelecimentoId){
+  const valorInput = document.getElementById(`nova-regra-desconto-valor-${estabelecimentoId}`);
+  const percentualInput = document.getElementById(`nova-regra-desconto-percentual-${estabelecimentoId}`);
+  const horasInput = document.getElementById(`nova-regra-desconto-horas-${estabelecimentoId}`);
+  const valor = valorInput.value === '' ? null : parseFloat(valorInput.value);
+  const percentual = parseFloat(percentualInput.value);
+  const horas = parseInt(horasInput.value, 10);
+  if (!percentual || !horas){
+    alert('Informe o percentual de desconto e as horas fixas de validade.');
+    return;
+  }
+  try{
+    await api('POST', `/gestao/estabelecimentos/${estabelecimentoId}/regras-desconto`, {
+      valor_minimo_compra: valor, percentual_desconto: percentual, horas_fixas: horas,
+    });
+    carregarEstabelecimentos();
+  }catch(e){
+    alert(e.message);
+  }
+}
+
+async function removerRegraDesconto(estabelecimentoId, regraId){
+  try{
+    await api('DELETE', `/gestao/estabelecimentos/${estabelecimentoId}/regras-desconto/${regraId}`);
+    carregarEstabelecimentos();
+  }catch(e){
+    alert(e.message);
+  }
+}
+
 document.getElementById('btn-cadastrar-estabelecimento').addEventListener('click', async () => {
   const msg = document.getElementById('msg-estabelecimento');
   msg.className = 'msg';
@@ -1234,6 +1493,7 @@ document.getElementById('btn-cadastrar-estabelecimento').addEventListener('click
     const payload = {
       cnpj: document.getElementById('e-cnpj').value,
       nome: document.getElementById('e-nome').value,
+      tipo_beneficio: document.getElementById('e-tipo-beneficio').value,
     };
     if (ehNivelDono()) payload.unidade_id = parseInt(document.getElementById('e-unidade').value, 10);
     await api('POST', '/gestao/estabelecimentos', payload);
@@ -1477,7 +1737,9 @@ async function iniciarApp(){
   }
   atualizarFormularioUsuario();
 
-  if (nivelDono) await carregarUnidades();
+  // Sempre carrega, mesmo pra supervisor -- a aba Regulamento precisa
+  // dos dados da própria unidade dele, não só das contas nível dono.
+  await carregarUnidades();
   carregarTudo();
 }
 

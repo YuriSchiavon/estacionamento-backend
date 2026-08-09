@@ -32,6 +32,7 @@ from .security import (
     exigir_operacao,
     exigir_totem_entrada,
     exigir_totem_saida,
+    usuario_logado,
 )
 from .tempo import agora_utc
 
@@ -111,6 +112,20 @@ def atualizar_unidade(
         setattr(unidade, campo, valor)
     db.commit()
     db.refresh(unidade)
+    return unidade
+
+
+@router.get("/gestao/unidades/{unidade_id}/config-totem", response_model=schemas.ConfigTotemOut)
+def config_totem(
+    unidade_id: int, db: Session = Depends(get_db), usuario: models.Usuario = Depends(usuario_logado),
+):
+    """Só os campos do regulamento que um totem precisa pra decidir o
+    que mostrar (ex: se oferece pré-pagamento) -- não exige
+    exigir_gestao, contas de totem não têm esse acesso, só login. Não
+    expõe nada sensível (sem CNPJ, financeiro ou dado pessoal)."""
+    unidade = db.get(models.Unidade, unidade_id)
+    if not unidade:
+        raise HTTPException(404, "Unidade não encontrada")
     return unidade
 
 
@@ -289,7 +304,9 @@ def criar_estabelecimento(payload: schemas.EstabelecimentoIn, db: Session = Depe
     if existente:
         raise HTTPException(409, "Já existe um estabelecimento com esse CNPJ nessa unidade")
 
-    estabelecimento = models.Estabelecimento(unidade_id=unidade_id, cnpj=payload.cnpj, nome=payload.nome)
+    estabelecimento = models.Estabelecimento(
+        unidade_id=unidade_id, cnpj=payload.cnpj, nome=payload.nome, tipo_beneficio=payload.tipo_beneficio,
+    )
     db.add(estabelecimento)
     db.commit()
     db.refresh(estabelecimento)
@@ -345,6 +362,7 @@ def excluir_estabelecimento(
         )
 
     db.query(models.RegraTolerancia).filter_by(estabelecimento_id=estabelecimento_id).delete()
+    db.query(models.RegraDesconto).filter_by(estabelecimento_id=estabelecimento_id).delete()
     db.delete(estabelecimento)
     db.commit()
     return {"detail": "Estabelecimento excluído"}
@@ -388,6 +406,61 @@ def remover_regra_tolerancia(
     _verificar_acesso_unidade(usuario, estabelecimento.unidade_id)
 
     regra = db.query(models.RegraTolerancia).filter_by(
+        id=regra_id, estabelecimento_id=estabelecimento_id
+    ).first()
+    if not regra:
+        raise HTTPException(404, "Regra não encontrada para este estabelecimento")
+
+    db.delete(regra)
+    db.commit()
+    db.refresh(estabelecimento)
+    return estabelecimento
+
+
+# ---------------------------------------------------------------------
+# REGRAS DE DESCONTO -- espelha regras-tolerancia acima, mas pra
+# convênios do tipo desconto_percentual (% de desconto na tarifa,
+# válido só até um número fixo de horas).
+# ---------------------------------------------------------------------
+@router.post("/gestao/estabelecimentos/{estabelecimento_id}/regras-desconto", response_model=schemas.EstabelecimentoOut)
+def adicionar_regra_desconto(
+    estabelecimento_id: int, payload: schemas.RegraDescontoIn, db: Session = Depends(get_db),
+    usuario: models.Usuario = Depends(exigir_gestao),
+):
+    estabelecimento = db.get(models.Estabelecimento, estabelecimento_id)
+    if not estabelecimento:
+        raise HTTPException(404, "Estabelecimento não encontrado")
+    _verificar_acesso_unidade(usuario, estabelecimento.unidade_id)
+
+    existente = db.query(models.RegraDesconto).filter_by(
+        estabelecimento_id=estabelecimento_id, valor_minimo_compra=payload.valor_minimo_compra
+    ).first()
+    if existente:
+        raise HTTPException(409, "Já existe uma regra com esse valor mínimo para este estabelecimento")
+
+    regra = models.RegraDesconto(
+        estabelecimento_id=estabelecimento_id,
+        valor_minimo_compra=payload.valor_minimo_compra,
+        percentual_desconto=payload.percentual_desconto,
+        horas_fixas=payload.horas_fixas,
+    )
+    db.add(regra)
+    db.commit()
+    db.refresh(estabelecimento)
+    return estabelecimento
+
+
+@router.delete("/gestao/estabelecimentos/{estabelecimento_id}/regras-desconto/{regra_id}", response_model=schemas.EstabelecimentoOut)
+def remover_regra_desconto(
+    estabelecimento_id: int, regra_id: int, db: Session = Depends(get_db),
+    usuario: models.Usuario = Depends(exigir_gestao),
+):
+    estabelecimento = db.get(models.Estabelecimento, estabelecimento_id)
+    if not estabelecimento:
+        raise HTTPException(404, "Estabelecimento não encontrado")
+    _verificar_acesso_unidade(usuario, estabelecimento.unidade_id)
+
+    regra = db.query(models.RegraDesconto).filter_by(
         id=regra_id, estabelecimento_id=estabelecimento_id
     ).first()
     if not regra:
@@ -743,6 +816,13 @@ def criar_usuario_avulso(
 ):
     papel = models.PapelUsuario(payload.papel)
 
+    # Só quem já tem a permissão de liberação manual (ou é dono/gerente de
+    # operações) pode conceder essa mesma permissão pra uma conta nova --
+    # senão um supervisor sem essa permissão poderia contornar a própria
+    # restrição criando um operador com ela e usando essa conta.
+    if payload.pode_liberar_manualmente and usuario.papel not in PAPEIS_NIVEL_DONO and not usuario.pode_liberar_manualmente:
+        raise HTTPException(403, "Seu usuário não pode conceder permissão de liberação manual pra outra conta")
+
     if usuario.papel in PAPEIS_NIVEL_DONO:
         if papel in PAPEIS_NIVEL_DONO:
             unidade_id = None
@@ -893,7 +973,11 @@ def atualizar_usuario(
         if alvo.unidade_id != usuario.unidade_id or alvo.papel != models.PapelUsuario.operador:
             raise HTTPException(404, "Usuário não encontrado")
 
-    for campo, valor in payload.model_dump(exclude_unset=True).items():
+    dados = payload.model_dump(exclude_unset=True)
+    if dados.get("pode_liberar_manualmente") and usuario.papel not in PAPEIS_NIVEL_DONO and not usuario.pode_liberar_manualmente:
+        raise HTTPException(403, "Seu usuário não pode conceder permissão de liberação manual pra outra conta")
+
+    for campo, valor in dados.items():
         setattr(alvo, campo, valor)
     db.commit()
     db.refresh(alvo)

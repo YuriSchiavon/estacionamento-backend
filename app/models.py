@@ -39,12 +39,17 @@ import uuid
 
 from sqlalchemy import (
     Column, String, DateTime, Float, Integer, ForeignKey, Enum, Boolean,
-    UniqueConstraint,
+    Time, UniqueConstraint,
 )
 from sqlalchemy.orm import relationship
 
 from .database import Base
 from .tempo import agora_utc
+
+
+class GranularidadeCobranca(str, enum.Enum):
+    hora_cheia = "hora_cheia"      # arredonda pra cima pra próxima hora cheia
+    fracao_15min = "fracao_15min"  # arredonda pra cima pro próximo bloco de 15 min
 
 
 class Unidade(Base):
@@ -60,6 +65,31 @@ class Unidade(Base):
     # diferentes). Ver app/credenciamento.py.
     valor_mensalidade = Column(Float, nullable=False, default=200.0)
     dias_validade_mensalidade = Column(Integer, nullable=False, default=30)
+
+    # Tarifa (regulamento) -- cada unidade tem sua própria tabela de
+    # preço, em vez de uma constante global fixa pro sistema inteiro.
+    # Ver app/services.py calcular_tarifa.
+    valor_primeira_hora = Column(Float, nullable=False, default=10.0)
+    incremento_por_hora = Column(Float, nullable=False, default=5.0)
+    valor_diaria = Column(Float, nullable=False, default=35.0)
+    granularidade_cobranca = Column(Enum(GranularidadeCobranca), nullable=False, default=GranularidadeCobranca.hora_cheia)
+
+    # Horário de funcionamento -- só informativo por enquanto, nenhum
+    # totem é bloqueado por isso.
+    funcionamento_24h = Column(Boolean, nullable=False, default=True)
+    horario_abertura = Column(Time, nullable=True)
+    horario_fechamento = Column(Time, nullable=True)
+
+    # Impressão do ticket no totem de entrada.
+    ticket_texto_extra = Column(String, nullable=True)
+    imprimir_automaticamente = Column(Boolean, nullable=False, default=True)
+
+    # Pré-pagamento por preço fixo -- opção extra que só aparece no
+    # totem de Entrada se isso estiver ligado (ver GET
+    # /gestao/unidades/{id}/config-totem e POST /entrada).
+    permite_pre_pagamento = Column(Boolean, nullable=False, default=False)
+    valor_pre_pagamento = Column(Float, nullable=True)
+
     criado_em = Column(DateTime, default=agora_utc)
 
 
@@ -129,7 +159,15 @@ class Sessao(Base):
     usuario = relationship("Usuario")
 
 
+class TipoBeneficioConvenio(str, enum.Enum):
+    tolerancia = "tolerancia"                  # minutos grátis por valor de compra (padrão, já existente)
+    desconto_percentual = "desconto_percentual"  # % de desconto na tarifa, válido só até N horas fixas
+
+
 class Estabelecimento(Base):
+    """Convênio, na interface -- o nome da classe/tabela continua
+    "Estabelecimento" internamente pra não exigir migração de dado em
+    produção."""
     __tablename__ = "estabelecimentos"
     __table_args__ = (
         UniqueConstraint("unidade_id", "cnpj", name="uq_estabelecimento_por_unidade"),
@@ -140,10 +178,12 @@ class Estabelecimento(Base):
     cnpj = Column(String(14), index=True, nullable=False)
     nome = Column(String, nullable=False)
     ativo = Column(Boolean, default=True)
+    tipo_beneficio = Column(Enum(TipoBeneficioConvenio), nullable=False, default=TipoBeneficioConvenio.tolerancia)
     criado_em = Column(DateTime, default=agora_utc)
 
     unidade = relationship("Unidade")
     regras_tolerancia = relationship("RegraTolerancia", back_populates="estabelecimento")
+    regras_desconto = relationship("RegraDesconto", back_populates="estabelecimento")
     cupons = relationship("CupomFiscal", back_populates="estabelecimento")
 
 
@@ -177,6 +217,11 @@ class Ticket(Base):
     tempo_permanencia_minutos = Column(Integer, nullable=True)
     tolerancia_aplicada_minutos = Column(Integer, nullable=True)
     valor_calculado = Column(Float, default=0.0)
+
+    # Preço fixo pago já na entrada (se a unidade permite) -- na saída,
+    # libera direto, sem calcular tolerância/tarifa. Ver
+    # app/services.py processar_saida.
+    pre_pago = Column(Boolean, nullable=False, default=False)
 
     # Preenchido só quando a entrada/saída aconteceu por reconhecimento
     # facial (credenciado/mensalista) em vez do fluxo normal de ticket.
@@ -227,6 +272,27 @@ class RegraTolerancia(Base):
     tolerancia_minutos = Column(Integer, nullable=False)
 
     estabelecimento = relationship("Estabelecimento", back_populates="regras_tolerancia")
+
+
+class RegraDesconto(Base):
+    """Faixas de desconto percentual por valor de compra, pra convênios
+    do tipo desconto_percentual -- espelha RegraTolerancia, mas em vez
+    de minutos grátis, dá X% de desconto na tarifa calculada, válido só
+    se a permanência tarifável não passar de horas_fixas (excedendo,
+    cobra o valor cheio, sem desconto)."""
+    __tablename__ = "regras_desconto"
+    __table_args__ = (
+        UniqueConstraint("estabelecimento_id", "valor_minimo_compra", name="uq_regra_desconto_por_estabelecimento"),
+    )
+
+    id = Column(Integer, primary_key=True)
+    estabelecimento_id = Column(Integer, ForeignKey("estabelecimentos.id"), nullable=False)
+    # None = "qualquer valor de compra desse estabelecimento".
+    valor_minimo_compra = Column(Float, nullable=True)
+    percentual_desconto = Column(Float, nullable=False)
+    horas_fixas = Column(Integer, nullable=False)
+
+    estabelecimento = relationship("Estabelecimento", back_populates="regras_desconto")
 
 
 class Transacao(Base):
