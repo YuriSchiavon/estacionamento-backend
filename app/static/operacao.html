@@ -323,6 +323,10 @@ function mostrarTela(){
 
   if (!sessao){
     document.getElementById('tela-login').style.display = 'block';
+    // Se essa tela apareceu por causa de um toque do próprio usuário
+    // (ex: logout), o foco aqui dentro do mesmo gesto já abre o teclado
+    // do Android sozinho -- sem precisar de um segundo toque no campo.
+    document.getElementById('login-user').focus();
     return;
   }
   document.getElementById('quem-logado').style.display = 'flex';

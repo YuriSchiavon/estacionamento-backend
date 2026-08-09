@@ -800,6 +800,10 @@ function encerrarSessao(){
   localStorage.removeItem('sessao_gestao');
   document.getElementById('app').style.display = 'none';
   document.getElementById('tela-login').style.display = 'block';
+  // Se essa tela apareceu por causa de um toque do próprio usuário (ex:
+  // "Sair"), o foco aqui dentro do mesmo gesto já abre o teclado do
+  // Android/tablet sozinho -- sem precisar de um segundo toque no campo.
+  document.getElementById('login-user').focus();
 }
 
 document.querySelectorAll('.toggle-senha').forEach(btn => {
@@ -1750,5 +1754,7 @@ if (sessao && !PAPEIS_COM_ACESSO_AO_PAINEL.includes(sessao.papel)){
   encerrarSessao();
 }else if (sessao){
   iniciarApp();
+}else{
+  document.getElementById('login-user').focus();
 }
 </script>

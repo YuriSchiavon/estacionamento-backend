@@ -406,6 +406,12 @@ function mostrarTela(){
     document.getElementById('tela-login').style.display = 'block';
     document.getElementById('link-inicio').style.display = 'block';
     document.getElementById('btn-cancelar-login').style.display = sessaoAnterior ? 'block' : 'none';
+    // Se essa tela apareceu por causa de um toque do próprio usuário
+    // (ex: "trocar conta"), o foco aqui dentro do mesmo gesto já abre o
+    // teclado do Android sozinho -- sem precisar de um segundo toque no
+    // campo. Em telas sem gesto (ex: totem ligando agora), o Android só
+    // ignora o foco silenciosamente, sem efeito colateral.
+    document.getElementById('login-user').focus();
     return;
   }
   if (!sessao.unidade_operacional_id){
