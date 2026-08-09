@@ -150,19 +150,27 @@
     display:block;
   }
   .resultado.err .titulo{color:#FF8A75;}
+  /* Ficam num canto, discretos -- é uma ação de configuração do
+     equipamento, não algo que o cliente que só quer retirar o ticket
+     deveria esbarrar sem querer. */
   .rodape-conta{
-    margin-top:40px;
+    position:fixed;
+    left:14px;
+    bottom:14px;
     display:flex;
-    gap:18px;
-    justify-content:center;
+    flex-direction:column;
+    align-items:flex-start;
+    gap:4px;
+    z-index:5;
   }
   .rodape-conta button{
-    font-size:12px;
-    color:#6A7A9C;
+    font-size:11px;
+    color:#3E4C6B;
     background:none;
     border:none;
     cursor:pointer;
     text-decoration:underline;
+    padding:4px 2px;
   }
   button.reimprimir{
     margin-top:20px;
@@ -258,6 +266,7 @@
   </div>
   <button class="entrar-btn" id="btn-login">Entrar</button>
   <div class="erro" id="erro-login"></div>
+  <button type="button" class="entrar-btn" id="btn-cancelar-login" style="display:none;background:none;color:#B9C2D6;border:1px solid #2C3E5C;margin-top:8px;">voltar (fecha sozinho em 10s)</button>
 </div>
 
 <div class="login-box" id="tela-selecao-unidade" style="display:none;">
@@ -330,6 +339,34 @@ const API = "";
 const CHAVE_SESSAO = 'sessao_totem_entrada';
 let sessao = null;
 
+// "trocar conta" não desloga na hora -- só guarda a sessão atual aqui e
+// mostra o login por cima. Se ninguém digitar nada em 10s (ex: cliente
+// esbarrou no botão sem querer), cancelarTrocaDeConta() restaura sozinho
+// e o equipamento nunca fica de fato deslogado por engano.
+let sessaoAnterior = null;
+let timeoutCancelarLogin = null;
+const ATRASO_CANCELAR_LOGIN_MS = 10000;
+
+function iniciarTimeoutCancelarLogin(){
+  if (timeoutCancelarLogin) clearTimeout(timeoutCancelarLogin);
+  timeoutCancelarLogin = setTimeout(cancelarTrocaDeConta, ATRASO_CANCELAR_LOGIN_MS);
+}
+
+function pararTimeoutCancelarLogin(){
+  if (timeoutCancelarLogin){ clearTimeout(timeoutCancelarLogin); timeoutCancelarLogin = null; }
+}
+
+function cancelarTrocaDeConta(){
+  pararTimeoutCancelarLogin();
+  if (!sessaoAnterior) return;
+  sessao = sessaoAnterior;
+  sessaoAnterior = null;
+  document.getElementById('login-user').value = '';
+  document.getElementById('login-senha').value = '';
+  document.getElementById('erro-login').style.display = 'none';
+  mostrarTela();
+}
+
 function carregarSessao(){
   const salva = localStorage.getItem(CHAVE_SESSAO);
   if (salva) sessao = JSON.parse(salva);
@@ -368,6 +405,7 @@ function mostrarTela(){
   if (!sessao){
     document.getElementById('tela-login').style.display = 'block';
     document.getElementById('link-inicio').style.display = 'block';
+    document.getElementById('btn-cancelar-login').style.display = sessaoAnterior ? 'block' : 'none';
     return;
   }
   if (!sessao.unidade_operacional_id){
@@ -453,6 +491,9 @@ document.querySelectorAll('.toggle-senha').forEach(btn => {
   });
 });
 
+document.getElementById('login-user').addEventListener('input', () => { if (sessaoAnterior) iniciarTimeoutCancelarLogin(); });
+document.getElementById('login-senha').addEventListener('input', () => { if (sessaoAnterior) iniciarTimeoutCancelarLogin(); });
+
 document.getElementById('btn-login').addEventListener('click', async () => {
   const username = document.getElementById('login-user').value;
   const senha = document.getElementById('login-senha').value;
@@ -466,6 +507,17 @@ document.getElementById('btn-login').addEventListener('click', async () => {
     });
     const data = await resp.json();
     if (!resp.ok) throw new Error(data.detail || 'Login inválido');
+    pararTimeoutCancelarLogin();
+    if (sessaoAnterior){
+      // só desloga a conta anterior depois que a nova já foi confirmada
+      // -- se a troca fosse acidental, o botão "voltar"/timeout já teria
+      // restaurado sem nunca chegar a revogar o token de verdade.
+      try{ await fetch(API + '/auth/logout', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: sessaoAnterior.token }),
+      }); }catch(e){}
+      sessaoAnterior = null;
+    }
     sessao = data;
     salvarSessao();
     await resolverUnidadeOperacional(false);
@@ -475,6 +527,8 @@ document.getElementById('btn-login').addEventListener('click', async () => {
   }
 });
 
+document.getElementById('btn-cancelar-login').addEventListener('click', cancelarTrocaDeConta);
+
 document.querySelectorAll('.btn-trocar-unidade').forEach(btn => {
   btn.addEventListener('click', () => {
     if (timeoutAutoReset) clearTimeout(timeoutAutoReset);
@@ -483,17 +537,14 @@ document.querySelectorAll('.btn-trocar-unidade').forEach(btn => {
 });
 
 document.querySelectorAll('.btn-trocar').forEach(btn => {
-  btn.addEventListener('click', async () => {
+  btn.addEventListener('click', () => {
     if (timeoutAutoReset) clearTimeout(timeoutAutoReset);
-    if (sessao){
-      try{ await fetch(API + '/auth/logout', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: sessao.token }),
-      }); }catch(e){}
-    }
+    // Não desloga na hora -- só guarda a sessão e mostra o login por
+    // cima. Ver cancelarTrocaDeConta() e o handler do btn-login.
+    sessaoAnterior = sessao;
     sessao = null;
-    localStorage.removeItem(CHAVE_SESSAO);
     mostrarTela();
+    iniciarTimeoutCancelarLogin();
   });
 });
 
