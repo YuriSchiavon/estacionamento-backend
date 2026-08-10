@@ -334,6 +334,7 @@ function salvarSessao(){
 }
 
 function mostrarTela(){
+  pararLeituraScanner();
   document.getElementById('tela-login').style.display = 'none';
   document.getElementById('tela-selecao-unidade').style.display = 'none';
   document.getElementById('tela-kiosk').style.display = 'none';
@@ -361,16 +362,19 @@ function mostrarTela(){
 
 function mostrarPagina(id){
   if (timeoutAutoReset){ clearTimeout(timeoutAutoReset); timeoutAutoReset = null; }
+  pararLeituraScanner();
   document.querySelectorAll('.pagina').forEach(p => p.classList.remove('ativa'));
   document.getElementById(id).classList.add('ativa');
   if (id === 'pagina-ticket'){
     document.getElementById('saida-codigo').value = '';
     document.getElementById('saida-codigo').focus();
+    iniciarLeituraScanner();
   }
   if (id === 'pagina-validar'){
     document.getElementById('validar-qr').value = '';
     document.getElementById('erro-validar').style.display = 'none';
     document.getElementById('validar-qr').focus();
+    iniciarLeituraScanner();
   }
 }
 
@@ -665,15 +669,21 @@ document.querySelectorAll('.btn-forma-pagamento').forEach(botao => {
 
 // window.print() é o substituto em software pra impressora térmica --
 // dentro do app Android nativo (android-totem/), window.AndroidBridge
-// existe e a impressão sai pela ponte nativa em vez do diálogo de
-// impressão do navegador; ver README.md, seção "Tablets Android como
-// totem".
-function chamarImpressao(dados){
-  if (window.AndroidBridge && window.AndroidBridge.imprimir){
-    window.AndroidBridge.imprimir(JSON.stringify(dados));
-  }else{
-    window.print();
+// existe e a impressão sai pela ponte nativa (GerSDK da Gertec) em vez
+// do diálogo de impressão do navegador; ver README.md, seção "App
+// Android nativo para os totens".
+function chamarImpressao(titulo, linhas, codigo){
+  if (window.AndroidBridge && window.AndroidBridge.printText){
+    try{
+      window.AndroidBridge.printText(titulo);
+      linhas.forEach(linha => window.AndroidBridge.printText(linha));
+      if (codigo) window.AndroidBridge.printCode(codigo);
+      window.AndroidBridge.scrollPaper();
+      window.AndroidBridge.cutPaper();
+      return;
+    }catch(e){ /* cai pro fallback abaixo */ }
   }
+  window.print();
 }
 
 function imprimirComprovante(codigo, valor, forma){
@@ -681,6 +691,43 @@ function imprimirComprovante(codigo, valor, forma){
   document.getElementById('ip-valor').textContent = `Valor pago: R$ ${valor.toFixed(2)}`;
   document.getElementById('ip-forma').textContent = `Forma: ${NOMES_FORMA_PAGAMENTO[forma] || forma}`;
   document.getElementById('ip-horario').textContent = new Date().toLocaleString('pt-BR');
-  chamarImpressao({ codigo, valor, forma });
+  chamarImpressao('MY PARK', [
+    codigo,
+    `Valor pago: R$ ${valor.toFixed(2)}`,
+    `Forma: ${NOMES_FORMA_PAGAMENTO[forma] || forma}`,
+    new Date().toLocaleString('pt-BR'),
+  ], codigo);
 }
+
+// -----------------------------------------------------------------
+// Leitor -- não funciona como teclado, precisa da SDK (EasyLayer) pra
+// ativar a câmera/leitor. iniciarLeituraScanner()/pararLeituraScanner()
+// só têm efeito dentro do app Android nativo (window.AndroidBridge);
+// num navegador comum, a digitação manual continua funcionando igual
+// sempre funcionou. receberCodigoLido() é chamada pelo app nativo
+// (ver android-totem/.../TotemActivity.onActivityResult) toda vez que
+// um código é lido -- reaproveita o campo em foco e o mesmo tratamento
+// de Enter que já existia pra digitação manual, sem duplicar lógica.
+function iniciarLeituraScanner(){
+  if (window.AndroidBridge && window.AndroidBridge.iniciarLeitura) window.AndroidBridge.iniciarLeitura();
+}
+function pararLeituraScanner(){
+  if (window.AndroidBridge && window.AndroidBridge.pararLeitura) window.AndroidBridge.pararLeitura();
+}
+window.receberCodigoLido = function(texto){
+  const ativo = document.activeElement;
+  if (ativo && ativo.tagName === 'INPUT'){
+    ativo.value = texto;
+    ativo.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+  }
+  // scanCode() da EasyLayer entrega só uma leitura por chamada -- se
+  // depois do Enter o foco continuar num campo de código (ex: deu erro
+  // e a tela não navegou embora), religa o leitor pra próxima tentativa.
+  setTimeout(() => {
+    const novoAtivo = document.activeElement;
+    if (novoAtivo && novoAtivo.classList && novoAtivo.classList.contains('codigo')){
+      iniciarLeituraScanner();
+    }
+  }, 50);
+};
 </script>

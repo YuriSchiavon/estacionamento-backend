@@ -641,15 +641,21 @@ async function emitirPrePago(forma){
 
 // window.print() é o substituto em software pra impressora térmica --
 // dentro do app Android nativo (android-totem/), window.AndroidBridge
-// existe e a impressão sai pela ponte nativa em vez do diálogo de
-// impressão do navegador; ver README.md, seção "Tablets Android como
-// totem".
-function chamarImpressao(dados){
-  if (window.AndroidBridge && window.AndroidBridge.imprimir){
-    window.AndroidBridge.imprimir(JSON.stringify(dados));
-  }else{
-    window.print();
+// existe e a impressão sai pela ponte nativa (GerSDK da Gertec) em vez
+// do diálogo de impressão do navegador; ver README.md, seção "App
+// Android nativo para os totens".
+function chamarImpressao(titulo, linhas, codigo){
+  if (window.AndroidBridge && window.AndroidBridge.printText){
+    try{
+      window.AndroidBridge.printText(titulo);
+      linhas.forEach(linha => window.AndroidBridge.printText(linha));
+      if (codigo) window.AndroidBridge.printCode(codigo);
+      window.AndroidBridge.scrollPaper();
+      window.AndroidBridge.cutPaper();
+      return;
+    }catch(e){ /* cai pro fallback abaixo */ }
   }
+  window.print();
 }
 
 let ultimoTicketImpresso = null;
@@ -671,7 +677,14 @@ function imprimirTicket(t){
   document.getElementById('ip-qr').innerHTML = t.qr_code_svg || '';
   document.getElementById('ip-horario').textContent = new Date(t.data_hora_entrada).toLocaleString('pt-BR');
   document.getElementById('ip-texto-extra').textContent = t.ticket_texto_extra || '';
-  if (t.imprimir_automaticamente !== false) chamarImpressao(t);
+  if (t.imprimir_automaticamente !== false){
+    chamarImpressao('MY PARK', [
+      t.unidade_nome || '',
+      t.codigo_barras,
+      new Date(t.data_hora_entrada).toLocaleString('pt-BR'),
+      t.ticket_texto_extra || '',
+    ].filter(Boolean), t.codigo_barras);
+  }
   if (timeoutAutoReset) clearTimeout(timeoutAutoReset);
   timeoutAutoReset = setTimeout(resetarParaProximoTicket, ATRASO_RESET_MS);
 }

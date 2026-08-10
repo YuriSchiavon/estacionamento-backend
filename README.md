@@ -231,11 +231,12 @@ reimplantar automaticamente (se você conectou via GitHub).
 
 ## O que falta para virar sistema de produção (próximos passos com o Claude Code)
 
-1. **Driver de hardware**: em andamento -- ver seção "App Android nativo
-   para os totens" abaixo. O app já resolve a estrutura (WebView +
-   ponte JS↔nativo); falta plugar a chamada real ao SDK da impressora
-   térmica assim que a Gertec responder com a documentação técnica
-   (mesma pendência já registrada aqui pro SDK facial do SK315).
+1. **Driver de hardware**: impressora e leitor do SK210 já integrados
+   com as SDKs reais da Gertec -- ver seção "App Android nativo para os
+   totens" abaixo. Falta só testar no equipamento físico (ainda não
+   testado) e, se o SK315 tiver alguma diferença de API, ajustar. O SDK
+   de reconhecimento facial (credenciados/mensalistas) continua
+   pendente, sem resposta da Gertec até agora.
 2. ~~**Cálculo de tarifa real**~~ ✅ `services.calcular_tarifa()` já usa a
    tabela real: R$10 a 1ª hora, +R$5 por hora adicional, travando em R$35
    até 12h (diária); depois disso o ciclo reinicia.
@@ -290,24 +291,30 @@ próprio, pensado pro **Gertec Smart Kiosk SK210** (Android 13, impressora
   porque o destino continua sendo só as 3 telas de totem, nunca uma área
   restrita.
 - **`AndroidBridge`**: ponte `window.AndroidBridge` exposta ao
-  JavaScript da página (`addJavascriptInterface`). As páginas de totem
-  chamam `AndroidBridge.imprimir(...)` no lugar de `window.print()`
-  quando essa ponte existe (com fallback pro `window.print()` normal se
-  não existir, então as páginas continuam funcionando iguais num
-  navegador comum). Hoje a implementação nativa usa o
-  `PrintManager`/`createPrintDocumentAdapter` do próprio Android como
-  substituto de `window.print()` -- funciona ponta a ponta, mas ainda não
-  é a impressão direta na térmica. Isso troca pela chamada real assim
-  que o **SDK Android da Gertec** (impressora e leitor) chegar --
-  [download center](https://www.gertec.com.br/en/download-center-en/) ou
-  representante comercial deles.
-- **Leitor de código de barras/QR**: as páginas de totem já foram
-  construídas pra aceitar o código como texto num campo focado -- se o
-  leitor do equipamento funcionar como teclado (HID/keyboard-wedge,
-  comportamento comum em leitores integrados de quiosque), **nenhum
-  código adicional é necessário**, o app já funciona assim que estiver
-  instalado. Só entra código novo aqui se um teste real no equipamento
-  mostrar que o leitor precisa de SDK em vez disso.
+  JavaScript da página (`addJavascriptInterface`), com integração real
+  das SDKs oficiais da Gertec (baixadas do portal de desenvolvedor deles,
+  gertec.atlassian.net, a partir dos exemplos "Micro exemplo de
+  impressão com WebView - GERSDK" e "Micro exemplo Scanner - SK210"):
+  - **Impressora** -- `br.com.gertec.gdk.printer.*` ("GerSDK Varejo", AAR
+    em `app/libs/GerSDKVarejo_1_0_3.aar`). `AndroidBridge` expõe
+    `printText(texto)`, `printCode(conteúdo)` (QR/código de barras),
+    `scrollPaper()` e `cutPaper()` -- as páginas de totem chamam essa
+    sequência em `chamarImpressao()` no lugar de `window.print()` (com
+    fallback pro `window.print()` normal se a ponte não existir, então
+    as páginas continuam funcionando iguais num navegador comum/no
+    simulador).
+  - **Leitor** -- testado e confirmado que **não** funciona como teclado
+    (HID/keyboard-wedge); precisa da SDK `br.com.gertec.easylayer.
+    codescanner.CodeScanner` ("EasyLayer", AAR em
+    `app/libs/EasyLayer_SK210_v219_release.aar`). `AndroidBridge` expõe
+    `iniciarLeitura()`/`pararLeitura()`; cada leitura chega em
+    `TotemActivity.onActivityResult` e é repassada pra página via
+    `window.receberCodigoLido(texto)` (definida em `totem_saida.html` e
+    `totem_validacao.html`), que preenche o campo em foco e dispara o
+    mesmo tratamento de Enter que já existia pra digitação manual --
+    sem duplicar lógica de validação. As telas ligam/desligam o leitor
+    sozinhas ao entrar/sair (ver `mostrarPagina()` em cada página);
+    `totem_entrada.html` não lê nada, só emite ticket.
 
 ### Como buildar/instalar
 
@@ -322,4 +329,18 @@ Android). Depois:
 3. Com o aparelho conectado, clicar em **Run**.
 
 A URL do backend está centralizada em `android-totem/app/src/main/java/com/mypark/totem/Config.kt`
--- só precisa mudar ali se o domínio mudar.
+-- só precisa mudar ali se o domínio mudar. Os dois AARs da Gertec já
+estão versionados em `android-totem/app/libs/` -- não são publicados em
+nenhum repositório Maven público, então não tem como o Gradle baixar
+sozinho se algum dia forem removidos; se precisar de uma versão mais
+nova, é só substituir o arquivo e manter o mesmo nome (ou ajustar
+`app/build.gradle`, que importa tudo de `libs/*.aar` automaticamente).
+
+**Ainda não testado no equipamento físico** -- a integração foi escrita a
+partir dos exemplos oficiais da Gertec (mesma assinatura de métodos, de
+propósito, pra reduzir risco de divergir do que eles testaram), mas
+precisa confirmar na prática: se a impressora é realmente a interna do
+SK210 desta unidade específica (a impressora é **opcional** no SK210,
+conforme a ficha técnica) e se o leitor entrega texto plausível em
+`onActivityResult` pros formatos de código usados aqui (código de barras
+do ticket, QR da NFC-e).

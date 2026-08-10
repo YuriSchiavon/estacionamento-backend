@@ -2,15 +2,18 @@ package com.mypark.totem
 
 import android.app.ActivityManager
 import android.content.Context
+import android.content.Intent
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import android.view.View
 import android.view.WindowManager
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.appcompat.app.AppCompatActivity
+import org.json.JSONObject
 
 /**
  * Tela real do totem: WebView em tela cheia carregando uma das 3 URLs
@@ -23,6 +26,7 @@ import androidx.appcompat.app.AppCompatActivity
 class TotemActivity : AppCompatActivity() {
 
     private lateinit var webView: WebView
+    private lateinit var androidBridge: AndroidBridge
     private var toquesSaida = 0
     private val handler = Handler(Looper.getMainLooper())
     private val resetToques = Runnable { toquesSaida = 0 }
@@ -56,7 +60,8 @@ class TotemActivity : AppCompatActivity() {
             builtInZoomControls = false
             displayZoomControls = false
         }
-        webView.addJavascriptInterface(AndroidBridge(this, webView), "AndroidBridge")
+        androidBridge = AndroidBridge(this, webView)
+        webView.addJavascriptInterface(androidBridge, "AndroidBridge")
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                 // Só deixa navegar dentro das 3 URLs de totem -- qualquer
@@ -74,6 +79,31 @@ class TotemActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         entrarEmModoQuiosque()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        // Nunca deixa a câmera do leitor ligada se a tela sair de foco
+        // por qualquer motivo -- mesmo cuidado do onDestroy() do exemplo
+        // oficial da Gertec (ver AndroidBridge.pararLeitura).
+        androidBridge.pararLeitura()
+    }
+
+    // Resultado da leitura do scanner (CodeScanner.scanCode() da SDK
+    // EasyLayer entrega o código lido via onActivityResult, não como
+    // retorno direto -- ver AndroidBridge.iniciarLeitura()). Repassa o
+    // texto lido pra página web via receberCodigoLido(), que cada
+    // página de totem que aceita leitura já define (ver
+    // app/static/totem_saida.html e totem_validacao.html).
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (resultCode != RESULT_OK || data == null) return
+        val conteudo = data.getStringExtra("content")
+        if (conteudo.isNullOrBlank()) return
+
+        val chamada = "if (window.receberCodigoLido) { window.receberCodigoLido(${JSONObject.quote(conteudo)}); }"
+        webView.evaluateJavascript(chamada) { }
+        Log.i("TotemActivity", "Código lido repassado pra página")
     }
 
     @Suppress("DEPRECATION")
