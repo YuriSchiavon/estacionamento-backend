@@ -639,8 +639,19 @@ async function emitirPrePago(forma){
   }
 }
 
-// window.print() é o substituto em software pra impressora térmica
-// real -- ver driver de hardware no README para a integração futura.
+// window.print() é o substituto em software pra impressora térmica --
+// dentro do app Android nativo (android-totem/), window.AndroidBridge
+// existe e a impressão sai pela ponte nativa em vez do diálogo de
+// impressão do navegador; ver README.md, seção "Tablets Android como
+// totem".
+function chamarImpressao(dados){
+  if (window.AndroidBridge && window.AndroidBridge.imprimir){
+    window.AndroidBridge.imprimir(JSON.stringify(dados));
+  }else{
+    window.print();
+  }
+}
+
 let ultimoTicketImpresso = null;
 
 // Simula o tempo do carro passar e a cancela fechar -- não há sensor
@@ -660,7 +671,7 @@ function imprimirTicket(t){
   document.getElementById('ip-qr').innerHTML = t.qr_code_svg || '';
   document.getElementById('ip-horario').textContent = new Date(t.data_hora_entrada).toLocaleString('pt-BR');
   document.getElementById('ip-texto-extra').textContent = t.ticket_texto_extra || '';
-  if (t.imprimir_automaticamente !== false) window.print();
+  if (t.imprimir_automaticamente !== false) chamarImpressao(t);
   if (timeoutAutoReset) clearTimeout(timeoutAutoReset);
   timeoutAutoReset = setTimeout(resetarParaProximoTicket, ATRASO_RESET_MS);
 }

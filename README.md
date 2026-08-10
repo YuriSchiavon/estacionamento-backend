@@ -231,9 +231,11 @@ reimplantar automaticamente (se você conectou via GitHub).
 
 ## O que falta para virar sistema de produção (próximos passos com o Claude Code)
 
-1. **Driver de hardware**: escrever o adapter que fala o protocolo real de
-   cada equipamento (TCP/IP, webhook, SDK) e chama esses endpoints. Isso
-   depende da documentação técnica que os fornecedores vão te passar.
+1. **Driver de hardware**: em andamento -- ver seção "App Android nativo
+   para os totens" abaixo. O app já resolve a estrutura (WebView +
+   ponte JS↔nativo); falta plugar a chamada real ao SDK da impressora
+   térmica assim que a Gertec responder com a documentação técnica
+   (mesma pendência já registrada aqui pro SDK facial do SK315).
 2. ~~**Cálculo de tarifa real**~~ ✅ `services.calcular_tarifa()` já usa a
    tabela real: R$10 a 1ª hora, +R$5 por hora adicional, travando em R$35
    até 12h (diária); depois disso o ciclo reinicia.
@@ -263,25 +265,61 @@ reimplantar automaticamente (se você conectou via GitHub).
    (`/operacao`) e as telas de cada equipamento (`/totem/entrada`,
    `/totem/saida`, `/totem/validacao`) — ver seção "Páginas" acima.
 
-## Tablets Android como totem (kiosk)
+## App Android nativo para os totens (`android-totem/`)
 
 As telas de totem (`/totem/entrada`, `/totem/saida`, `/totem/validacao`)
 já bloqueiam, via código, zoom por pinça, seleção de texto, o menu de
-segurar-o-dedo e o "puxar pra atualizar" — mas nenhuma página web
-consegue impedir sozinha o gesto de deslizar pra tela inicial do Android
-ou abrir as notificações, isso é proteção do próprio sistema. Pra travar
-de verdade o tablet numa única tela, ative o **"Fixar tela" (Screen
-Pinning)** do Android uma vez, por aparelho:
+segurar-o-dedo e o "puxar pra atualizar" — mas um navegador comum nunca
+consegue chamar a impressora térmica nem (dependendo do leitor) o
+scanner de código de barras/QR do equipamento, só um app nativo tem
+acesso a esses SDKs. `android-totem/` é um projeto Android Studio
+próprio, pensado pro **Gertec Smart Kiosk SK210** (Android 13, impressora
++ leitor 1D/2D integrados) e equivalente (**SK315**):
 
-1. Nas configurações do Android, ative *Segurança → Fixar app* (o nome
-   exato varia por fabricante/versão).
-2. Abra o navegador na URL do totem (ex: `/totem/entrada`).
-3. Abra a tela de apps recentes e "fixe" o navegador nessa tela.
+- **`MainActivity`**: tela nativa de escolha (Entrada / Saída /
+  Validação) -- é essa restrição nativa, não uma regra em JavaScript, que
+  garante que o app nunca alcança `/gestao`, `/operacao`, `/pos` ou
+  qualquer outra página do sistema.
+- **`TotemActivity`**: `WebView` em tela cheia (sem chrome de navegador)
+  carregando a URL escolhida, com `domStorageEnabled = true` (essencial
+  -- os totens guardam a sessão de login por até 90 dias em
+  `localStorage`) e em **modo quiosque** (`startLockTask()`, o
+  equivalente automático do "Fixar app" manual do Android). Um gesto de
+  5 toques no canto inferior esquerdo, em até 3s, sai do modo quiosque e
+  volta pra tela de escolha -- não tem PIN nessa saída de propósito,
+  porque o destino continua sendo só as 3 telas de totem, nunca uma área
+  restrita.
+- **`AndroidBridge`**: ponte `window.AndroidBridge` exposta ao
+  JavaScript da página (`addJavascriptInterface`). As páginas de totem
+  chamam `AndroidBridge.imprimir(...)` no lugar de `window.print()`
+  quando essa ponte existe (com fallback pro `window.print()` normal se
+  não existir, então as páginas continuam funcionando iguais num
+  navegador comum). Hoje a implementação nativa usa o
+  `PrintManager`/`createPrintDocumentAdapter` do próprio Android como
+  substituto de `window.print()` -- funciona ponta a ponta, mas ainda não
+  é a impressão direta na térmica. Isso troca pela chamada real assim
+  que o **SDK Android da Gertec** (impressora e leitor) chegar --
+  [download center](https://www.gertec.com.br/en/download-center-en/) ou
+  representante comercial deles.
+- **Leitor de código de barras/QR**: as páginas de totem já foram
+  construídas pra aceitar o código como texto num campo focado -- se o
+  leitor do equipamento funcionar como teclado (HID/keyboard-wedge,
+  comportamento comum em leitores integrados de quiosque), **nenhum
+  código adicional é necessário**, o app já funciona assim que estiver
+  instalado. Só entra código novo aqui se um teste real no equipamento
+  mostrar que o leitor precisa de SDK em vez disso.
 
-A partir daí, nenhum gesto de saída funciona até alguém digitar o
-PIN/padrão do aparelho pra desfixar.
+### Como buildar/instalar
 
-Este protótipo não foi testado contra o ambiente de execução real (o
-ambiente usado para criá-lo não tem acesso à internet para instalar as
-dependências) — a sintaxe foi validada, mas rode os testes acima assim
-que instalar as dependências, antes de seguir com a integração de hardware.
+Precisa do [Android Studio](https://developer.android.com/studio)
+(inclui JDK, SDK e `adb`) numa máquina com o equipamento conectado por
+USB (com "Depuração USB" ativada nas opções de desenvolvedor do
+Android). Depois:
+
+1. `git pull` neste repositório.
+2. Abrir a pasta `android-totem/` no Android Studio (se pedir pra criar o
+   Gradle wrapper na primeira vez, aceitar).
+3. Com o aparelho conectado, clicar em **Run**.
+
+A URL do backend está centralizada em `android-totem/app/src/main/java/com/mypark/totem/Config.kt`
+-- só precisa mudar ali se o domínio mudar.

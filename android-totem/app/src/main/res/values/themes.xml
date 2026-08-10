@@ -1,0 +1,11 @@
+<resources>
+    <!-- Sem barra de título/ação -- é um app de quiosque, tela cheia
+         sempre, sem chrome de navegador nem chrome de app. -->
+    <style name="Theme.MyParkTotem" parent="Theme.AppCompat.NoActionBar">
+        <item name="android:windowBackground">@color/navy</item>
+        <item name="android:statusBarColor">@color/navy</item>
+        <item name="android:navigationBarColor">@color/navy</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="windowActionBar">false</item>
+    </style>
+</resources>

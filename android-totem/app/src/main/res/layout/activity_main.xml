@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/navy"
+    android:orientation="vertical"
+    android:gravity="center"
+    android:padding="32dp">
+
+    <TextView
+        android:id="@+id/txt_titulo"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/titulo_escolha"
+        android:textColor="@color/lime"
+        android:textSize="26sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/txt_subtitulo"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:layout_marginBottom="40dp"
+        android:text="@string/subtitulo_escolha"
+        android:textColor="@color/texto_secundario"
+        android:textSize="14sp" />
+
+    <Button
+        android:id="@+id/btn_entrada"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="20dp"
+        android:padding="28dp"
+        android:text="@string/btn_entrada"
+        android:textSize="22sp"
+        android:textStyle="bold"
+        android:textColor="@color/navy"
+        android:backgroundTint="@color/lime" />
+
+    <Button
+        android:id="@+id/btn_saida"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="20dp"
+        android:padding="28dp"
+        android:text="@string/btn_saida"
+        android:textSize="22sp"
+        android:textStyle="bold"
+        android:textColor="@color/navy"
+        android:backgroundTint="@color/lime" />
+
+    <Button
+        android:id="@+id/btn_validacao"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="28dp"
+        android:text="@string/btn_validacao"
+        android:textSize="22sp"
+        android:textStyle="bold"
+        android:textColor="@color/navy"
+        android:backgroundTint="@color/lime" />
+
+</LinearLayout>

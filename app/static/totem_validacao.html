@@ -665,13 +665,24 @@ document.querySelectorAll('.btn-forma-pagamento').forEach(botao => {
   });
 });
 
-// window.print() é o substituto em software pra impressora térmica real
-// -- ver driver de hardware no README para a integração futura.
+// window.print() é o substituto em software pra impressora térmica --
+// dentro do app Android nativo (android-totem/), window.AndroidBridge
+// existe e a impressão sai pela ponte nativa em vez do diálogo de
+// impressão do navegador; ver README.md, seção "Tablets Android como
+// totem".
+function chamarImpressao(dados){
+  if (window.AndroidBridge && window.AndroidBridge.imprimir){
+    window.AndroidBridge.imprimir(JSON.stringify(dados));
+  }else{
+    window.print();
+  }
+}
+
 function imprimirComprovante(codigo, valor, forma){
   document.getElementById('ip-codigo').textContent = codigo;
   document.getElementById('ip-valor').textContent = `Valor pago: R$ ${valor.toFixed(2)}`;
   document.getElementById('ip-forma').textContent = `Forma: ${NOMES_FORMA_PAGAMENTO[forma] || forma}`;
   document.getElementById('ip-horario').textContent = new Date().toLocaleString('pt-BR');
-  window.print();
+  chamarImpressao({ codigo, valor, forma });
 }
 </script>

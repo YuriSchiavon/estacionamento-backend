@@ -1,0 +1,8 @@
+<resources>
+    <color name="navy">#142A4B</color>
+    <color name="navy_card">#0F2038</color>
+    <color name="navy_border">#24365A</color>
+    <color name="lime">#DBFF00</color>
+    <color name="texto_claro">#FFFFFF</color>
+    <color name="texto_secundario">#B9C2D6</color>
+</resources>

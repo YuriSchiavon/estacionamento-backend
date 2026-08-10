@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">MY PARK Totem</string>
+    <string name="titulo_escolha">MY PARK · Totem</string>
+    <string name="subtitulo_escolha">Escolha a tela deste equipamento</string>
+    <string name="btn_entrada">Entrada</string>
+    <string name="btn_saida">Saída</string>
+    <string name="btn_validacao">Validação</string>
+</resources>

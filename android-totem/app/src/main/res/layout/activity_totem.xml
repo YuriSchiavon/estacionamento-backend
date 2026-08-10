@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/navy">
+
+    <WebView
+        android:id="@+id/webview"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <!-- Área invisível no canto inferior esquerdo: 5 toques aqui em até
+         3s saem do modo quiosque e voltam pra tela de escolha (ver
+         TotemActivity.onGestoSairDetectado). Fica por cima da WebView
+         mas sem nenhum indicativo visual -- é uma ação de manutenção do
+         equipamento, não algo que o cliente deveria esbarrar sem
+         querer (mesmo espírito do "rodapé-conta" discreto nas telas web
+         de totem, ver app/static/totem_*.html). -->
+    <View
+        android:id="@+id/area_saida_quiosque"
+        android:layout_width="56dp"
+        android:layout_height="56dp"
+        android:layout_gravity="bottom|start" />
+
+</FrameLayout>

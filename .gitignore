@@ -21,3 +21,11 @@ Thumbs.db
 
 # Configuração local do Claude Code (específica desta máquina/sessão)
 .claude/settings.local.json
+
+# Android (android-totem/) -- build gerado localmente, nunca versionar
+android-totem/.gradle/
+android-totem/.idea/
+android-totem/local.properties
+android-totem/**/build/
+android-totem/**/*.apk
+android-totem/**/*.aab
