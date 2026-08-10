@@ -12,7 +12,7 @@ fica sempre preso à própria unidade, mesmo que tente informar outra --
 nunca confiamos em unidade_id vindo do cliente quando o usuário já está
 preso a uma.
 """
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -898,7 +898,7 @@ def fechar_caixa(
 
 @router.get("/gestao/ponto", response_model=List[schemas.RegistroPontoOut])
 def relatorio_ponto(
-    unidade_id: Optional[int] = None, usuario_nome: Optional[str] = None,
+    unidade_id: Optional[int] = None, usuario_id: Optional[int] = None, usuario_nome: Optional[str] = None,
     inicio: Optional[datetime] = None, fim: Optional[datetime] = None,
     tipo: Optional[Literal["entrada", "inicio_intervalo", "fim_intervalo", "saida"]] = None,
     db: Session = Depends(get_db), usuario: models.Usuario = Depends(exigir_gestao),
@@ -907,6 +907,8 @@ def relatorio_ponto(
     query = db.query(models.RegistroPonto)
     if escopo is not None:
         query = query.filter_by(unidade_id=escopo)
+    if usuario_id:
+        query = query.filter_by(usuario_id=usuario_id)
     if usuario_nome:
         query = query.filter(models.RegistroPonto.usuario_nome.ilike(f"%{usuario_nome}%"))
     if tipo:
@@ -916,6 +918,100 @@ def relatorio_ponto(
     if fim:
         query = query.filter(models.RegistroPonto.data_hora <= fim)
     return query.order_by(models.RegistroPonto.data_hora.desc()).all()
+
+
+def _calcular_jornada(
+    registros: List["models.RegistroPonto"], inicio: datetime, fim: datetime,
+) -> tuple[List[schemas.JornadaTurnoOut], float, Optional[schemas.JornadaTurnoAbertoOut]]:
+    """Casa cada entrada com a próxima saída (um "turno"), descontando os
+    intervalos batidos entre as duas. `registros` já vem ordenado
+    crescente por data_hora e filtrado até `fim` -- ver
+    GET /gestao/ponto/jornada. Um turno entra na soma quando a ENTRADA
+    dele cai dentro de [inicio, fim] (o turno conta no período em que
+    começou, evita contar 2x um turno que atravessa a borda do filtro).
+    Se sobrar uma entrada sem saída no fim da lista, é o turno em
+    andamento -- reportado à parte, não soma no total."""
+    turnos: List[schemas.JornadaTurnoOut] = []
+    total_horas = 0.0
+    turno_aberto: Optional[schemas.JornadaTurnoAbertoOut] = None
+
+    turno_entrada: Optional[datetime] = None
+    intervalo_inicio: Optional[datetime] = None
+    intervalo_segundos = 0.0
+
+    for registro in registros:
+        if registro.tipo == models.TipoRegistroPonto.entrada:
+            turno_entrada = registro.data_hora
+            intervalo_inicio = None
+            intervalo_segundos = 0.0
+        elif registro.tipo == models.TipoRegistroPonto.inicio_intervalo:
+            if turno_entrada is not None:
+                intervalo_inicio = registro.data_hora
+        elif registro.tipo == models.TipoRegistroPonto.fim_intervalo:
+            if turno_entrada is not None and intervalo_inicio is not None:
+                intervalo_segundos += (registro.data_hora - intervalo_inicio).total_seconds()
+                intervalo_inicio = None
+        elif registro.tipo == models.TipoRegistroPonto.saida:
+            if turno_entrada is not None:
+                if inicio <= turno_entrada <= fim:
+                    horas = ((registro.data_hora - turno_entrada).total_seconds() - intervalo_segundos) / 3600
+                    turnos.append(schemas.JornadaTurnoOut(
+                        entrada=turno_entrada, saida=registro.data_hora,
+                        intervalo_minutos=round(intervalo_segundos / 60), horas_trabalhadas=round(horas, 2),
+                    ))
+                    total_horas += horas
+                turno_entrada = None
+                intervalo_inicio = None
+                intervalo_segundos = 0.0
+
+    if turno_entrada is not None and inicio <= turno_entrada <= fim:
+        agora = agora_utc()
+        horas_ate_agora = ((agora - turno_entrada).total_seconds() - intervalo_segundos) / 3600
+        turno_aberto = schemas.JornadaTurnoAbertoOut(entrada=turno_entrada, horas_ate_agora=round(horas_ate_agora, 2))
+
+    return turnos, round(total_horas, 2), turno_aberto
+
+
+@router.get("/gestao/ponto/jornada", response_model=schemas.JornadaResumoOut)
+def relatorio_jornada(
+    usuario_id: int, inicio: datetime, fim: datetime, unidade_id: Optional[int] = None,
+    db: Session = Depends(get_db), usuario: models.Usuario = Depends(exigir_gestao),
+):
+    """Soma as horas trabalhadas de um colaborador num período, casando
+    entrada/saída e descontando intervalos -- ver _calcular_jornada."""
+    # Registros no banco são naive UTC (ver app/tempo.py) -- se o cliente
+    # mandou inicio/fim com timezone (ex: toISOString() do JS, que sempre
+    # termina em "Z"), precisa converter pra naive antes de comparar em
+    # Python dentro de _calcular_jornada, senão comparar aware x naive
+    # explode com TypeError.
+    if inicio.tzinfo is not None:
+        inicio = inicio.astimezone(timezone.utc).replace(tzinfo=None)
+    if fim.tzinfo is not None:
+        fim = fim.astimezone(timezone.utc).replace(tzinfo=None)
+
+    escopo = escopo_unidade(db, usuario, unidade_id)
+    query = db.query(models.RegistroPonto).filter_by(usuario_id=usuario_id)
+    if escopo is not None:
+        query = query.filter_by(unidade_id=escopo)
+    registros = query.filter(models.RegistroPonto.data_hora <= fim).order_by(models.RegistroPonto.data_hora.asc()).all()
+
+    # Nome vem do snapshot no próprio registro (mesmo padrão de
+    # LiberacaoManual/ExclusaoTicket -- sobrevive à exclusão da conta), não
+    # de um join com Usuario. Só cai pra Usuario se não há nenhum registro
+    # no período, pra mesmo assim devolver o nome certo.
+    if registros:
+        usuario_nome = registros[-1].usuario_nome
+    else:
+        alvo = db.get(models.Usuario, usuario_id)
+        if not alvo:
+            raise HTTPException(404, "Usuário não encontrado")
+        usuario_nome = alvo.nome
+
+    turnos, total_horas, turno_aberto = _calcular_jornada(registros, inicio, fim)
+    return schemas.JornadaResumoOut(
+        usuario_id=usuario_id, usuario_nome=usuario_nome, inicio=inicio, fim=fim,
+        turnos=turnos, total_horas=total_horas, turno_aberto=turno_aberto,
+    )
 
 
 # ---------------------------------------------------------------------

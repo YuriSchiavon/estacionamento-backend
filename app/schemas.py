@@ -1,5 +1,5 @@
 from datetime import datetime, time, timezone
-from typing import Literal, Optional
+from typing import List, Literal, Optional
 
 from pydantic import BaseModel, model_validator
 
@@ -483,6 +483,32 @@ class RegistroPontoOut(ComDatasUTC):
 
     class Config:
         from_attributes = True
+
+
+class JornadaTurnoOut(ComDatasUTC):
+    """Um turno fechado (par entrada+saída) dentro do período consultado
+    -- ver GET /gestao/ponto/jornada."""
+    entrada: datetime
+    saida: datetime
+    intervalo_minutos: int
+    horas_trabalhadas: float
+
+
+class JornadaTurnoAbertoOut(ComDatasUTC):
+    """Turno em andamento (bateu entrada, ainda não bateu saída) -- não
+    entra em total_horas, que só soma turnos fechados."""
+    entrada: datetime
+    horas_ate_agora: float
+
+
+class JornadaResumoOut(ComDatasUTC):
+    usuario_id: int
+    usuario_nome: str
+    inicio: datetime
+    fim: datetime
+    turnos: List[JornadaTurnoOut] = []
+    total_horas: float
+    turno_aberto: Optional[JornadaTurnoAbertoOut] = None
 
 
 class UsuarioIn(BaseModel):

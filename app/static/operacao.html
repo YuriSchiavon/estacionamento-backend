@@ -347,12 +347,12 @@ const PAPEIS_COM_ACESSO_A_OPERACAO = [
 ];
 
 function carregarSessao(){
-  const salva = localStorage.getItem('sessao_operacao');
+  const salva = localStorage.getItem('sessao_mypark');
   if (salva) sessao = JSON.parse(salva);
 }
 
 function salvarSessao(){
-  localStorage.setItem('sessao_operacao', JSON.stringify(sessao));
+  localStorage.setItem('sessao_mypark', JSON.stringify(sessao));
 }
 
 function mostrarTela(){
@@ -396,7 +396,7 @@ async function resolverUnidadeOperacional(forcarSelecao){
     });
     if (resp.status === 401){
       sessao = null;
-      localStorage.removeItem('sessao_operacao');
+      localStorage.removeItem('sessao_mypark');
       mostrarTela();
       return;
     }
@@ -406,7 +406,7 @@ async function resolverUnidadeOperacional(forcarSelecao){
     if (unidades.length === 0){
       alert('Sua conta não tem nenhuma unidade disponível para operar. Contate o administrador.');
       sessao = null;
-      localStorage.removeItem('sessao_operacao');
+      localStorage.removeItem('sessao_mypark');
       mostrarTela();
       return;
     }
@@ -448,7 +448,7 @@ if (sessao && !PAPEIS_COM_ACESSO_A_OPERACAO.includes(sessao.papel)){
   // Sessão salva de uma conta sem acesso (ex: sessão antiga, de antes
   // dessa checagem existir) -- descarta sem tentar carregar a tela.
   sessao = null;
-  localStorage.removeItem('sessao_operacao');
+  localStorage.removeItem('sessao_mypark');
 }
 mostrarTela();
 if (sessao) resolverUnidadeOperacional(false);
@@ -497,7 +497,7 @@ document.getElementById('btn-sair').addEventListener('click', async () => {
     body: JSON.stringify({ token: sessao.token }),
   }); }catch(e){}
   sessao = null;
-  localStorage.removeItem('sessao_operacao');
+  localStorage.removeItem('sessao_mypark');
   mostrarTela();
 });
 
@@ -674,7 +674,7 @@ async function chamarApi(metodo, url, body){
   const data = await resp.json();
   if (resp.status === 401){
     sessao = null;
-    localStorage.removeItem('sessao_operacao');
+    localStorage.removeItem('sessao_mypark');
     mostrarTela();
     throw new Error('Sessão expirada, faça login novamente.');
   }

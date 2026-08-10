@@ -6,6 +6,8 @@ ponto de entrada é pré-requisito pra abrir caixa, mas fechar caixa não
 bate ponto nenhum -- isso é sempre um passo separado, batido à parte
 (ver terminal POS, que encadeia as telas nessa ordem).
 """
+from datetime import datetime, timedelta
+
 from app import models
 from tests.conftest import UNIDADE_TESTE_ID
 
@@ -253,3 +255,122 @@ def test_relatorio_ponto_filtra_por_unidade_diferente_nao_traz_nada(client):
     # supervisor nunca sai da própria unidade -- escopo_unidade ignora o
     # unidade_id informado e usa a própria, então ainda traz o registro
     assert len(resp.json()) == 1
+
+
+def test_relatorio_ponto_filtra_por_usuario_id(client):
+    _bater_entrada(client)
+    resp = client.get(f"/gestao/ponto?usuario_id={999}")
+    assert resp.status_code == 200
+    assert len(resp.json()) == 1
+
+    resp_outro = client.get(f"/gestao/ponto?usuario_id={998}")
+    assert resp_outro.json() == []
+
+
+# ---------------------------------------------------------------------
+# Jornada -- soma de horas trabalhadas por colaborador/período
+# ---------------------------------------------------------------------
+def _bater(client, endpoint):
+    resp = client.post(f"/gestao/ponto/{endpoint}")
+    assert resp.status_code == 200, resp.text
+    return resp.json()
+
+
+def _forcar_data_hora(db_session, tipo, data_hora):
+    """Os endpoints de ponto sempre gravam com agora_utc() -- pra montar
+    cenários de jornada com horários exatos (08:00, 12:00...) sem
+    depender do relógio real, ajusta o último registro batido direto no
+    banco."""
+    registro = db_session.query(models.RegistroPonto).order_by(
+        models.RegistroPonto.id.desc()
+    ).first()
+    assert registro.tipo.value == tipo
+    registro.data_hora = data_hora
+    db_session.commit()
+
+
+def _bater_turno(client, db_session, dia, entrada_h, saida_h, almoco_h=None, almoco_fim_h=None):
+    """Bate um turno completo (entrada -> [intervalo] -> saída) nas horas
+    exatas informadas, todas no mesmo `dia` (datetime à meia-noite)."""
+    _bater(client, "entrada")
+    _forcar_data_hora(db_session, "entrada", dia + timedelta(hours=entrada_h))
+
+    if almoco_h is not None:
+        _bater(client, "intervalo-inicio")
+        _forcar_data_hora(db_session, "inicio_intervalo", dia + timedelta(hours=almoco_h))
+        _bater(client, "intervalo-fim")
+        _forcar_data_hora(db_session, "fim_intervalo", dia + timedelta(hours=almoco_fim_h))
+
+    _bater(client, "saida")
+    _forcar_data_hora(db_session, "saida", dia + timedelta(hours=saida_h))
+
+
+def test_jornada_turno_completo_com_almoco_da_9_horas_liquidas(client, db_session):
+    dia = datetime(2026, 8, 3)  # segunda-feira
+    _bater_turno(client, db_session, dia, entrada_h=8, saida_h=18, almoco_h=12, almoco_fim_h=13)
+
+    resp = client.get("/gestao/ponto/jornada", params={
+        "usuario_id": 999, "inicio": dia.isoformat(), "fim": (dia + timedelta(days=1)).isoformat(),
+    })
+    assert resp.status_code == 200, resp.text
+    data = resp.json()
+    assert data["total_horas"] == 9.0
+    assert len(data["turnos"]) == 1
+    assert data["turnos"][0]["intervalo_minutos"] == 60
+    assert data["turno_aberto"] is None
+
+
+def test_jornada_semana_de_cinco_turnos_soma_45_horas(client, db_session):
+    segunda = datetime(2026, 8, 3)
+    for i in range(5):
+        dia = segunda + timedelta(days=i)
+        _bater_turno(client, db_session, dia, entrada_h=8, saida_h=18, almoco_h=12, almoco_fim_h=13)
+
+    resp = client.get("/gestao/ponto/jornada", params={
+        "usuario_id": 999, "inicio": segunda.isoformat(), "fim": (segunda + timedelta(days=7)).isoformat(),
+    })
+    assert resp.status_code == 200, resp.text
+    data = resp.json()
+    assert data["total_horas"] == 45.0
+    assert len(data["turnos"]) == 5
+
+
+def test_jornada_turno_aberto_nao_soma_no_total(client, db_session):
+    dia = datetime(2026, 8, 3)
+    _bater(client, "entrada")
+    _forcar_data_hora(db_session, "entrada", dia + timedelta(hours=8))
+
+    resp = client.get("/gestao/ponto/jornada", params={
+        "usuario_id": 999, "inicio": dia.isoformat(), "fim": (dia + timedelta(days=1)).isoformat(),
+    })
+    assert resp.status_code == 200, resp.text
+    data = resp.json()
+    assert data["total_horas"] == 0.0
+    assert data["turnos"] == []
+    assert data["turno_aberto"] is not None
+    assert data["turno_aberto"]["entrada"] is not None
+
+
+def test_jornada_usuario_sem_nenhum_registro_no_periodo_e_rejeitado(client):
+    # usuario_id=999 nunca foi persistido (é o usuário de teste transiente,
+    # ver tests/conftest.py) e não tem nenhum registro de ponto -- sem
+    # snapshot de nome nem conta de verdade pra cair, 404
+    dia = datetime(2026, 8, 3)
+    resp = client.get("/gestao/ponto/jornada", params={
+        "usuario_id": 999, "inicio": dia.isoformat(), "fim": (dia + timedelta(days=1)).isoformat(),
+    })
+    assert resp.status_code == 404
+
+
+def test_jornada_turno_fora_do_periodo_nao_conta(client, db_session):
+    dia = datetime(2026, 8, 3)
+    _bater_turno(client, db_session, dia, entrada_h=8, saida_h=18, almoco_h=12, almoco_fim_h=13)
+
+    outra_semana = dia + timedelta(days=14)
+    resp = client.get("/gestao/ponto/jornada", params={
+        "usuario_id": 999, "inicio": outra_semana.isoformat(), "fim": (outra_semana + timedelta(days=7)).isoformat(),
+    })
+    assert resp.status_code == 200, resp.text
+    data = resp.json()
+    assert data["total_horas"] == 0.0
+    assert data["turnos"] == []

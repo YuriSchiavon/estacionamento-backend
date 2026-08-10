@@ -428,10 +428,12 @@ class TipoRegistroPonto(str, enum.Enum):
 
 
 class RegistroPonto(Base):
-    """Batida de ponto do colaborador -- entrada/saída batem junto com
-    abrir/fechar o caixa (ver Caixa abaixo); início/fim de intervalo são
-    ações à parte, no meio do turno. Só registra -- não calcula banco de
-    horas/fechamento de folha ainda (ver GET /gestao/ponto)."""
+    """Batida de ponto do colaborador -- entrada/saída são ações
+    independentes de abrir/fechar o caixa (ver Caixa abaixo): bater ponto
+    de entrada é pré-requisito pra abrir caixa, mas fechar caixa não bate
+    ponto nenhum, é sempre um passo separado. Início/fim de intervalo são
+    ações à parte, no meio do turno. Ver GET /gestao/ponto (lista crua) e
+    GET /gestao/ponto/jornada (soma de horas trabalhadas por período)."""
     __tablename__ = "registros_ponto"
 
     id = Column(Integer, primary_key=True)

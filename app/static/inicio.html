@@ -1,142 +1,386 @@
-<title>MY PARK — Controle de Acesso</title>
+<title>MY PARK — Acesso</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
   :root{
     --navy:#142A4B;
     --lime:#DBFF00;
-    --gray:#676767;
-    --bg:#F5F6F8;
-    --card:#FFFFFF;
-    --border:#E4E7EC;
   }
   *{box-sizing:border-box;}
+  html,body{height:100%;}
   body{
     margin:0;
     font-family:'Poppins',sans-serif;
-    background:var(--bg);
-    color:var(--gray);
-  }
-  header{
     background:var(--navy);
     color:#fff;
-    padding:28px 32px;
+    min-height:100vh;
   }
-  header .brand{
-    font-weight:700;
-    font-size:24px;
-    letter-spacing:.5px;
-  }
-  header .brand span{color:var(--lime);}
-  header .subtitle{
-    font-size:13px;
-    color:#B9C2D6;
-    margin-top:4px;
-  }
-  main{
-    max-width:1000px;
+
+  .marca{text-align:center;padding:36px 20px 0;}
+  .marca .wordmark{font-weight:800;font-size:26px;letter-spacing:.5px;}
+  .marca .wordmark span{color:var(--lime);}
+  .marca .tagline{font-size:13px;color:#B9C2D6;margin-top:4px;}
+
+  .tela{display:flex;flex-direction:column;align-items:center;padding:28px 20px 60px;}
+
+  .login-box{
+    width:100%;
+    max-width:340px;
+    background:#0F2038;
+    border:1px solid #24365A;
+    border-radius:16px;
+    padding:32px;
     margin:0 auto;
-    padding:36px 20px 60px;
   }
-  h2.section{
-    color:var(--navy);
+  .login-box h1{font-size:18px;margin:0 0 6px;}
+  .login-box p{font-size:13px;color:#B9C2D6;margin:0 0 20px;}
+  label{display:block;font-size:12px;font-weight:600;color:#B9C2D6;margin:14px 0 6px;}
+  input{
+    width:100%;
+    padding:12px 14px;
+    border-radius:8px;
+    border:1px solid #2C3E5C;
+    background:#16294A;
+    color:#fff;
+    font-family:inherit;
     font-size:15px;
-    margin:32px 0 14px;
   }
+  .erro{color:#FF8A75;font-size:13px;margin-top:12px;display:none;}
+  .campo-senha{position:relative;}
+  .campo-senha input{padding-right:64px;}
+  .campo-senha .toggle-senha{
+    position:absolute;right:6px;top:50%;transform:translateY(-50%);
+    background:none;border:none;font-size:11px;font-weight:700;
+    color:var(--lime);cursor:pointer;padding:4px 6px;
+  }
+  button.principal{
+    margin-top:18px;
+    background:var(--lime);
+    color:var(--navy);
+    border:none;
+    border-radius:14px;
+    padding:16px;
+    font-family:inherit;
+    font-weight:800;
+    font-size:16px;
+    cursor:pointer;
+    width:100%;
+  }
+  button.principal:disabled{opacity:.5;cursor:default;}
+
+  .lista-unidades{display:flex;flex-direction:column;gap:12px;margin-top:8px;}
+  .btn-unidade{
+    background:#16294A;
+    border:1px solid #2C3E5C;
+    color:#fff;
+    padding:20px;
+    border-radius:12px;
+    font-family:inherit;
+    font-weight:700;
+    font-size:18px;
+    text-align:left;
+    cursor:pointer;
+  }
+  .btn-unidade:hover{border-color:var(--lime);}
+
+  .hub{width:100%;max-width:1000px;}
+  .hub-topo{
+    display:flex;justify-content:space-between;align-items:center;
+    flex-wrap:wrap;gap:10px;margin-bottom:24px;
+    padding-bottom:16px;border-bottom:1px solid #24365A;
+  }
+  .hub-quem{font-size:13px;color:#B9C2D6;}
+  .hub-quem strong{color:#fff;}
+  .hub-acoes{display:flex;gap:14px;align-items:center;}
+  .hub-acoes button, .hub-acoes a{
+    background:none;border:none;color:#B9C2D6;font-size:12px;
+    text-decoration:underline;cursor:pointer;font-family:inherit;
+  }
+
+  h2.section{color:var(--lime);font-size:14px;letter-spacing:.3px;margin:28px 0 14px;}
   h2.section:first-child{margin-top:0;}
-  .grid{
-    display:grid;
-    grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));
-    gap:16px;
-  }
+  .grid{display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:16px;}
   a.card{
     display:block;
-    background:var(--card);
-    border:1px solid var(--border);
+    background:#0F2038;
+    border:1px solid #24365A;
     border-radius:14px;
     padding:22px;
     text-decoration:none;
     color:inherit;
-    transition:box-shadow .15s, transform .15s;
+    transition:border-color .15s, transform .15s;
   }
-  a.card:hover{
-    box-shadow:0 6px 18px rgba(20,42,75,.1);
-    transform:translateY(-2px);
-  }
-  a.card .titulo{
-    color:var(--navy);
-    font-weight:700;
-    font-size:16px;
-    margin-bottom:6px;
-  }
-  a.card .desc{
-    font-size:13px;
-    line-height:1.5;
-  }
-  a.card.destaque{
-    background:var(--navy);
-  }
-  a.card.destaque .titulo{color:var(--lime);}
-  a.card.destaque .desc{color:#B9C2D6;}
-  .sub-links{
-    margin-top:10px;
-    font-size:12px;
-  }
-  .sub-links a{
-    color:var(--navy);
-    font-weight:600;
-    text-decoration:none;
-  }
-  .sub-links a:hover{text-decoration:underline;}
+  a.card:hover{border-color:var(--lime);transform:translateY(-2px);}
+  a.card .titulo{color:var(--lime);font-weight:700;font-size:16px;margin-bottom:6px;}
+  a.card .desc{font-size:13px;line-height:1.5;color:#B9C2D6;}
 </style>
 
-<header>
-  <div class="brand">MY PARK<span>·</span>ACESSO</div>
-  <div class="subtitle">Software de controle de acesso do estacionamento</div>
-</header>
+<div class="marca">
+  <div class="wordmark">MY PARK<span>·</span>ACESSO</div>
+  <div class="tagline">Software de controle de acesso do estacionamento</div>
+</div>
 
-<main>
-  <h2 class="section">Painéis</h2>
-  <div class="grid">
-    <a class="card destaque" href="/gestao">
-      <div class="titulo">Painel Gerencial</div>
-      <div class="desc">Configuração da unidade, credenciados, mensalistas, estabelecimentos conveniados, usuários e relatórios de auditoria. Login de dono, gerente de operações ou supervisor.</div>
-    </a>
-    <a class="card" href="/operacao">
-      <div class="titulo">Operação</div>
-      <div class="desc">Tela única para quem opera o dia a dia num estacionamento assistido: emitir ticket, validar cupom, verificar saída, pagamento e liberação manual. Login de operador (CPF + senha).</div>
-    </a>
-    <a class="card" href="/pos">
-      <div class="titulo">Terminal POS</div>
-      <div class="desc">App pra terminal POS dedicado -- estacionamento assistido sem hardware de automação (o operador digita a placa na entrada). Menu grande, poucos toques, mesmo login de operação.</div>
-    </a>
+<div class="tela">
+  <div class="login-box" id="tela-login">
+    <h1>Entrar</h1>
+    <p>Faça login pra continuar. As páginas que aparecem depois dependem do seu perfil.</p>
+    <label>Usuário</label>
+    <input id="login-user" placeholder="seu usuário">
+    <label>Senha</label>
+    <div class="campo-senha">
+      <input id="login-senha" type="password">
+      <button type="button" class="toggle-senha" data-alvo="login-senha">mostrar</button>
+    </div>
+    <button class="principal" id="btn-login">Entrar</button>
+    <div class="erro" id="erro-login"></div>
   </div>
 
-  <h2 class="section">Telas dos totens (equipamento físico)</h2>
-  <div class="grid">
-    <a class="card" href="/totem/entrada">
-      <div class="titulo">Totem de Entrada</div>
-      <div class="desc">Botão único — retira o ticket na cancela de entrada.</div>
-    </a>
-    <a class="card" href="/totem/saida">
-      <div class="titulo">Totem de Saída</div>
-      <div class="desc">Leitura do ticket na cancela, com opção de validar cupom ou pagar ali mesmo caso não esteja liberado.</div>
-    </a>
-    <a class="card" href="/totem/validacao">
-      <div class="titulo">Totem de Validação</div>
-      <div class="desc">Valida cupom fiscal ou registra pagamento -- sem controle de cancela.</div>
-    </a>
+  <div class="login-box" id="tela-selecao-unidade" style="display:none;">
+    <h1>Selecione a unidade</h1>
+    <p>Sua conta tem acesso a mais de uma unidade. Escolha em qual você vai atuar agora.</p>
+    <div class="lista-unidades" id="lista-unidades"></div>
   </div>
 
-  <h2 class="section">Ambiente de desenvolvimento</h2>
-  <div class="grid">
-    <a class="card" href="/simulador-totens">
-      <div class="titulo">Simulador de Totens</div>
-      <div class="desc">Os 5 totens numa página só, com histórico da sessão — útil para testar sem o equipamento físico.</div>
-    </a>
-    <a class="card" href="/docs">
-      <div class="titulo">Documentação da API</div>
-      <div class="desc">Interface Swagger com todos os endpoints, para integrar com o driver de cada equipamento.</div>
-    </a>
+  <div class="hub" id="tela-hub" style="display:none;">
+    <div class="hub-topo">
+      <div class="hub-quem">
+        <strong id="hub-nome"></strong> · <span id="hub-papel"></span>
+        <span id="hub-unidade-info" style="display:none;"></span>
+      </div>
+      <div class="hub-acoes">
+        <button type="button" id="btn-trocar-unidade" style="display:none;">trocar unidade</button>
+        <button type="button" id="btn-sair-hub">sair</button>
+      </div>
+    </div>
+    <div id="hub-grupos"></div>
   </div>
-</main>
+</div>
+
+<script>
+const API = "";
+const CHAVE_SESSAO = 'sessao_mypark';
+let sessao = null;
+
+const PAPEIS_NIVEL_DONO = ['dono', 'gerente_operacoes'];
+
+const CARDS_ADMIN = [
+  { grupo: 'Painéis', itens: [
+    { href: '/gestao', titulo: 'Painel Gerencial', desc: 'Configuração da unidade, credenciados, mensalistas, estabelecimentos conveniados, usuários e relatórios de auditoria.' },
+    { href: '/operacao', titulo: 'Operação', desc: 'Tela única para quem opera o dia a dia num estacionamento assistido: emitir ticket, validar cupom, verificar saída, pagamento e liberação manual.' },
+    { href: '/pos', titulo: 'Terminal POS', desc: 'App pra terminal POS dedicado -- estacionamento assistido sem hardware de automação (o operador digita a placa na entrada).' },
+  ]},
+  { grupo: 'Telas dos totens (equipamento físico)', itens: [
+    { href: '/totem/entrada', titulo: 'Totem de Entrada', desc: 'Botão único — retira o ticket na cancela de entrada.' },
+    { href: '/totem/saida', titulo: 'Totem de Saída', desc: 'Leitura do ticket na cancela, com opção de validar cupom ou pagar ali mesmo caso não esteja liberado.' },
+    { href: '/totem/validacao', titulo: 'Totem de Validação', desc: 'Valida cupom fiscal ou registra pagamento -- sem controle de cancela.' },
+  ]},
+  { grupo: 'Ambiente de desenvolvimento', itens: [
+    { href: '/simulador-totens', titulo: 'Simulador de Totens', desc: 'Os 5 totens numa página só, com histórico da sessão — útil para testar sem o equipamento físico.' },
+    { href: '/docs', titulo: 'Documentação da API', desc: 'Interface Swagger com todos os endpoints, para integrar com o driver de cada equipamento.' },
+  ]},
+];
+
+const CARDS_POR_PAPEL = {
+  supervisor: [
+    { grupo: 'Painéis', itens: [
+      { href: '/gestao', titulo: 'Painel Gerencial', desc: 'Configuração da unidade, credenciados, mensalistas, estabelecimentos conveniados, usuários e relatórios de auditoria.' },
+      { href: '/operacao', titulo: 'Operação', desc: 'Tela única para o dia a dia num estacionamento assistido: emitir ticket, validar cupom, verificar saída, pagamento e liberação manual.' },
+      { href: '/pos', titulo: 'Terminal POS', desc: 'App pra terminal POS dedicado -- estacionamento assistido sem hardware de automação (o operador digita a placa na entrada).' },
+    ]},
+  ],
+  operador: [
+    { grupo: 'Painéis', itens: [
+      { href: '/operacao', titulo: 'Operação', desc: 'Tela única para o dia a dia num estacionamento assistido: emitir ticket, validar cupom, verificar saída, pagamento e liberação manual.' },
+      { href: '/pos', titulo: 'Terminal POS', desc: 'App pra terminal POS dedicado -- estacionamento assistido sem hardware de automação (o operador digita a placa na entrada).' },
+    ]},
+  ],
+};
+
+function carregarSessao(){
+  const salva = localStorage.getItem(CHAVE_SESSAO);
+  if (salva) sessao = JSON.parse(salva);
+}
+
+function salvarSessao(){
+  localStorage.setItem(CHAVE_SESSAO, JSON.stringify(sessao));
+}
+
+function mostrarLogin(){
+  document.getElementById('tela-selecao-unidade').style.display = 'none';
+  document.getElementById('tela-hub').style.display = 'none';
+  document.getElementById('tela-login').style.display = 'block';
+  document.getElementById('login-user').focus();
+}
+
+function mostrarTelaSelecaoUnidade(){
+  document.getElementById('tela-login').style.display = 'none';
+  document.getElementById('tela-hub').style.display = 'none';
+  document.getElementById('tela-selecao-unidade').style.display = 'block';
+}
+
+function mostrarHub(){
+  document.getElementById('tela-login').style.display = 'none';
+  document.getElementById('tela-selecao-unidade').style.display = 'none';
+  document.getElementById('tela-hub').style.display = 'block';
+
+  document.getElementById('hub-nome').textContent = sessao.nome;
+  document.getElementById('hub-papel').textContent = sessao.papel;
+  const infoUnidade = document.getElementById('hub-unidade-info');
+  if (sessao.unidade_operacional_nome){
+    infoUnidade.style.display = 'inline';
+    infoUnidade.textContent = ` · ${sessao.unidade_operacional_nome}`;
+  }else{
+    infoUnidade.style.display = 'none';
+  }
+  document.getElementById('btn-trocar-unidade').style.display =
+    !PAPEIS_NIVEL_DONO.includes(sessao.papel) && sessao.unidade_operacional_id ? 'inline' : 'none';
+
+  const grupos = PAPEIS_NIVEL_DONO.includes(sessao.papel) ? CARDS_ADMIN : (CARDS_POR_PAPEL[sessao.papel] || []);
+  if (grupos.length === 0){
+    // Contas de totem (equipamento) não têm cards aqui -- são login
+    // dedicado, direto na URL do totem correspondente, não nesta tela
+    // pessoal. Só chega aqui se alguém tentar logar com essa conta por
+    // engano.
+    document.getElementById('hub-grupos').innerHTML =
+      '<p style="color:#B9C2D6;font-size:14px;">Esta conta é de equipamento (totem) e não tem páginas aqui -- acesse diretamente a URL do totem correspondente (ex: /totem/entrada), que tem login próprio.</p>';
+    return;
+  }
+  document.getElementById('hub-grupos').innerHTML = grupos.map(g => `
+    <h2 class="section">${g.grupo}</h2>
+    <div class="grid">
+      ${g.itens.map(it => `
+        <a class="card" href="${it.href}">
+          <div class="titulo">${it.titulo}</div>
+          <div class="desc">${it.desc}</div>
+        </a>
+      `).join('')}
+    </div>
+  `).join('');
+}
+
+// Resolve o que mostrar depois de autenticado: dono/gerente de operações
+// caem direto no hub completo (escolhem a unidade depois, em cada
+// página, como já fazem hoje). Demais papéis (supervisor/operador)
+// precisam escolher a unidade aqui, antes de continuar -- mesmo padrão
+// de resolverUnidadeOperacional() de operacao.html/totens, reaproveitado
+// pra também servir de "o token ainda é válido?" (GET /auth/minhas-
+// unidades com 401 = sessão expirada).
+async function entrarNoSistema(forcarSelecaoUnidade){
+  try{
+    const resp = await fetch(API + '/auth/minhas-unidades', {
+      headers: { 'Authorization': `Bearer ${sessao.token}` },
+    });
+    if (resp.status === 401){
+      sessao = null;
+      localStorage.removeItem(CHAVE_SESSAO);
+      mostrarLogin();
+      return;
+    }
+    const unidades = await resp.json();
+
+    if (PAPEIS_NIVEL_DONO.includes(sessao.papel)){
+      mostrarHub();
+      return;
+    }
+
+    if (unidades.length === 0){
+      alert('Sua conta não tem nenhuma unidade disponível. Contate o administrador.');
+      sessao = null;
+      localStorage.removeItem(CHAVE_SESSAO);
+      mostrarLogin();
+      return;
+    }
+    if (unidades.length === 1){
+      sessao.unidade_operacional_id = unidades[0].id;
+      sessao.unidade_operacional_nome = unidades[0].nome;
+      salvarSessao();
+      mostrarHub();
+      return;
+    }
+    if (!forcarSelecaoUnidade && sessao.unidade_operacional_id && unidades.some(u => u.id === sessao.unidade_operacional_id)){
+      mostrarHub();
+      return;
+    }
+
+    sessao.unidade_operacional_id = null;
+    sessao.unidade_operacional_nome = null;
+    salvarSessao();
+    const lista = document.getElementById('lista-unidades');
+    lista.innerHTML = unidades.map(u => `<button class="btn-unidade" data-id="${u.id}" data-nome="${u.nome}">${u.nome}</button>`).join('');
+    lista.querySelectorAll('.btn-unidade').forEach(btn => {
+      btn.addEventListener('click', () => {
+        sessao.unidade_operacional_id = parseInt(btn.dataset.id, 10);
+        sessao.unidade_operacional_nome = btn.dataset.nome;
+        salvarSessao();
+        mostrarHub();
+      });
+    });
+    mostrarTelaSelecaoUnidade();
+  }catch(e){
+    alert('Erro ao entrar: ' + e.message);
+    mostrarLogin();
+  }
+}
+
+carregarSessao();
+if (sessao){
+  entrarNoSistema(false);
+}else{
+  mostrarLogin();
+}
+
+document.querySelectorAll('.toggle-senha').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const input = document.getElementById(btn.dataset.alvo);
+    const visivel = input.type === 'text';
+    input.type = visivel ? 'password' : 'text';
+    btn.textContent = visivel ? 'mostrar' : 'ocultar';
+  });
+});
+
+document.getElementById('login-user').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') document.getElementById('login-senha').focus();
+});
+document.getElementById('login-senha').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') document.getElementById('btn-login').click();
+});
+
+document.getElementById('btn-login').addEventListener('click', async () => {
+  const username = document.getElementById('login-user').value;
+  const senha = document.getElementById('login-senha').value;
+  const erro = document.getElementById('erro-login');
+  erro.style.display = 'none';
+  try{
+    const resp = await fetch(API + '/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, senha }),
+    });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.detail || 'Login inválido');
+    sessao = data;
+    salvarSessao();
+    await entrarNoSistema(false);
+  }catch(e){
+    erro.textContent = e.message;
+    erro.style.display = 'block';
+  }
+});
+
+document.getElementById('btn-trocar-unidade').addEventListener('click', () => {
+  entrarNoSistema(true);
+});
+
+document.getElementById('btn-sair-hub').addEventListener('click', async () => {
+  try{
+    await fetch(API + '/auth/logout', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: sessao.token }),
+    });
+  }catch(e){}
+  sessao = null;
+  localStorage.removeItem(CHAVE_SESSAO);
+  mostrarLogin();
+});
+</script>

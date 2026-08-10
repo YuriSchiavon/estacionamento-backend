@@ -636,8 +636,12 @@
     <div class="panel" id="panel-ponto">
       <section class="card">
         <h2>Ponto</h2>
-        <div class="desc">Batidas de ponto dos colaboradores -- entrada/saída acontecem junto com abrir/fechar o caixa (aba Caixa da tela de Operação); início/fim de intervalo são batidos à parte, no meio do turno. Ainda não calcula banco de horas/fechamento de folha, só lista os registros.</div>
+        <div class="desc">Ponto por colaborador -- bater entrada/saída é uma ação independente de abrir/fechar caixa (aba Caixa da Operação/POS: abrir caixa exige ter batido entrada, mas fechar caixa não bate saída, é um passo separado); início/fim de intervalo são batidos à parte, no meio do turno. Escolha o colaborador e o período pra ver as batidas e a carga horária somada.</div>
         <div class="filtros">
+          <div>
+            <label>Colaborador</label>
+            <select id="pt-colaborador"></select>
+          </div>
           <div>
             <label>Tipo</label>
             <select id="pt-ponto-tipo">
@@ -648,14 +652,30 @@
               <option value="saida">Saída</option>
             </select>
           </div>
-          <div>
-            <label>Colaborador (opcional)</label>
-            <input id="pt-ponto-colaborador" placeholder="nome ou parte dele">
-          </div>
           <div><label>De</label><input type="datetime-local" id="pt-ponto-inicio"></div>
           <div><label>Até</label><input type="datetime-local" id="pt-ponto-fim"></div>
+          <div>
+            <label>Atalho de período</label>
+            <div style="display:flex; gap:6px;">
+              <button class="secundario" id="btn-periodo-semana" type="button">Semana atual</button>
+              <button class="secundario" id="btn-periodo-mes" type="button">Mês atual</button>
+            </div>
+          </div>
           <div><button class="action" id="btn-ponto">Buscar</button></div>
         </div>
+
+        <h3>Carga horária no período</h3>
+        <div class="resumo" id="resumo-jornada"></div>
+        <div class="empty" id="jornada-aviso-aberto" style="display:none;"></div>
+        <table>
+          <thead>
+            <tr><th>Entrada</th><th>Saída</th><th>Intervalo</th><th>Horas trabalhadas</th></tr>
+          </thead>
+          <tbody id="tabela-turnos"></tbody>
+        </table>
+        <div class="empty" id="turnos-vazio" style="display:none;">Nenhum turno fechado no período.</div>
+
+        <h3 style="margin-top:24px;">Batidas no período</h3>
         <table>
           <thead>
             <tr><th>Colaborador</th><th>Tipo</th><th>Quando</th></tr>
@@ -784,12 +804,12 @@ function ehNivelDono(){
 }
 
 function carregarSessaoSalva(){
-  const salvo = localStorage.getItem('sessao_gestao');
+  const salvo = localStorage.getItem('sessao_mypark');
   if (salvo) sessao = JSON.parse(salvo);
 }
 
 function salvarSessao(){
-  localStorage.setItem('sessao_gestao', JSON.stringify(sessao));
+  localStorage.setItem('sessao_mypark', JSON.stringify(sessao));
 }
 
 async function api(metodo, url, body){
@@ -831,7 +851,7 @@ function query(inicio, fim){
 
 function encerrarSessao(){
   sessao = null;
-  localStorage.removeItem('sessao_gestao');
+  localStorage.removeItem('sessao_mypark');
   document.getElementById('app').style.display = 'none';
   document.getElementById('tela-login').style.display = 'block';
   // Se essa tela apareceu por causa de um toque do próprio usuário (ex:
@@ -1337,17 +1357,114 @@ const NOMES_TIPO_PONTO = {
   fim_intervalo: 'Fim do intervalo', saida: 'Saída',
 };
 
+async function carregarColaboradoresPonto(){
+  const select = document.getElementById('pt-colaborador');
+  const selecionadoAntes = select.value;
+  try{
+    const lista = await api('GET', `/gestao/usuarios?${query()}`);
+    const ativos = lista.filter(u => u.ativo);
+    select.innerHTML = ativos.map(u => `<option value="${u.id}">${u.nome} (${u.papel})</option>`).join('');
+    if (ativos.some(u => String(u.id) === selecionadoAntes)) select.value = selecionadoAntes;
+  }catch(e){
+    alert(e.message);
+  }
+}
+
+function fmtDatetimeLocal(d){
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function inicioFimSemanaAtual(){
+  const agora = new Date();
+  const diaSemana = agora.getDay(); // 0 = domingo
+  const offsetSegunda = diaSemana === 0 ? 6 : diaSemana - 1;
+  const inicio = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate() - offsetSegunda);
+  const fim = new Date(inicio.getFullYear(), inicio.getMonth(), inicio.getDate() + 7);
+  return [inicio, fim];
+}
+
+function inicioFimMesAtual(){
+  const agora = new Date();
+  const inicio = new Date(agora.getFullYear(), agora.getMonth(), 1);
+  const fim = new Date(agora.getFullYear(), agora.getMonth() + 1, 1);
+  return [inicio, fim];
+}
+
+function preencherPeriodoPonto(inicio, fim){
+  document.getElementById('pt-ponto-inicio').value = fmtDatetimeLocal(inicio);
+  document.getElementById('pt-ponto-fim').value = fmtDatetimeLocal(fim);
+}
+
+document.getElementById('btn-periodo-semana').addEventListener('click', () => {
+  preencherPeriodoPonto(...inicioFimSemanaAtual());
+  carregarPonto();
+});
+document.getElementById('btn-periodo-mes').addEventListener('click', () => {
+  preencherPeriodoPonto(...inicioFimMesAtual());
+  carregarPonto();
+});
+
+function renderJornada(d){
+  const resumo = document.getElementById('resumo-jornada');
+  const totalFmt = d.total_horas.toFixed(2).replace('.', ',');
+  resumo.innerHTML = `
+    <div class="item"><div class="valor">${totalFmt}h</div><div class="label">Carga horária no período</div></div>
+    <div class="item"><div class="valor">${d.turnos.length}</div><div class="label">Turnos fechados</div></div>
+  `;
+
+  const aviso = document.getElementById('jornada-aviso-aberto');
+  if (d.turno_aberto){
+    const horasFmt = d.turno_aberto.horas_ate_agora.toFixed(2).replace('.', ',');
+    aviso.style.display = 'block';
+    aviso.textContent = `Turno em andamento desde ${fmtData(d.turno_aberto.entrada)} (${horasFmt}h até agora -- ainda não contabilizado no total, só entra depois de bater a saída).`;
+  }else{
+    aviso.style.display = 'none';
+  }
+
+  const tbody = document.getElementById('tabela-turnos');
+  const vazio = document.getElementById('turnos-vazio');
+  tbody.innerHTML = '';
+  vazio.style.display = d.turnos.length ? 'none' : 'block';
+  d.turnos.forEach(t => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${fmtData(t.entrada)}</td>
+      <td>${fmtData(t.saida)}</td>
+      <td>${t.intervalo_minutos} min</td>
+      <td>${t.horas_trabalhadas.toFixed(2).replace('.', ',')}h</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
 async function carregarPonto(){
+  await carregarColaboradoresPonto();
+  const usuarioId = document.getElementById('pt-colaborador').value;
   const tbody = document.getElementById('tabela-ponto');
   const vazio = document.getElementById('ponto-vazio');
+
+  if (!usuarioId){
+    tbody.innerHTML = '';
+    vazio.style.display = 'block';
+    document.getElementById('resumo-jornada').innerHTML = '';
+    document.getElementById('jornada-aviso-aberto').style.display = 'none';
+    document.getElementById('tabela-turnos').innerHTML = '';
+    document.getElementById('turnos-vazio').style.display = 'block';
+    return;
+  }
+
+  if (!document.getElementById('pt-ponto-inicio').value || !document.getElementById('pt-ponto-fim').value){
+    preencherPeriodoPonto(...inicioFimSemanaAtual());
+  }
   const tipo = document.getElementById('pt-ponto-tipo').value;
-  const colaborador = document.getElementById('pt-ponto-colaborador').value.trim();
   const inicio = document.getElementById('pt-ponto-inicio').value;
   const fim = document.getElementById('pt-ponto-fim').value;
+
   try{
     const params = new URLSearchParams(query(inicio, fim));
+    params.set('usuario_id', usuarioId);
     if (tipo) params.set('tipo', tipo);
-    if (colaborador) params.set('usuario_nome', colaborador);
     const lista = await api('GET', `/gestao/ponto?${params.toString()}`);
     tbody.innerHTML = '';
     vazio.style.display = lista.length ? 'none' : 'block';
@@ -1360,6 +1477,11 @@ async function carregarPonto(){
       `;
       tbody.appendChild(tr);
     });
+
+    const paramsJornada = new URLSearchParams(query(inicio, fim));
+    paramsJornada.set('usuario_id', usuarioId);
+    const jornada = await api('GET', `/gestao/ponto/jornada?${paramsJornada.toString()}`);
+    renderJornada(jornada);
   }catch(e){
     alert(e.message);
   }
