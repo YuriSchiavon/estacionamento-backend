@@ -154,7 +154,7 @@
   .rodape-conta{
     position:fixed;left:14px;bottom:14px;display:flex;flex-direction:column;align-items:flex-start;gap:4px;z-index:5;
   }
-  .rodape-conta button{
+  .rodape-conta button, .rodape-conta a{
     font-size:11px;color:#3E4C6B;background:none;border:none;cursor:pointer;text-decoration:underline;padding:4px 2px;
   }
 
@@ -374,8 +374,10 @@
   </div>
 
   <div class="rodape-conta">
+    <button id="btn-ir-menu" style="display:none;">menu principal</button>
     <button class="btn-trocar-unidade" style="display:none;">trocar unidade</button>
     <button class="btn-trocar">trocar conta deste terminal</button>
+    <a href="/">início</a>
   </div>
 </div>
 
@@ -443,19 +445,22 @@ function mostrarTela(){
 // Diferente dos totens (onde entrada/saída funcionam soltos): aqui o
 // terminal só libera o menu de comandos depois que o colaborador bate
 // o ponto de entrada E abre o caixa deste turno, em duas etapas
-// separadas (ver pagina-ponto-entrada / pagina-abrir-caixa).
+// separadas (ver pagina-ponto-entrada / pagina-abrir-caixa). Ponto é
+// SEMPRE o primeiro passo, pessoal de quem está logado -- mesmo que
+// outra conta já tenha deixado um caixa aberto (troca de turno sem
+// fechar antes), quem loga agora ainda precisa bater o próprio ponto.
 async function entrarNoTerminal(){
   try{
     const data = await chamarApi('GET', '/gestao/caixa/atual?unidade_id=' + sessao.unidade_operacional_id);
-    if (data.aberto){
-      // Já tem caixa aberto nesta unidade (por qualquer conta) -- não
-      // exige que ESTE usuário tenha batido ponto pra só operar.
-      mostrarPagina('pagina-menu');
-    }else if (data.em_turno){
-      // Já bateu ponto de entrada antes, mas ainda não abriu caixa.
+    if (!data.em_turno){
+      mostrarPagina('pagina-ponto-entrada');
+    }else if (!data.aberto){
+      // Bateu ponto, mas ainda não tem caixa aberto nesta unidade.
       mostrarPagina('pagina-abrir-caixa');
     }else{
-      mostrarPagina('pagina-ponto-entrada');
+      // Já bateu ponto E já existe caixa aberto (seu ou de outra conta
+      // -- turno em andamento) -- direto pro menu.
+      mostrarPagina('pagina-menu');
     }
   }catch(e){
     mostrarPagina('pagina-ponto-entrada');
@@ -463,6 +468,8 @@ async function entrarNoTerminal(){
     document.getElementById('erro-ponto-entrada').style.display = 'block';
   }
 }
+
+const PAGINAS_SEM_MENU_PRINCIPAL = ['pagina-menu', 'pagina-ponto-entrada', 'pagina-abrir-caixa', 'pagina-ponto-saida'];
 
 function mostrarPagina(id){
   if (timeoutAutoReset){ clearTimeout(timeoutAutoReset); timeoutAutoReset = null; }
@@ -482,26 +489,36 @@ function mostrarPagina(id){
     document.getElementById('saida-validar-chave').value = '';
     document.getElementById('saida-validar-valor').value = '';
     document.getElementById('erro-saida-validar').style.display = 'none';
+    document.getElementById('saida-validar-chave').focus();
   }
   if (id === 'pagina-validar-avulso'){
     document.getElementById('avulso-codigo').value = '';
     document.getElementById('avulso-chave').value = '';
     document.getElementById('avulso-valor').value = '';
     document.getElementById('resultado-avulso').className = 'resultado';
+    document.getElementById('avulso-codigo').focus();
   }
   if (id === 'pagina-consultar'){
     document.getElementById('consulta-codigo').value = '';
     document.getElementById('lista-consultar').innerHTML = '';
+    document.getElementById('consulta-codigo').focus();
   }
   if (id === 'pagina-liberacao'){
     document.getElementById('lib-codigo').value = '';
     document.getElementById('lib-motivo').value = '';
     document.getElementById('resultado-liberacao').className = 'resultado';
+    document.getElementById('lib-codigo').focus();
   }
   if (id === 'pagina-caixa') carregarCaixaAtual();
   if (id === 'pagina-ponto-entrada') document.getElementById('erro-ponto-entrada').style.display = 'none';
   if (id === 'pagina-abrir-caixa') document.getElementById('erro-abrir-caixa').style.display = 'none';
   if (id === 'pagina-ponto-saida') document.getElementById('erro-ponto-saida').style.display = 'none';
+
+  // "Menu principal" no canto -- disponível em qualquer tela operacional,
+  // mas não nas etapas obrigatórias de ponto/caixa (não pode ser um
+  // atalho pra pular login->ponto->caixa) nem na própria tela de menu.
+  document.getElementById('btn-ir-menu').style.display =
+    PAGINAS_SEM_MENU_PRINCIPAL.includes(id) ? 'none' : 'block';
 }
 
 // Igual ao mecanismo já usado em operacao.html: conta de terminal normal
@@ -602,6 +619,8 @@ document.getElementById('btn-login').addEventListener('click', async () => {
 });
 
 document.getElementById('btn-cancelar-login').addEventListener('click', cancelarTrocaDeConta);
+
+document.getElementById('btn-ir-menu').addEventListener('click', () => mostrarPagina('pagina-menu'));
 
 document.querySelectorAll('.btn-trocar-unidade').forEach(btn => {
   btn.addEventListener('click', () => resolverUnidadeOperacional(true));
@@ -894,7 +913,9 @@ document.getElementById('btn-ponto-entrada').addEventListener('click', async () 
   btn.disabled = true;
   try{
     await chamarApi('POST', '/gestao/ponto/entrada?unidade_id=' + sessao.unidade_operacional_id);
-    mostrarPagina('pagina-abrir-caixa');
+    // Reconsulta em vez de ir direto pra pagina-abrir-caixa -- se outra
+    // conta já deixou um caixa aberto nesta unidade, pula reto pro menu.
+    await entrarNoTerminal();
   }catch(e){
     erro.textContent = e.message;
     erro.style.display = 'block';
