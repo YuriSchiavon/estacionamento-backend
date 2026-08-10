@@ -1,8 +1,10 @@
 package com.mypark.totem
 
+import android.Manifest
 import android.app.ActivityManager
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -13,6 +15,8 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import org.json.JSONObject
 
 /**
@@ -35,6 +39,7 @@ class TotemActivity : AppCompatActivity() {
         const val EXTRA_URL = "extra_url"
         private const val JANELA_GESTO_SAIDA_MS = 3000L
         private const val TOQUES_PARA_SAIR = 5
+        private const val REQUEST_CODE_CAMERA = 100
 
         private val URLS_PERMITIDAS = setOf(
             Config.URL_ENTRADA, Config.URL_SAIDA, Config.URL_VALIDACAO,
@@ -45,6 +50,7 @@ class TotemActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_totem)
         ativarTelaCheia()
+        pedirPermissaoCameraSeNecessario()
 
         val url = intent.getStringExtra(EXTRA_URL) ?: Config.URL_ENTRADA
 
@@ -104,6 +110,35 @@ class TotemActivity : AppCompatActivity() {
         val chamada = "if (window.receberCodigoLido) { window.receberCodigoLido(${JSONObject.quote(conteudo)}); }"
         webView.evaluateJavascript(chamada) { }
         Log.i("TotemActivity", "Código lido repassado pra página")
+    }
+
+    /**
+     * O leitor (EasyLayer/CodeScanner) usa a câmera -- é permissão
+     * "perigosa" (Android 6+), precisa ser concedida em tempo de
+     * execução, não só declarada no manifesto. O exemplo oficial da
+     * Gertec não pede isso manualmente (a tela de captura deles
+     * provavelmente já cuida disso sozinha, já que é baseada na
+     * biblioteca zxing-android-embedded, que tem esse tratamento
+     * embutido) -- pedimos aqui também, cedo, só por garantia: não
+     * custa nada se já tiver sido concedida, e evita a câmera falhar
+     * silenciosamente na primeira leitura se não tiver.
+     */
+    private fun pedirPermissaoCameraSeNecessario() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
+            != PackageManager.PERMISSION_GRANTED
+        ) {
+            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.CAMERA), REQUEST_CODE_CAMERA)
+        }
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int, permissions: Array<out String>, grantResults: IntArray,
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == REQUEST_CODE_CAMERA) {
+            val concedida = grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED
+            Log.i("TotemActivity", "Permissão de câmera: ${if (concedida) "concedida" else "negada"}")
+        }
     }
 
     @Suppress("DEPRECATION")

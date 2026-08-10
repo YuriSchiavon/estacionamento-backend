@@ -338,9 +338,30 @@ nova, é só substituir o arquivo e manter o mesmo nome (ou ajustar
 
 **Ainda não testado no equipamento físico** -- a integração foi escrita a
 partir dos exemplos oficiais da Gertec (mesma assinatura de métodos, de
-propósito, pra reduzir risco de divergir do que eles testaram), mas
-precisa confirmar na prática: se a impressora é realmente a interna do
-SK210 desta unidade específica (a impressora é **opcional** no SK210,
-conforme a ficha técnica) e se o leitor entrega texto plausível em
-`onActivityResult` pros formatos de código usados aqui (código de barras
-do ticket, QR da NFC-e).
+propósito, pra reduzir risco de divergir do que eles testaram), incluindo
+uma checagem já feita nos manifestos dos dois AARs (`app/libs/*.aar`,
+que são arquivos zip -- dá pra abrir com `unzip`): o leitor usa a câmera
+(`android.permission.CAMERA`, permissão "perigosa", pedida em tempo de
+execução por `TotemActivity.pedirPermissaoCameraSeNecessario()` antes da
+primeira leitura) e nenhum dos dois exige nenhum passo de
+ativação/licença separado de `Printer.getInstance()`/`CodeScanner.
+getInstance()`. Falta confirmar na prática:
+
+1. Se a bobina de papel está instalada antes de testar a impressão
+   (senão falha por motivo trivial, não pela integração).
+2. Rodar o app e conferir se a tela de escolha nativa abre sem crash.
+3. **Entrada**: emitir um ticket e conferir se a impressora imprime
+   algo legível. Se não imprimir nada, olhar o Logcat filtrando por
+   `AndroidBridge` -- os erros de impressão são logados com `Log.e`.
+4. **Saída**: apresentar um ticket já emitido pro leitor (câmera) e
+   conferir se o campo preenche sozinho e a verificação roda sem
+   precisar digitar nada. Na primeira vez deve aparecer o popup de
+   permissão de câmera -- aceitar.
+5. **Validar cupom** (Saída ou Validação): ler o QR de uma nota fiscal
+   de verdade e conferir se o valor é reconhecido (a leitura precisa
+   trazer a URL/conteúdo completo do QR, não só a chave de 44 dígitos).
+6. Gesto de saída do quiosque: 5 toques rápidos no canto inferior
+   esquerdo da tela, confirma que volta pra tela de escolha.
+
+Qualquer erro do Logcat ou comportamento inesperado nesse teste, me
+mandar que eu ajusto o código a partir disso.
