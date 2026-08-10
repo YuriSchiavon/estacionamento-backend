@@ -452,12 +452,15 @@ class CaixaOut(ComDatasUTC):
 
 class CaixaAtualOut(BaseModel):
     """GET /gestao/caixa/atual -- caixa/relatorio só vêm preenchidos
-    quando há um caixa aberto na unidade; em_intervalo reflete o próprio
-    usuário logado (não o caixa em si -- cada colaborador bate o próprio
-    intervalo)."""
+    quando há um caixa aberto na unidade; em_turno/em_intervalo refletem
+    o próprio usuário logado (não o caixa em si -- cada colaborador bate
+    o próprio ponto, independente de quem abriu o caixa). em_turno é
+    pré-requisito pra abrir caixa (bateu ponto de entrada e ainda não
+    bateu saída)."""
     aberto: bool
     caixa: Optional[CaixaOut] = None
     relatorio: Optional[RelatorioCaixaOut] = None
+    em_turno: bool = False
     em_intervalo: bool = False
 
 

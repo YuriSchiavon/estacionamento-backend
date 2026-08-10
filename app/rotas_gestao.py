@@ -720,13 +720,102 @@ def relatorio_exclusoes_tickets(
 
 
 # ---------------------------------------------------------------------
+# PONTO -- bater entrada/saída/intervalo é sempre uma ação própria do
+# usuário logado, independente do caixa. Sequência obrigatória por
+# (unidade, usuário): entrada -> [início/fim de intervalo]* -> saída.
+# Abrir caixa exige que o usuário já tenha batido entrada; fechar caixa
+# não bate ponto nenhum -- isso fica pro passo seguinte, em separado
+# (ver terminal POS: fechar caixa redireciona pra bater ponto de saída).
+# ---------------------------------------------------------------------
+def _ultimo_ponto(db: Session, unidade_id: int, usuario_id: int) -> Optional["models.RegistroPonto"]:
+    return db.query(models.RegistroPonto).filter_by(
+        unidade_id=unidade_id, usuario_id=usuario_id,
+    ).order_by(models.RegistroPonto.data_hora.desc()).first()
+
+
+def _em_turno(ultimo: Optional["models.RegistroPonto"]) -> bool:
+    """True se o último ponto batido não foi uma saída -- ou seja, o
+    usuário está "dentro" do turno (entrada, ou em algum ponto do
+    intervalo), mesmo que ainda não tenha aberto nenhum caixa."""
+    return ultimo is not None and ultimo.tipo != models.TipoRegistroPonto.saida
+
+
+def _bater_ponto(
+    db: Session, usuario: models.Usuario, unidade_id_resolvida: int, tipo: "models.TipoRegistroPonto"
+) -> "models.RegistroPonto":
+    registro = models.RegistroPonto(
+        unidade_id=unidade_id_resolvida, tipo=tipo, usuario_id=usuario.id, usuario_nome=usuario.nome,
+    )
+    db.add(registro)
+    db.commit()
+    db.refresh(registro)
+    return registro
+
+
+@router.post("/gestao/ponto/entrada", response_model=schemas.RegistroPontoOut)
+def bater_ponto_entrada(
+    unidade_id: Optional[int] = None, db: Session = Depends(get_db),
+    usuario: models.Usuario = Depends(exigir_operacao),
+):
+    unidade_id_resolvida = resolver_unidade_operacional(db, usuario, unidade_id)
+    if _em_turno(_ultimo_ponto(db, unidade_id_resolvida, usuario.id)):
+        raise HTTPException(409, "Você já bateu o ponto de entrada -- falta bater a saída antes de um novo turno")
+    return _bater_ponto(db, usuario, unidade_id_resolvida, models.TipoRegistroPonto.entrada)
+
+
+@router.post("/gestao/ponto/saida", response_model=schemas.RegistroPontoOut)
+def bater_ponto_saida(
+    unidade_id: Optional[int] = None, db: Session = Depends(get_db),
+    usuario: models.Usuario = Depends(exigir_operacao),
+):
+    unidade_id_resolvida = resolver_unidade_operacional(db, usuario, unidade_id)
+    if not _em_turno(_ultimo_ponto(db, unidade_id_resolvida, usuario.id)):
+        raise HTTPException(409, "Você ainda não bateu o ponto de entrada neste turno")
+    return _bater_ponto(db, usuario, unidade_id_resolvida, models.TipoRegistroPonto.saida)
+
+
+def _registrar_ponto_intervalo(
+    db: Session, usuario: models.Usuario, unidade_id_resolvida: int, tipo: "models.TipoRegistroPonto"
+) -> "models.RegistroPonto":
+    ultimo = _ultimo_ponto(db, unidade_id_resolvida, usuario.id)
+    if not _em_turno(ultimo):
+        raise HTTPException(409, "Bata o ponto de entrada antes de registrar intervalo")
+    em_intervalo = ultimo.tipo == models.TipoRegistroPonto.inicio_intervalo
+
+    if tipo == models.TipoRegistroPonto.inicio_intervalo and em_intervalo:
+        raise HTTPException(409, "Você já está com o intervalo iniciado")
+    if tipo == models.TipoRegistroPonto.fim_intervalo and not em_intervalo:
+        raise HTTPException(409, "Você não tem um intervalo em andamento pra terminar")
+
+    return _bater_ponto(db, usuario, unidade_id_resolvida, tipo)
+
+
+@router.post("/gestao/ponto/intervalo-inicio", response_model=schemas.RegistroPontoOut)
+def bater_ponto_intervalo_inicio(
+    unidade_id: Optional[int] = None, db: Session = Depends(get_db),
+    usuario: models.Usuario = Depends(exigir_operacao),
+):
+    unidade_id_resolvida = resolver_unidade_operacional(db, usuario, unidade_id)
+    return _registrar_ponto_intervalo(db, usuario, unidade_id_resolvida, models.TipoRegistroPonto.inicio_intervalo)
+
+
+@router.post("/gestao/ponto/intervalo-fim", response_model=schemas.RegistroPontoOut)
+def bater_ponto_intervalo_fim(
+    unidade_id: Optional[int] = None, db: Session = Depends(get_db),
+    usuario: models.Usuario = Depends(exigir_operacao),
+):
+    unidade_id_resolvida = resolver_unidade_operacional(db, usuario, unidade_id)
+    return _registrar_ponto_intervalo(db, usuario, unidade_id_resolvida, models.TipoRegistroPonto.fim_intervalo)
+
+
+# ---------------------------------------------------------------------
 # CAIXA -- abertura/fechamento de turno, pra estacionamento assistido (não
-# autônomo). Bater ponto de entrada/saída acontece junto com abrir/fechar
-# (mesma ação); início/fim de intervalo de almoço são ações à parte, no
-# meio do turno. Nada aqui trava emitir ticket/pagamento etc. -- é só
-# controle/relatório em paralelo (ver Caixa/RegistroPonto em models.py).
-# Só um caixa aberto por vez por unidade -- checado na rota, não é
-# constraint de banco.
+# autônomo). Abrir caixa exige que o usuário já tenha batido o ponto de
+# entrada (ver acima); fechar caixa não bate ponto nenhum, isso é um
+# passo separado (bater ponto de saída, depois de fechar). Nada aqui
+# trava emitir ticket/pagamento etc. -- é só controle/relatório em
+# paralelo (ver Caixa/RegistroPonto em models.py). Só um caixa aberto
+# por vez por unidade -- checado na rota, não é constraint de banco.
 # ---------------------------------------------------------------------
 @router.post("/gestao/caixa/abrir", response_model=schemas.CaixaAtualOut)
 def abrir_caixa(
@@ -734,6 +823,9 @@ def abrir_caixa(
     usuario: models.Usuario = Depends(exigir_operacao),
 ):
     unidade_id_resolvida = resolver_unidade_operacional(db, usuario, unidade_id)
+    if not _em_turno(_ultimo_ponto(db, unidade_id_resolvida, usuario.id)):
+        raise HTTPException(422, "Bata o ponto de entrada antes de abrir o caixa")
+
     ja_aberto = db.query(models.Caixa).filter_by(
         unidade_id=unidade_id_resolvida, status=models.StatusCaixa.aberto
     ).first()
@@ -744,15 +836,11 @@ def abrir_caixa(
 
     caixa = models.Caixa(unidade_id=unidade_id_resolvida, usuario_abertura_nome=usuario.nome)
     db.add(caixa)
-    db.add(models.RegistroPonto(
-        unidade_id=unidade_id_resolvida, tipo=models.TipoRegistroPonto.entrada,
-        usuario_id=usuario.id, usuario_nome=usuario.nome,
-    ))
     db.commit()
     db.refresh(caixa)
 
     relatorio = montar_relatorio_caixa(db, caixa.data_hora_abertura, None, unidade_id_resolvida)
-    return schemas.CaixaAtualOut(aberto=True, caixa=caixa, relatorio=relatorio, em_intervalo=False)
+    return schemas.CaixaAtualOut(aberto=True, caixa=caixa, relatorio=relatorio, em_turno=True, em_intervalo=False)
 
 
 @router.get("/gestao/caixa/atual", response_model=schemas.CaixaAtualOut)
@@ -765,18 +853,19 @@ def caixa_atual(
         unidade_id=unidade_id_resolvida, status=models.StatusCaixa.aberto
     ).first()
 
-    # em_intervalo é do usuário logado, não do caixa -- cada colaborador
-    # bate o próprio intervalo, independente de quem abriu o caixa.
-    ultimo_ponto = db.query(models.RegistroPonto).filter_by(
-        unidade_id=unidade_id_resolvida, usuario_id=usuario.id,
-    ).order_by(models.RegistroPonto.data_hora.desc()).first()
+    # em_turno/em_intervalo são do usuário logado, não do caixa -- cada
+    # colaborador bate o próprio ponto, independente de quem abriu o caixa.
+    ultimo_ponto = _ultimo_ponto(db, unidade_id_resolvida, usuario.id)
+    em_turno = _em_turno(ultimo_ponto)
     em_intervalo = bool(ultimo_ponto and ultimo_ponto.tipo == models.TipoRegistroPonto.inicio_intervalo)
 
     if not caixa:
-        return schemas.CaixaAtualOut(aberto=False, em_intervalo=em_intervalo)
+        return schemas.CaixaAtualOut(aberto=False, em_turno=em_turno, em_intervalo=em_intervalo)
 
     relatorio = montar_relatorio_caixa(db, caixa.data_hora_abertura, None, unidade_id_resolvida)
-    return schemas.CaixaAtualOut(aberto=True, caixa=caixa, relatorio=relatorio, em_intervalo=em_intervalo)
+    return schemas.CaixaAtualOut(
+        aberto=True, caixa=caixa, relatorio=relatorio, em_turno=em_turno, em_intervalo=em_intervalo
+    )
 
 
 @router.post("/gestao/caixa/fechar", response_model=schemas.CaixaFechamentoOut)
@@ -801,54 +890,10 @@ def fechar_caixa(
     dinheiro_apurado = relatorio["por_forma_pagamento"].get("dinheiro", 0.0)
     caixa.diferenca_dinheiro = round(payload.valor_contado_dinheiro - dinheiro_apurado, 2)
 
-    db.add(models.RegistroPonto(
-        unidade_id=unidade_id_resolvida, tipo=models.TipoRegistroPonto.saida,
-        usuario_id=usuario.id, usuario_nome=usuario.nome,
-    ))
     db.commit()
     db.refresh(caixa)
 
     return schemas.CaixaFechamentoOut(caixa=caixa, relatorio=relatorio)
-
-
-def _registrar_ponto_intervalo(
-    db: Session, usuario: models.Usuario, unidade_id_resolvida: int, tipo: "models.TipoRegistroPonto"
-) -> "models.RegistroPonto":
-    ultimo = db.query(models.RegistroPonto).filter_by(
-        unidade_id=unidade_id_resolvida, usuario_id=usuario.id,
-    ).order_by(models.RegistroPonto.data_hora.desc()).first()
-    em_intervalo = bool(ultimo and ultimo.tipo == models.TipoRegistroPonto.inicio_intervalo)
-
-    if tipo == models.TipoRegistroPonto.inicio_intervalo and em_intervalo:
-        raise HTTPException(409, "Você já está com o intervalo iniciado")
-    if tipo == models.TipoRegistroPonto.fim_intervalo and not em_intervalo:
-        raise HTTPException(409, "Você não tem um intervalo em andamento pra terminar")
-
-    registro = models.RegistroPonto(
-        unidade_id=unidade_id_resolvida, tipo=tipo, usuario_id=usuario.id, usuario_nome=usuario.nome,
-    )
-    db.add(registro)
-    db.commit()
-    db.refresh(registro)
-    return registro
-
-
-@router.post("/gestao/ponto/intervalo-inicio", response_model=schemas.RegistroPontoOut)
-def bater_ponto_intervalo_inicio(
-    unidade_id: Optional[int] = None, db: Session = Depends(get_db),
-    usuario: models.Usuario = Depends(exigir_operacao),
-):
-    unidade_id_resolvida = resolver_unidade_operacional(db, usuario, unidade_id)
-    return _registrar_ponto_intervalo(db, usuario, unidade_id_resolvida, models.TipoRegistroPonto.inicio_intervalo)
-
-
-@router.post("/gestao/ponto/intervalo-fim", response_model=schemas.RegistroPontoOut)
-def bater_ponto_intervalo_fim(
-    unidade_id: Optional[int] = None, db: Session = Depends(get_db),
-    usuario: models.Usuario = Depends(exigir_operacao),
-):
-    unidade_id_resolvida = resolver_unidade_operacional(db, usuario, unidade_id)
-    return _registrar_ponto_intervalo(db, usuario, unidade_id_resolvida, models.TipoRegistroPonto.fim_intervalo)
 
 
 @router.get("/gestao/ponto", response_model=List[schemas.RegistroPontoOut])

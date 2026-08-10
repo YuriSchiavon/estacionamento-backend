@@ -207,13 +207,29 @@
     </div>
   </div>
 
-  <!-- PORTÃO: bater ponto e abrir caixa -- diferente dos totens, aqui
-       entrada/saída só ficam disponíveis depois do caixa aberto. -->
-  <div class="pagina" id="pagina-gate-caixa">
+  <!-- ETAPAS OBRIGATÓRIAS: ponto de entrada -> abrir caixa -> menu.
+       Diferente dos totens, aqui entrada/saída só ficam disponíveis
+       depois do caixa aberto. Fechar o caixa devolve pro ponto de
+       saída (ver btn-caixa-fechar-confirmar), não direto pro menu. -->
+  <div class="pagina" id="pagina-ponto-entrada">
     <div class="logo-grande">MY PARK<span>·</span>POS</div>
-    <div class="desc-pagina">Antes de operar, bata o ponto e abra o caixa deste turno</div>
-    <button class="principal" id="btn-gate-abrir-caixa">Bater ponto e abrir caixa</button>
-    <div class="erro" id="erro-gate-caixa"></div>
+    <div class="desc-pagina">Antes de operar, bata o ponto de entrada</div>
+    <button class="principal" id="btn-ponto-entrada">Bater ponto de entrada</button>
+    <div class="erro" id="erro-ponto-entrada"></div>
+  </div>
+
+  <div class="pagina" id="pagina-abrir-caixa">
+    <div class="logo-grande">MY PARK<span>·</span>POS</div>
+    <div class="desc-pagina">Ponto batido. Agora abra o caixa deste turno</div>
+    <button class="principal" id="btn-abrir-caixa">Abrir caixa</button>
+    <div class="erro" id="erro-abrir-caixa"></div>
+  </div>
+
+  <div class="pagina" id="pagina-ponto-saida">
+    <div class="logo-grande">MY PARK<span>·</span>POS</div>
+    <div class="desc-pagina">Caixa fechado. Pra terminar o turno, bata o ponto de saída</div>
+    <button class="principal" id="btn-ponto-saida">Bater ponto de saída</button>
+    <div class="erro" id="erro-ponto-saida"></div>
   </div>
 
   <!-- ENTRADA -->
@@ -429,15 +445,25 @@ function mostrarTela(){
 
 // Diferente dos totens (onde entrada/saída funcionam soltos): aqui o
 // terminal só libera o menu de comandos depois que o colaborador bate
-// o ponto e abre o caixa deste turno -- ver pagina-gate-caixa.
+// o ponto de entrada E abre o caixa deste turno, em duas etapas
+// separadas (ver pagina-ponto-entrada / pagina-abrir-caixa).
 async function entrarNoTerminal(){
   try{
     const data = await chamarApi('GET', '/gestao/caixa/atual?unidade_id=' + sessao.unidade_operacional_id);
-    mostrarPagina(data.aberto ? 'pagina-menu' : 'pagina-gate-caixa');
+    if (data.aberto){
+      // Já tem caixa aberto nesta unidade (por qualquer conta) -- não
+      // exige que ESTE usuário tenha batido ponto pra só operar.
+      mostrarPagina('pagina-menu');
+    }else if (data.em_turno){
+      // Já bateu ponto de entrada antes, mas ainda não abriu caixa.
+      mostrarPagina('pagina-abrir-caixa');
+    }else{
+      mostrarPagina('pagina-ponto-entrada');
+    }
   }catch(e){
-    mostrarPagina('pagina-gate-caixa');
-    document.getElementById('erro-gate-caixa').textContent = e.message;
-    document.getElementById('erro-gate-caixa').style.display = 'block';
+    mostrarPagina('pagina-ponto-entrada');
+    document.getElementById('erro-ponto-entrada').textContent = e.message;
+    document.getElementById('erro-ponto-entrada').style.display = 'block';
   }
 }
 
@@ -476,7 +502,9 @@ function mostrarPagina(id){
     document.getElementById('resultado-liberacao').className = 'resultado';
   }
   if (id === 'pagina-caixa') carregarCaixaAtual();
-  if (id === 'pagina-gate-caixa') document.getElementById('erro-gate-caixa').style.display = 'none';
+  if (id === 'pagina-ponto-entrada') document.getElementById('erro-ponto-entrada').style.display = 'none';
+  if (id === 'pagina-abrir-caixa') document.getElementById('erro-abrir-caixa').style.display = 'none';
+  if (id === 'pagina-ponto-saida') document.getElementById('erro-ponto-saida').style.display = 'none';
 }
 
 // Igual ao mecanismo já usado em operacao.html: conta de terminal normal
@@ -847,8 +875,8 @@ function renderizarRelatorioCaixa(r){
 function renderizarCaixaAtual(data){
   if (!data.aberto){
     // Alguém fechou o caixa por fora (ex: outro terminal) enquanto essa
-    // tela estava aberta -- volta pro portão, não deixa aqui sem ação.
-    mostrarPagina('pagina-gate-caixa');
+    // tela estava aberta -- volta pra etapa certa, não deixa aqui sem ação.
+    entrarNoTerminal();
     return;
   }
   document.getElementById('caixa-info').textContent =
@@ -869,14 +897,49 @@ async function carregarCaixaAtual(){
   }
 }
 
-document.getElementById('btn-gate-abrir-caixa').addEventListener('click', async () => {
-  const btn = document.getElementById('btn-gate-abrir-caixa');
-  const erro = document.getElementById('erro-gate-caixa');
+document.getElementById('btn-ponto-entrada').addEventListener('click', async () => {
+  const btn = document.getElementById('btn-ponto-entrada');
+  const erro = document.getElementById('erro-ponto-entrada');
+  erro.style.display = 'none';
+  btn.disabled = true;
+  try{
+    await chamarApi('POST', '/gestao/ponto/entrada?unidade_id=' + sessao.unidade_operacional_id);
+    mostrarPagina('pagina-abrir-caixa');
+  }catch(e){
+    erro.textContent = e.message;
+    erro.style.display = 'block';
+  }finally{
+    btn.disabled = false;
+  }
+});
+
+document.getElementById('btn-abrir-caixa').addEventListener('click', async () => {
+  const btn = document.getElementById('btn-abrir-caixa');
+  const erro = document.getElementById('erro-abrir-caixa');
   erro.style.display = 'none';
   btn.disabled = true;
   try{
     await chamarApi('POST', '/gestao/caixa/abrir?unidade_id=' + sessao.unidade_operacional_id);
     mostrarPagina('pagina-menu');
+  }catch(e){
+    erro.textContent = e.message;
+    erro.style.display = 'block';
+  }finally{
+    btn.disabled = false;
+  }
+});
+
+document.getElementById('btn-ponto-saida').addEventListener('click', async () => {
+  const btn = document.getElementById('btn-ponto-saida');
+  const erro = document.getElementById('erro-ponto-saida');
+  erro.style.display = 'none';
+  btn.disabled = true;
+  try{
+    await chamarApi('POST', '/gestao/ponto/saida?unidade_id=' + sessao.unidade_operacional_id);
+    // Turno completo -- volta pro início (pronto pro próximo colaborador
+    // bater ponto de entrada, sem precisar trocar de conta se for o
+    // mesmo terminal com outro turno em seguida).
+    mostrarPagina('pagina-ponto-entrada');
   }catch(e){
     erro.textContent = e.message;
     erro.style.display = 'block';
@@ -930,9 +993,10 @@ document.getElementById('btn-caixa-fechar-confirmar').addEventListener('click', 
       valor_contado_dinheiro: parseFloat(valorTexto),
       unidade_id: sessao.unidade_operacional_id,
     });
-    // Caixa fechado -- volta pro portão. Entrada/Saída ficam travadas de
-    // novo até bater ponto e abrir um caixa novo.
-    mostrarPagina('pagina-gate-caixa');
+    // Caixa fechado -- último passo é bater o ponto de saída (ação
+    // separada, ver btn-ponto-saida). Entrada/Saída ficam travadas de
+    // novo até um novo ciclo completo (ponto entrada -> abrir caixa).
+    mostrarPagina('pagina-ponto-saida');
   }catch(e){
     erro.textContent = e.message;
     erro.style.display = 'block';
