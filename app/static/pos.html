@@ -207,6 +207,15 @@
     </div>
   </div>
 
+  <!-- PORTÃO: bater ponto e abrir caixa -- diferente dos totens, aqui
+       entrada/saída só ficam disponíveis depois do caixa aberto. -->
+  <div class="pagina" id="pagina-gate-caixa">
+    <div class="logo-grande">MY PARK<span>·</span>POS</div>
+    <div class="desc-pagina">Antes de operar, bata o ponto e abra o caixa deste turno</div>
+    <button class="principal" id="btn-gate-abrir-caixa">Bater ponto e abrir caixa</button>
+    <div class="erro" id="erro-gate-caixa"></div>
+  </div>
+
   <!-- ENTRADA -->
   <div class="pagina" id="pagina-entrada">
     <div class="titulo-pagina">Entrada</div>
@@ -272,13 +281,9 @@
   <!-- CAIXA -->
   <div class="pagina" id="pagina-caixa">
     <div class="titulo-pagina">Caixa</div>
-    <div class="desc-pagina">Abertura/fechamento de turno -- bate ponto de entrada/saída junto. Não trava as outras telas.</div>
+    <div class="desc-pagina">Turno em andamento -- feche o caixa ao final, batendo o ponto de saída.</div>
 
-    <div id="caixa-sem-abertura" style="width:100%;">
-      <button class="principal" id="btn-caixa-abrir">Bater ponto e abrir caixa</button>
-    </div>
-
-    <div id="caixa-aberto" style="display:none;width:100%;">
+    <div id="caixa-aberto" style="width:100%;">
       <div class="caixa-info" id="caixa-info"></div>
       <div class="caixa-relatorio" id="caixa-relatorio"></div>
       <button class="secundaria" id="btn-caixa-atualizar">Atualizar relatório</button>
@@ -419,7 +424,21 @@ function mostrarTela(){
     return;
   }
   document.getElementById('tela-kiosk').style.display = 'flex';
-  mostrarPagina('pagina-menu');
+  entrarNoTerminal();
+}
+
+// Diferente dos totens (onde entrada/saída funcionam soltos): aqui o
+// terminal só libera o menu de comandos depois que o colaborador bate
+// o ponto e abre o caixa deste turno -- ver pagina-gate-caixa.
+async function entrarNoTerminal(){
+  try{
+    const data = await chamarApi('GET', '/gestao/caixa/atual?unidade_id=' + sessao.unidade_operacional_id);
+    mostrarPagina(data.aberto ? 'pagina-menu' : 'pagina-gate-caixa');
+  }catch(e){
+    mostrarPagina('pagina-gate-caixa');
+    document.getElementById('erro-gate-caixa').textContent = e.message;
+    document.getElementById('erro-gate-caixa').style.display = 'block';
+  }
 }
 
 function mostrarPagina(id){
@@ -457,6 +476,7 @@ function mostrarPagina(id){
     document.getElementById('resultado-liberacao').className = 'resultado';
   }
   if (id === 'pagina-caixa') carregarCaixaAtual();
+  if (id === 'pagina-gate-caixa') document.getElementById('erro-gate-caixa').style.display = 'none';
 }
 
 // Igual ao mecanismo já usado em operacao.html: conta de terminal normal
@@ -825,15 +845,12 @@ function renderizarRelatorioCaixa(r){
 }
 
 function renderizarCaixaAtual(data){
-  const semAbertura = document.getElementById('caixa-sem-abertura');
-  const aberto = document.getElementById('caixa-aberto');
   if (!data.aberto){
-    semAbertura.style.display = 'block';
-    aberto.style.display = 'none';
+    // Alguém fechou o caixa por fora (ex: outro terminal) enquanto essa
+    // tela estava aberta -- volta pro portão, não deixa aqui sem ação.
+    mostrarPagina('pagina-gate-caixa');
     return;
   }
-  semAbertura.style.display = 'none';
-  aberto.style.display = 'block';
   document.getElementById('caixa-info').textContent =
     `Aberto por ${data.caixa.usuario_abertura_nome} às ${fmtDataHora(data.caixa.data_hora_abertura)}`;
   renderizarRelatorioCaixa(data.relatorio);
@@ -852,15 +869,17 @@ async function carregarCaixaAtual(){
   }
 }
 
-document.getElementById('btn-caixa-abrir').addEventListener('click', async () => {
-  const btn = document.getElementById('btn-caixa-abrir');
+document.getElementById('btn-gate-abrir-caixa').addEventListener('click', async () => {
+  const btn = document.getElementById('btn-gate-abrir-caixa');
+  const erro = document.getElementById('erro-gate-caixa');
+  erro.style.display = 'none';
   btn.disabled = true;
   try{
-    const data = await chamarApi('POST', '/gestao/caixa/abrir?unidade_id=' + sessao.unidade_operacional_id);
-    renderizarCaixaAtual(data);
+    await chamarApi('POST', '/gestao/caixa/abrir?unidade_id=' + sessao.unidade_operacional_id);
+    mostrarPagina('pagina-menu');
   }catch(e){
-    document.getElementById('erro-caixa').textContent = e.message;
-    document.getElementById('erro-caixa').style.display = 'block';
+    erro.textContent = e.message;
+    erro.style.display = 'block';
   }finally{
     btn.disabled = false;
   }
@@ -911,7 +930,9 @@ document.getElementById('btn-caixa-fechar-confirmar').addEventListener('click', 
       valor_contado_dinheiro: parseFloat(valorTexto),
       unidade_id: sessao.unidade_operacional_id,
     });
-    await carregarCaixaAtual();
+    // Caixa fechado -- volta pro portão. Entrada/Saída ficam travadas de
+    // novo até bater ponto e abrir um caixa novo.
+    mostrarPagina('pagina-gate-caixa');
   }catch(e){
     erro.textContent = e.message;
     erro.style.display = 'block';
