@@ -332,20 +332,55 @@ A URL do backend está centralizada em `android-totem/app/src/main/java/com/mypa
 -- só precisa mudar ali se o domínio mudar. Os dois AARs da Gertec já
 estão versionados em `android-totem/app/libs/` -- não são publicados em
 nenhum repositório Maven público, então não tem como o Gradle baixar
-sozinho se algum dia forem removidos; se precisar de uma versão mais
-nova, é só substituir o arquivo e manter o mesmo nome (ou ajustar
-`app/build.gradle`, que importa tudo de `libs/*.aar` automaticamente).
+sozinho se algum dia forem removidos.
 
-**Ainda não testado no equipamento físico** -- a integração foi escrita a
-partir dos exemplos oficiais da Gertec (mesma assinatura de métodos, de
-propósito, pra reduzir risco de divergir do que eles testaram), incluindo
-uma checagem já feita nos manifestos dos dois AARs (`app/libs/*.aar`,
-que são arquivos zip -- dá pra abrir com `unzip`): o leitor usa a câmera
-(`android.permission.CAMERA`, permissão "perigosa", pedida em tempo de
-execução por `TotemActivity.pedirPermissaoCameraSeNecessario()` antes da
-primeira leitura) e nenhum dos dois exige nenhum passo de
-ativação/licença separado de `Printer.getInstance()`/`CodeScanner.
-getInstance()`. Falta confirmar na prática:
+**O projeto já foi compilado de ponta a ponta com sucesso** (fora deste
+repositório, sem Android Studio -- JDK 17 + Android SDK cmdline-tools +
+Gradle 8.7 instalados avulsos só pra validar o build) e gera um APK de
+debug instalável. Três problemas reais foram encontrados e corrigidos
+nesse processo, documentados aqui porque não são óbvios e podem voltar
+se o SDK da Gertec for atualizado:
+
+1. **Comentário XML com `--`**: comentários `<!-- -- -->` no meio do
+   texto são inválidos por especificação do XML (só o `-->` final pode
+   ter `--`). Alguns comentários usavam "--" como travessão estilístico
+   -- trocados por vírgula/ponto-e-vírgula nos arquivos `.xml` (nos
+   `.kt`/`.gradle` não tem esse problema, `//` não liga pra isso).
+2. **Caminho do repositório com acento**: `.../Área de Trabalho/...`
+   contém caractere não-ASCII, e o Android Gradle Plugin recusa compilar
+   nesse caso por padrão. `android.overridePathCheck=true` em
+   `gradle.properties` (sugestão do próprio erro do AGP) resolve.
+3. **Classes duplicadas entre os dois AARs da Gertec**: `EasyLayer` (leitor)
+   e `GerSDKVarejo` (impressora) embutem, cada um, sua própria cópia de
+   bibliotecas internas de terceiros -- OpenCV (`org.opencv.*`), USB serial
+   (`com.felhr.*`) e um SDK Topwise (`com.topwise.*`/`com.android.topwise.*`,
+   dentro de `libs/TOPSDK_V3.6.4_20260319.jar`,
+   `libs/openv-android-3.4.1.jar` e `libs/usbserial.jar`, todos dentro do
+   `.aar` do GerSDKVarejo, não só no `classes.jar` principal). Usar os
+   dois AARs juntos falha o build com "Duplicate class". Como nada do
+   que a gente realmente usa (`Printer`, `TextFormat`, `BarcodeFormat`,
+   `BarcodeType`, `CutType` -- conferido com `javap`, nenhuma dessas
+   classes referencia opencv/felhr/topwise) depende desses 3 arquivos,
+   `app/libs/GerSDKVarejo_1_0_3.aar` neste repositório **já está sem
+   eles** (removidos do `.aar`, que é só um zip -- `NONPAYSDK_*.jar` e
+   `TSG810-Printer.jar`, que não duplicam nada, continuam intactos). Se
+   um dia a Gertec mandar uma versão nova do GerSDKVarejo, precisa repetir
+   esse mesmo tratamento antes de substituir o arquivo (abrir o `.aar`
+   como zip, conferir `libs/*.jar` com `jar tf` procurando por
+   `org/opencv`, `com/felhr`, `com/topwise`/`com/android/topwise`, e
+   remover os arquivos que só contêm isso).
+
+**Compila e gera APK** (confirmado); **ainda não testado no equipamento
+físico**. A integração foi escrita a partir dos exemplos oficiais da
+Gertec (mesma assinatura de métodos, de propósito, pra reduzir risco de
+divergir do que eles testaram), incluindo uma checagem já feita nos
+manifestos dos dois AARs (`app/libs/*.aar`, que são arquivos zip -- dá
+pra abrir com `unzip`): o leitor usa a câmera (`android.permission.
+CAMERA`, permissão "perigosa", pedida em tempo de execução por
+`TotemActivity.pedirPermissaoCameraSeNecessario()` antes da primeira
+leitura) e nenhum dos dois exige nenhum passo de ativação/licença
+separado de `Printer.getInstance()`/`CodeScanner.getInstance()`. Falta
+confirmar na prática:
 
 1. Se a bobina de papel está instalada antes de testar a impressão
    (senão falha por motivo trivial, não pela integração).

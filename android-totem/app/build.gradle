@@ -38,6 +38,12 @@ android {
 dependencies {
     implementation 'androidx.core:core-ktx:1.13.1'
     implementation 'androidx.appcompat:appcompat:1.7.0'
+    // Os layouts internos do AAR da EasyLayer (telas de leitura/diálogos
+    // do leitor) usam ConstraintLayout -- não é usado diretamente em
+    // nenhum layout nosso, mas precisa estar disponível pra resolver os
+    // atributos deles na hora de linkar os recursos (mesma dependência
+    // presente nos exemplos oficiais da Gertec).
+    implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
 
     // SDKs da Gertec pro SK210 (ver app/libs/) -- GerSDK Varejo pra
     // impressora térmica, EasyLayer pro leitor 1D/2D. Baixados do portal

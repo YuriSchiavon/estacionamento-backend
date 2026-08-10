@@ -2,7 +2,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
-    <!-- O leitor (EasyLayer/CodeScanner) usa a câmera -- já vem
+    <!-- O leitor (EasyLayer/CodeScanner) usa a câmera; já vem
          declarada no AAR deles (que se mescla aqui automaticamente),
          mas deixamos explícita também: é permissão "perigosa" (Android
          6+), precisa ser pedida em tempo de execução além de declarada

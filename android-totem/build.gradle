@@ -2,5 +2,9 @@
 // módulo :app, ver android-totem/app/build.gradle.
 plugins {
     id 'com.android.application' version '8.5.2' apply false
-    id 'org.jetbrains.kotlin.android' version '1.9.24' apply false
+    // As classes do SDK da Gertec (app/libs/*.aar) foram compiladas com
+    // metadata do Kotlin 2.2.0 -- precisa de um compilador Kotlin nessa
+    // versão ou mais nova pra conseguir ler, senão dá erro de "Class ...
+    // was compiled with an incompatible version of Kotlin".
+    id 'org.jetbrains.kotlin.android' version '2.1.20' apply false
 }
