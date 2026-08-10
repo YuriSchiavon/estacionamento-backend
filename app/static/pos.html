@@ -385,7 +385,12 @@
 document.addEventListener('contextmenu', e => e.preventDefault());
 
 const API = "";
-const CHAVE_SESSAO = 'sessao_pos';
+// Diferente das outras telas (totens, operação), o terminal POS NUNCA
+// guarda sessão entre carregamentos -- é um equipamento compartilhado
+// por vários colaboradores no mesmo turno, cada um precisa se
+// identificar de verdade toda vez (a própria batida de ponto depende
+// de saber quem é). Por isso `sessao` só existe em memória, nunca em
+// localStorage -- recarregar a página sempre volta pro login.
 let sessao = null;
 
 // "trocar conta" não desloga na hora -- só guarda a sessão atual aqui e
@@ -412,14 +417,6 @@ function cancelarTrocaDeConta(){
   document.getElementById('login-senha').value = '';
   document.getElementById('erro-login').style.display = 'none';
   mostrarTela();
-}
-
-function carregarSessao(){
-  const salva = localStorage.getItem(CHAVE_SESSAO);
-  if (salva) sessao = JSON.parse(salva);
-}
-function salvarSessao(){
-  localStorage.setItem(CHAVE_SESSAO, JSON.stringify(sessao));
 }
 
 function mostrarTela(){
@@ -519,7 +516,6 @@ async function resolverUnidadeOperacional(forcarSelecao){
     });
     if (resp.status === 401){
       sessao = null;
-      localStorage.removeItem(CHAVE_SESSAO);
       mostrarTela();
       return;
     }
@@ -531,14 +527,12 @@ async function resolverUnidadeOperacional(forcarSelecao){
     if (unidades.length === 0){
       alert('Esta conta não tem nenhuma unidade disponível.');
       sessao = null;
-      localStorage.removeItem(CHAVE_SESSAO);
       mostrarTela();
       return;
     }
     if (unidades.length === 1){
       sessao.unidade_operacional_id = unidades[0].id;
       sessao.unidade_operacional_nome = unidades[0].nome;
-      salvarSessao();
       mostrarTela();
       return;
     }
@@ -548,14 +542,12 @@ async function resolverUnidadeOperacional(forcarSelecao){
     }
     sessao.unidade_operacional_id = null;
     sessao.unidade_operacional_nome = null;
-    salvarSessao();
     const lista = document.getElementById('lista-unidades');
     lista.innerHTML = unidades.map(u => `<button class="btn-unidade" data-id="${u.id}" data-nome="${u.nome}">${u.nome}</button>`).join('');
     lista.querySelectorAll('.btn-unidade').forEach(btn => {
       btn.addEventListener('click', () => {
         sessao.unidade_operacional_id = parseInt(btn.dataset.id, 10);
         sessao.unidade_operacional_nome = btn.dataset.nome;
-        salvarSessao();
         mostrarTela();
       });
     });
@@ -565,9 +557,9 @@ async function resolverUnidadeOperacional(forcarSelecao){
   }
 }
 
-carregarSessao();
+// Sem restauro de sessão salva -- sempre começa no login (ver comentário
+// na declaração de `sessao`, acima).
 mostrarTela();
-if (sessao) resolverUnidadeOperacional(false);
 
 document.querySelectorAll('.toggle-senha').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -602,7 +594,6 @@ document.getElementById('btn-login').addEventListener('click', async () => {
       sessaoAnterior = null;
     }
     sessao = data;
-    salvarSessao();
     await resolverUnidadeOperacional(false);
   }catch(e){
     erro.textContent = e.message;
@@ -636,7 +627,6 @@ async function chamarApi(metodo, url, body){
   const data = await resp.json();
   if (resp.status === 401){
     sessao = null;
-    localStorage.removeItem(CHAVE_SESSAO);
     mostrarTela();
     throw new Error('Sessão expirada, faça login novamente.');
   }
