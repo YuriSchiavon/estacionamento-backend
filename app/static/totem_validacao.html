@@ -246,23 +246,16 @@
 
 <div id="tela-kiosk" style="display:none;width:100%;flex-direction:column;align-items:center;">
 
-  <div class="pagina ativa" id="pagina-menu">
-    <div class="menu-principal">
-      <button class="acao-menu" id="btn-menu-pagamento">Pagamento</button>
-      <button class="acao-menu secundaria-menu" id="btn-menu-validar">Validar Cupom</button>
-    </div>
-  </div>
-
-  <div class="pagina" id="pagina-validar">
+  <div class="pagina ativa" id="pagina-validar">
     <div class="titulo-pagina">Validar cupom</div>
 
     <div class="etapa-validar ativa" id="etapa-validar-ticket">
       <div class="passo-indicador">Passo 1 de 2</div>
       <div class="desc-pagina">Aproxime o ticket do leitor ou digite o código</div>
-      <input class="codigo" id="validar-codigo-ticket" placeholder="CÓDIGO DO TICKET">
+      <input class="codigo" id="validar-codigo-ticket" placeholder="CÓDIGO DO TICKET" autofocus>
       <div class="aviso-leitor" id="aviso-leitor-validar-ticket">📷 Leitor ativo -- aproxime o ticket</div>
       <div class="erro" id="erro-validar-ticket"></div>
-      <button class="secundaria" id="btn-voltar-validar">voltar</button>
+      <button class="secundaria" id="btn-pular-cupom">não tenho cupom, ir para pagamento</button>
     </div>
 
     <div class="etapa-validar" id="etapa-validar-qr">
@@ -296,7 +289,7 @@
     </div>
 
     <div class="resultado" id="resultado-pagamento"></div>
-    <button class="secundaria" id="btn-voltar-pagamento">voltar</button>
+    <button class="secundaria" id="btn-voltar-pagamento">voltar pro ticket</button>
   </div>
 
   <div class="rodape-conta">
@@ -416,7 +409,12 @@ function mostrarTela(){
     return;
   }
   document.getElementById('tela-kiosk').style.display = 'flex';
-  mostrarPagina('pagina-menu');
+  // O único botão inicial é ler o ticket -- não existe mais uma tela de
+  // menu escolhendo entre "Pagamento"/"Validar Cupom"; o fluxo padrão
+  // (ler ticket -> validar cupom) já encaminha pro pagamento sozinho
+  // quando o cupom não cobre a tolerância (ver processarLeituraCupom),
+  // e quem não tem cupom tem o atalho "não tenho cupom" no passo 1.
+  mostrarPagina('pagina-validar');
 }
 
 function mostrarPagina(id){
@@ -605,11 +603,24 @@ async function chamarApi(metodo, url, body){
   return data;
 }
 
-document.getElementById('btn-menu-pagamento').addEventListener('click', () => mostrarPagina('pagina-pagamento'));
-document.getElementById('btn-menu-validar').addEventListener('click', () => mostrarPagina('pagina-validar'));
-document.getElementById('btn-voltar-validar').addEventListener('click', () => mostrarPagina('pagina-menu'));
 document.getElementById('btn-voltar-etapa-ticket').addEventListener('click', () => mostrarEtapaValidar('ticket'));
-document.getElementById('btn-voltar-pagamento').addEventListener('click', () => mostrarPagina('pagina-menu'));
+document.getElementById('btn-voltar-pagamento').addEventListener('click', () => mostrarPagina('pagina-validar'));
+
+// Atalho pra quem não tem cupom fiscal pra validar -- reaproveita a
+// mesma tela/lógica de consulta de valor que "Pagamento" sempre usou,
+// só pré-preenchendo com o código já digitado no passo 1.
+document.getElementById('btn-pular-cupom').addEventListener('click', () => {
+  const codigoTicket = document.getElementById('validar-codigo-ticket').value.trim();
+  if (!codigoTicket){
+    const erro = document.getElementById('erro-validar-ticket');
+    erro.textContent = 'Informe o código do ticket.';
+    erro.style.display = 'block';
+    return;
+  }
+  mostrarPagina('pagina-pagamento');
+  document.getElementById('consulta-codigo').value = codigoTicket;
+  document.getElementById('btn-consultar').click();
+});
 
 // -----------------------------------------------------------------
 // Validar cupom -- extrai chave e valor automaticamente do conteúdo
@@ -654,7 +665,7 @@ async function processarLeituraCupom(){
       resultado.className = 'resultado show ok';
       resultado.textContent = 'Cupom validado! Você já pode seguir para a saída.';
       document.getElementById('validar-qr').value = '';
-      timeoutAutoReset = setTimeout(() => mostrarPagina('pagina-menu'), ATRASO_RESET_MS);
+      timeoutAutoReset = setTimeout(() => mostrarPagina('pagina-validar'), ATRASO_RESET_MS);
     }else{
       // Cupom não foi suficiente pra cobrir a tolerância (não se
       // enquadrou no regulamento de cobrança) -- vai direto pro
@@ -742,7 +753,7 @@ document.querySelectorAll('.btn-forma-pagamento').forEach(botao => {
       document.getElementById('valor-devido').className = 'valor-devido';
       document.getElementById('consulta-codigo').value = '';
       ticketAtual = null;
-      timeoutAutoReset = setTimeout(() => mostrarPagina('pagina-menu'), ATRASO_RESET_MS);
+      timeoutAutoReset = setTimeout(() => mostrarPagina('pagina-validar'), ATRASO_RESET_MS);
     }catch(e){
       resultado.className = 'resultado show err';
       resultado.textContent = e.message;

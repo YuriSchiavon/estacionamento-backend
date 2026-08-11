@@ -2,9 +2,11 @@ package com.mypark.totem
 
 import android.content.Intent
 import android.os.Bundle
+import android.text.InputType
 import android.view.View
 import android.widget.Button
 import android.widget.EditText
+import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
@@ -41,6 +43,7 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         findViewById<Button>(R.id.btn_login).setOnClickListener { tentarLogin() }
+        findViewById<ImageButton>(R.id.btn_toggle_senha).setOnClickListener { alternarVisibilidadeSenha() }
         findViewById<Button>(R.id.btn_entrada).setOnClickListener { abrirTotem(Config.URL_ENTRADA) }
         findViewById<Button>(R.id.btn_saida).setOnClickListener { abrirTotem(Config.URL_SAIDA) }
         findViewById<Button>(R.id.btn_validacao).setOnClickListener { abrirTotem(Config.URL_VALIDACAO) }
@@ -63,7 +66,30 @@ class MainActivity : AppCompatActivity() {
         podeLiberarManualmente = false
         unidadeOperacionalId = null
         unidadeOperacionalNome = null
-        findViewById<EditText>(R.id.login_senha).setText("")
+        val campoSenha = findViewById<EditText>(R.id.login_senha)
+        campoSenha.setText("")
+        campoSenha.inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+        findViewById<ImageButton>(R.id.btn_toggle_senha).setImageResource(R.drawable.ic_olho)
+    }
+
+    // Alterna o campo de senha entre oculto e visível (ícone de olho),
+    // igual ao padrão já usado nas páginas web (ver toggle-senha em
+    // app/static/totem_*.html).
+    private fun alternarVisibilidadeSenha() {
+        val campo = findViewById<EditText>(R.id.login_senha)
+        val botao = findViewById<ImageButton>(R.id.btn_toggle_senha)
+        val selecaoAtual = campo.selectionStart.coerceAtLeast(0)
+        val oculta = campo.inputType and InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD == 0
+        if (oculta) {
+            campo.inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
+            botao.setImageResource(R.drawable.ic_olho_fechado)
+            botao.contentDescription = getString(R.string.ocultar_senha)
+        } else {
+            campo.inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+            botao.setImageResource(R.drawable.ic_olho)
+            botao.contentDescription = getString(R.string.mostrar_senha)
+        }
+        campo.setSelection(selecaoAtual)
     }
 
     private fun mostrarTela(tela: String) {

@@ -10,4 +10,6 @@
     <string name="btn_entrada">Entrada</string>
     <string name="btn_saida">Saída</string>
     <string name="btn_validacao">Validação</string>
+    <string name="mostrar_senha">Mostrar senha</string>
+    <string name="ocultar_senha">Ocultar senha</string>
 </resources>

@@ -1,10 +1,15 @@
 package com.mypark.totem
 
+import android.Manifest
 import android.app.Activity
+import android.content.pm.PackageManager
+import android.os.Handler
+import android.os.Looper
 import android.speech.tts.TextToSpeech
 import android.util.Log
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
+import androidx.core.content.ContextCompat
 import br.com.gertec.easylayer.codescanner.CodeScanner
 import br.com.gertec.gdk.printer.Alignment
 import br.com.gertec.gdk.printer.BarcodeFormat
@@ -36,10 +41,27 @@ import java.util.Locale
 class AndroidBridge(private val activity: Activity, private val webView: WebView) : Printer.Listener {
 
     private val TAG = "AndroidBridge"
+    private val TIMEOUT_WATCHDOG_MS = 5000L
 
     private val printer: Printer = Printer.getInstance(activity, this)
     private val codeScanner: CodeScanner = CodeScanner.getInstance(activity)
     private var tts: TextToSpeech? = null
+    private val handler = Handler(Looper.getMainLooper())
+
+    // Testado no equipamento em 11/08/2026: o áudio de boas-vindas saía
+    // uns 4s atrasado, porque o TextToSpeech só era criado na primeira
+    // chamada de tocarBoasVindas() -- bem no momento em que o ticket
+    // acabou de sair, quando a inicialização do engine (que não é
+    // instantânea) já é o gargalo. Pré-aquece aqui, assim que a ponte é
+    // criada (bem antes de qualquer ticket ser emitido), pra já estar
+    // pronto na hora.
+    init {
+        tts = TextToSpeech(activity) { status ->
+            if (status == TextToSpeech.SUCCESS) {
+                tts?.language = Locale("pt", "BR")
+            }
+        }
+    }
 
     /**
      * Repassa uma mensagem de erro pra página web mostrar na tela --
@@ -132,13 +154,49 @@ class AndroidBridge(private val activity: Activity, private val webView: WebView
     // definido em cada página de totem que aceita leitura. pararLeitura()
     // é chamada ao trocar de tela (ver mostrarPagina() nas páginas) e no
     // onPause da activity, pra nunca deixar a câmera ligada à toa.
+    //
+    // Testado ao vivo no SK210 em 11/08/2026: o leitor acendia a luz mas
+    // nunca lia nada. Investigando o bytecode da EasyLayer, o scanCode()
+    // desse aparelho passa por com.topwise.cloudpos.service.
+    // DeviceServiceManager -- um bind com um serviço do sistema que
+    // provavelmente é assíncrono. Duas corridas plausíveis explicam o
+    // sintoma: (1) scanCode() sendo chamado antes da permissão de câmera
+    // ter sido concedida (comum bem na instalação nova do app, com o
+    // diálogo do Android ainda pendente -- ver checagem abaixo) e (2)
+    // scanCode() chamado antes desse bind interno terminar, ficando
+    // "preso" sem decodificar (ver watchdog abaixo).
     // ---------------------------------------------------------------
+
+    private var leituraPendenteAposPermissao = false
+    private var leituraAguardandoResultado = false
+    private val watchdogLeitura = Runnable {
+        if (leituraAguardandoResultado) {
+            Log.w(TAG, "Nenhuma leitura em ${TIMEOUT_WATCHDOG_MS}ms -- reiniciando o leitor")
+            reiniciarLeituraSilenciosa()
+        }
+    }
 
     @JavascriptInterface
     fun iniciarLeitura() {
         activity.runOnUiThread {
+            if (ContextCompat.checkSelfPermission(activity, Manifest.permission.CAMERA)
+                != PackageManager.PERMISSION_GRANTED
+            ) {
+                // Câmera ainda não foi liberada -- chamar scanCode() aqui
+                // sempre falhava silenciosamente nesse caso. Marca a
+                // leitura como pendente; TotemActivity retoma sozinha via
+                // retomarLeituraSePendente() assim que a permissão for
+                // concedida (ver onRequestPermissionsResult).
+                leituraPendenteAposPermissao = true
+                Log.w(TAG, "Leitura pedida sem permissão de câmera ainda -- aguardando")
+                return@runOnUiThread
+            }
+            leituraPendenteAposPermissao = false
             try {
                 codeScanner.scanCode(activity)
+                leituraAguardandoResultado = true
+                handler.removeCallbacks(watchdogLeitura)
+                handler.postDelayed(watchdogLeitura, TIMEOUT_WATCHDOG_MS)
             } catch (e: Exception) {
                 Log.e(TAG, "Erro ao iniciar leitura", e)
                 avisarErroNaPagina("Erro ao ligar o leitor: ${e.message}")
@@ -146,9 +204,35 @@ class AndroidBridge(private val activity: Activity, private val webView: WebView
         }
     }
 
+    private fun reiniciarLeituraSilenciosa() {
+        try {
+            codeScanner.stopService()
+            codeScanner.scanCode(activity)
+            handler.postDelayed(watchdogLeitura, TIMEOUT_WATCHDOG_MS)
+        } catch (e: Exception) {
+            Log.e(TAG, "Erro ao reiniciar leitura", e)
+        }
+    }
+
+    /** Chamada por TotemActivity quando a permissão de câmera acaba de ser concedida. */
+    fun retomarLeituraSePendente() {
+        if (leituraPendenteAposPermissao) {
+            iniciarLeitura()
+        }
+    }
+
+    /** Chamada por TotemActivity.onActivityResult assim que um código chega -- desarma o watchdog. */
+    fun notificarLeituraRecebida() {
+        leituraAguardandoResultado = false
+        handler.removeCallbacks(watchdogLeitura)
+    }
+
     @JavascriptInterface
     fun pararLeitura() {
         activity.runOnUiThread {
+            leituraPendenteAposPermissao = false
+            leituraAguardandoResultado = false
+            handler.removeCallbacks(watchdogLeitura)
             try {
                 codeScanner.stopService()
             } catch (e: Exception) {
@@ -167,16 +251,7 @@ class AndroidBridge(private val activity: Activity, private val webView: WebView
     fun tocarBoasVindas() {
         activity.runOnUiThread {
             try {
-                if (tts == null) {
-                    tts = TextToSpeech(activity) { status ->
-                        if (status == TextToSpeech.SUCCESS) {
-                            tts?.language = Locale("pt", "BR")
-                            tts?.speak("Seja bem-vindo", TextToSpeech.QUEUE_FLUSH, null, "boas-vindas")
-                        }
-                    }
-                } else {
-                    tts?.speak("Seja bem-vindo", TextToSpeech.QUEUE_FLUSH, null, "boas-vindas")
-                }
+                tts?.speak("Seja bem-vindo", TextToSpeech.QUEUE_FLUSH, null, "boas-vindas")
             } catch (e: Exception) {
                 Log.e(TAG, "Erro ao tocar áudio de boas-vindas", e)
             }
@@ -184,6 +259,7 @@ class AndroidBridge(private val activity: Activity, private val webView: WebView
     }
 
     fun liberarRecursos() {
+        handler.removeCallbacksAndMessages(null)
         tts?.stop()
         tts?.shutdown()
         tts = null

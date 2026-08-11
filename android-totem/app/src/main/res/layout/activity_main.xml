@@ -9,14 +9,14 @@
     <ScrollView
         android:id="@+id/tela_login"
         android:layout_width="match_parent"
-        android:layout_height="match_parent">
+        android:layout_height="match_parent"
+        android:fillViewport="true">
         <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
+            android:layout_height="match_parent"
             android:orientation="vertical"
             android:gravity="center"
-            android:padding="32dp"
-            android:minHeight="600dp">
+            android:padding="32dp">
 
             <TextView
                 android:layout_width="wrap_content"
@@ -40,18 +40,37 @@
                 android:inputType="text"
                 android:maxLines="1" />
 
-            <EditText
-                android:id="@+id/login_senha"
+            <FrameLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="8dp"
-                android:padding="16dp"
-                android:hint="@string/hint_senha"
-                android:textColorHint="@color/texto_secundario"
-                android:textColor="@color/texto_claro"
-                android:background="@color/navy_card"
-                android:inputType="textPassword"
-                android:maxLines="1" />
+                android:layout_marginBottom="8dp">
+
+                <EditText
+                    android:id="@+id/login_senha"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:paddingStart="16dp"
+                    android:paddingEnd="52dp"
+                    android:paddingTop="16dp"
+                    android:paddingBottom="16dp"
+                    android:hint="@string/hint_senha"
+                    android:textColorHint="@color/texto_secundario"
+                    android:textColor="@color/texto_claro"
+                    android:background="@color/navy_card"
+                    android:inputType="textPassword"
+                    android:maxLines="1" />
+
+                <ImageButton
+                    android:id="@+id/btn_toggle_senha"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:layout_gravity="end|center_vertical"
+                    android:layout_marginEnd="4dp"
+                    android:background="?android:attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="@string/mostrar_senha"
+                    android:src="@drawable/ic_olho" />
+
+            </FrameLayout>
 
             <TextView
                 android:id="@+id/login_erro"
@@ -132,51 +151,79 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="6dp"
-            android:layout_marginBottom="40dp"
+            android:layout_marginBottom="24dp"
             android:text="@string/subtitulo_escolha"
             android:textColor="@color/texto_secundario"
             android:textSize="14sp" />
 
-        <Button
-            android:id="@+id/btn_entrada"
+        <!-- Os 3 botões dividem igualmente o espaço vertical restante
+             (layout_weight), em vez de padding fixo, assim se ajustam
+             sozinhos a qualquer altura de tela, sem sobrar nem faltar
+             espaço dependendo do equipamento. autoSizeTextType encolhe o
+             texto se a tela for baixa/estreita demais pro tamanho padrão. -->
+        <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="20dp"
-            android:padding="28dp"
-            android:text="@string/btn_entrada"
-            android:textSize="22sp"
-            android:textStyle="bold"
-            android:textColor="@color/navy"
-            android:backgroundTint="@color/lime"
-            android:drawableStart="@drawable/ic_seta_cima"
-            android:drawablePadding="14dp" />
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:orientation="vertical">
 
-        <Button
-            android:id="@+id/btn_saida"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="20dp"
-            android:padding="28dp"
-            android:text="@string/btn_saida"
-            android:textSize="22sp"
-            android:textStyle="bold"
-            android:textColor="@color/navy"
-            android:backgroundTint="@color/lime"
-            android:drawableStart="@drawable/ic_seta_baixo"
-            android:drawablePadding="14dp" />
+            <Button
+                android:id="@+id/btn_entrada"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:layout_marginBottom="16dp"
+                android:paddingStart="28dp"
+                android:paddingEnd="28dp"
+                android:text="@string/btn_entrada"
+                android:textSize="22sp"
+                android:textStyle="bold"
+                android:textColor="@color/navy"
+                android:backgroundTint="@color/lime"
+                android:drawableStart="@drawable/ic_seta_cima"
+                android:drawablePadding="14dp"
+                android:autoSizeTextType="uniform"
+                android:autoSizeMinTextSize="14sp"
+                android:autoSizeMaxTextSize="22sp" />
 
-        <Button
-            android:id="@+id/btn_validacao"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:padding="28dp"
-            android:text="@string/btn_validacao"
-            android:textSize="22sp"
-            android:textStyle="bold"
-            android:textColor="@color/navy"
-            android:backgroundTint="@color/lime"
-            android:drawableStart="@drawable/ic_check"
-            android:drawablePadding="14dp" />
+            <Button
+                android:id="@+id/btn_saida"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:layout_marginBottom="16dp"
+                android:paddingStart="28dp"
+                android:paddingEnd="28dp"
+                android:text="@string/btn_saida"
+                android:textSize="22sp"
+                android:textStyle="bold"
+                android:textColor="@color/navy"
+                android:backgroundTint="@color/lime"
+                android:drawableStart="@drawable/ic_seta_baixo"
+                android:drawablePadding="14dp"
+                android:autoSizeTextType="uniform"
+                android:autoSizeMinTextSize="14sp"
+                android:autoSizeMaxTextSize="22sp" />
+
+            <Button
+                android:id="@+id/btn_validacao"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:paddingStart="28dp"
+                android:paddingEnd="28dp"
+                android:text="@string/btn_validacao"
+                android:textSize="22sp"
+                android:textStyle="bold"
+                android:textColor="@color/navy"
+                android:backgroundTint="@color/lime"
+                android:drawableStart="@drawable/ic_check"
+                android:drawablePadding="14dp"
+                android:autoSizeTextType="uniform"
+                android:autoSizeMinTextSize="14sp"
+                android:autoSizeMaxTextSize="22sp" />
+
+        </LinearLayout>
 
     </LinearLayout>
 

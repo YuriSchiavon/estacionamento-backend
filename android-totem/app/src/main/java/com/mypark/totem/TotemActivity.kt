@@ -128,6 +128,7 @@ class TotemActivity : AppCompatActivity() {
         val conteudo = data.getStringExtra("content")
         if (conteudo.isNullOrBlank()) return
 
+        androidBridge.notificarLeituraRecebida()
         val chamada = "if (window.receberCodigoLido) { window.receberCodigoLido(${JSONObject.quote(conteudo)}); }"
         webView.evaluateJavascript(chamada) { }
         Log.i("TotemActivity", "Código lido repassado pra página")
@@ -159,6 +160,11 @@ class TotemActivity : AppCompatActivity() {
         if (requestCode == REQUEST_CODE_CAMERA) {
             val concedida = grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED
             Log.i("TotemActivity", "Permissão de câmera: ${if (concedida) "concedida" else "negada"}")
+            // Testado ao vivo: numa instalação nova, a página costuma pedir
+            // pra escanear antes desse diálogo ser respondido -- essa
+            // chamada retoma a leitura que ficou pendente (ver
+            // AndroidBridge.iniciarLeitura()/retomarLeituraSePendente()).
+            if (concedida) androidBridge.retomarLeituraSePendente()
         }
     }
 
