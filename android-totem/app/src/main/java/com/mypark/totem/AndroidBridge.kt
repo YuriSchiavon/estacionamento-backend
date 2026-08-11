@@ -11,6 +11,8 @@ import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import androidx.core.content.ContextCompat
 import br.com.gertec.easylayer.codescanner.CodeScanner
+import br.com.gertec.easylayer.codescanner.ScanConfig
+import br.com.gertec.easylayer.codescanner.ScanMode
 import br.com.gertec.gdk.printer.Alignment
 import br.com.gertec.gdk.printer.BarcodeFormat
 import br.com.gertec.gdk.printer.BarcodeType
@@ -155,17 +157,38 @@ class AndroidBridge(private val activity: Activity, private val webView: WebView
     // é chamada ao trocar de tela (ver mostrarPagina() nas páginas) e no
     // onPause da activity, pra nunca deixar a câmera ligada à toa.
     //
-    // Testado ao vivo no SK210 em 11/08/2026: o leitor acendia a luz mas
-    // nunca lia nada. Investigando o bytecode da EasyLayer, o scanCode()
-    // desse aparelho passa por com.topwise.cloudpos.service.
-    // DeviceServiceManager -- um bind com um serviço do sistema que
-    // provavelmente é assíncrono. Duas corridas plausíveis explicam o
-    // sintoma: (1) scanCode() sendo chamado antes da permissão de câmera
-    // ter sido concedida (comum bem na instalação nova do app, com o
-    // diálogo do Android ainda pendente -- ver checagem abaixo) e (2)
-    // scanCode() chamado antes desse bind interno terminar, ficando
-    // "preso" sem decodificar (ver watchdog abaixo).
+    // BUG CONFIRMADO na SDK (decompilado o .aar em 11/08/2026, EasyLayer
+    // v219): a assinatura simples `codeScanner.scanCode(activity)` --
+    // usada tanto por nós quanto pelo exemplo OFICIAL da Gertec -- nunca
+    // funciona de verdade. `CodeScanner` guarda um campo interno
+    // `scanConfig` que só é inicializado por `scanCodeFebraban(...)`
+    // (um fluxo que ninguém chama aqui); no caminho `scanCode(activity)`
+    // esse campo continua `null` pra sempre, e é repassado direto pra
+    // `Scanner.getDecodeParameter(scanConfig, ...)`, que na primeira
+    // linha chama `scanConfig.getScanMode()` sem checar null --
+    // NullPointerException garantida, sem nenhum catch nesse caminho até
+    // voltar pra cá. É por isso que o leitor "liga" (a câmera/luz chega a
+    // acender, já que isso acontece antes do crash) mas nunca lê nada.
+    // Fix: usar a assinatura `scanCode(activity, ScanConfig, Collection)`
+    // com um ScanConfig de verdade (ver scanConfigPadrao/tiposCodigo
+    // abaixo) -- essa não depende do campo interno quebrado.
     // ---------------------------------------------------------------
+
+    private val tiposCodigo: List<String> = ArrayList<String>().apply {
+        addAll(CodeScanner.SCAN_1D)
+        addAll(CodeScanner.SCAN_2D)
+    }
+
+    private val scanConfigPadrao = ScanConfig().apply {
+        scanMode = ScanMode.MODE_CONTINUE_SCAN_CODE
+        timeout = 10000L
+        intervalTime = 200
+        isAutoDetect = true
+        // ScanConfig tem getBeepEnabled() E isBeepEnabled() ao mesmo tempo
+        // (SDK inconsistente) -- chama o setter direto pra não depender de
+        // qual getter o Kotlin decide sintetizar como propriedade.
+        setBeepEnabled(true)
+    }
 
     private var leituraPendenteAposPermissao = false
     private var leituraAguardandoResultado = false
@@ -193,7 +216,7 @@ class AndroidBridge(private val activity: Activity, private val webView: WebView
             }
             leituraPendenteAposPermissao = false
             try {
-                codeScanner.scanCode(activity)
+                codeScanner.scanCode(activity, scanConfigPadrao, tiposCodigo)
                 leituraAguardandoResultado = true
                 handler.removeCallbacks(watchdogLeitura)
                 handler.postDelayed(watchdogLeitura, TIMEOUT_WATCHDOG_MS)
@@ -207,7 +230,7 @@ class AndroidBridge(private val activity: Activity, private val webView: WebView
     private fun reiniciarLeituraSilenciosa() {
         try {
             codeScanner.stopService()
-            codeScanner.scanCode(activity)
+            codeScanner.scanCode(activity, scanConfigPadrao, tiposCodigo)
             handler.postDelayed(watchdogLeitura, TIMEOUT_WATCHDOG_MS)
         } catch (e: Exception) {
             Log.e(TAG, "Erro ao reiniciar leitura", e)
