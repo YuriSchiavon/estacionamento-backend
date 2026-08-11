@@ -14,6 +14,7 @@ import android.view.WindowManager
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -51,6 +52,18 @@ class TotemActivity : AppCompatActivity() {
         setContentView(R.layout.activity_totem)
         ativarTelaCheia()
         pedirPermissaoCameraSeNecessario()
+
+        // Testado no equipamento em 11/08/2026: o override do método
+        // onBackPressed() antigo (deprecated) NÃO estava consumindo o
+        // botão voltar físico -- o app caía de volta pra tela de login.
+        // Registrar um OnBackPressedCallback (API atual do
+        // androidx.activity) é a forma correta e garante que o botão
+        // voltar não faça nada aqui, como já era a intenção.
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                // no-op de propósito -- ver docstring da classe
+            }
+        })
 
         val url = intent.getStringExtra(EXTRA_URL) ?: Config.URL_ENTRADA
 
@@ -193,13 +206,5 @@ class TotemActivity : AppCompatActivity() {
             try { stopLockTask() } catch (e: Exception) { }
         }
         finish()
-    }
-
-    // Modo quiosque consome o botão voltar de propósito -- as telas de
-    // totem não têm navegação por histórico própria (são cada uma uma
-    // "máquina de páginas" controlada só por toque, ver
-    // app/static/totem_*.html), então "voltar" nunca deveria fazer nada.
-    @Suppress("MissingSuperCall", "OVERRIDE_DEPRECATION")
-    override fun onBackPressed() {
     }
 }

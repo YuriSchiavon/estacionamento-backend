@@ -75,7 +75,13 @@ class AndroidBridge(private val activity: Activity, private val webView: WebView
     fun scrollPaper() {
         activity.runOnUiThread {
             try {
-                printer.scrollPaper(20)
+                // Testado no equipamento em 11/08/2026: com scrollPaper(20) o
+                // corte saía colado no QR code, sem nenhuma margem (a SDK não
+                // documenta a unidade). 80 é uma estimativa pra ~1cm supondo
+                // 203dpi/8 dots-mm (padrão comum de impressora térmica de
+                // recibo) -- conferir no próximo teste físico e ajustar esse
+                // número se ainda não bater 1cm de sobra antes do corte.
+                printer.scrollPaper(80)
             } catch (e: Exception) {
                 Log.e(TAG, "Erro ao avançar papel", e)
             }
