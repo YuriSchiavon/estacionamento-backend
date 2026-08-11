@@ -10,9 +10,6 @@ import android.util.Log
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import androidx.core.content.ContextCompat
-import br.com.gertec.easylayer.codescanner.CodeScanner
-import br.com.gertec.easylayer.codescanner.ScanConfig
-import br.com.gertec.easylayer.codescanner.ScanMode
 import br.com.gertec.gdk.printer.Alignment
 import br.com.gertec.gdk.printer.BarcodeFormat
 import br.com.gertec.gdk.printer.BarcodeType
@@ -20,6 +17,11 @@ import br.com.gertec.gdk.printer.CutType
 import br.com.gertec.gdk.printer.Printer
 import br.com.gertec.gdk.printer.PrinterError
 import br.com.gertec.gdk.printer.TextFormat
+import com.topwise.cloudpos.aidl.camera.AidlCameraScanCode
+import com.topwise.cloudpos.aidl.camera.AidlDecodeCallBack
+import com.topwise.cloudpos.aidl.camera.DecodeMode
+import com.topwise.cloudpos.aidl.camera.DecodeParameter
+import com.topwise.cloudpos.service.DeviceServiceManager
 import org.json.JSONObject
 import java.util.Locale
 
@@ -31,14 +33,15 @@ import java.util.Locale
  * quando essa ponte existe.
  *
  * Impressora: br.com.gertec.gdk.printer.* (SDK "GerSDK Varejo", AAR em
- * app/libs/GerSDKVarejo_1_0_3.aar). Leitor: br.com.gertec.easylayer.
- * codescanner.CodeScanner (SDK "EasyLayer", AAR em
- * app/libs/EasyLayer_SK210_v219_release.aar). Ambos baixados do portal
- * de desenvolvedor da Gertec (gertec.atlassian.net) a partir dos
- * exemplos oficiais "Micro exemplo de impressão com WebView - GERSDK" e
- * "Micro exemplo Scanner - SK210" -- a assinatura dos métodos abaixo
- * segue esses exemplos de perto de propósito, em vez de uma API
- * inventada, pra reduzir risco de divergir do que a Gertec testou.
+ * app/libs/GerSDKVarejo_1_0_3.aar) -- essa parte segue de perto o
+ * exemplo oficial da Gertec ("Micro exemplo de impressão com WebView -
+ * GERSDK") e funciona (impressora testada e confirmada ao vivo).
+ *
+ * Leitor: fala DIRETO com o serviço de sistema da Topwise (fabricante do
+ * hardware por trás do SK210) via com.topwise.cloudpos.aidl.camera.* --
+ * ver o bloco de comentário grande logo antes de dispararLeitura() pra
+ * entender por que a gente não usa mais o wrapper CodeScanner/Scanner da
+ * SDK EasyLayer da Gertec pra isso.
  */
 class AndroidBridge(private val activity: Activity, private val webView: WebView) : Printer.Listener {
 
@@ -46,9 +49,10 @@ class AndroidBridge(private val activity: Activity, private val webView: WebView
     private val TIMEOUT_WATCHDOG_MS = 5000L
 
     private val printer: Printer = Printer.getInstance(activity, this)
-    private val codeScanner: CodeScanner = CodeScanner.getInstance(activity)
     private var tts: TextToSpeech? = null
     private val handler = Handler(Looper.getMainLooper())
+    private val deviceServiceManager = DeviceServiceManager.getInstance()
+    private var cameraManager: AidlCameraScanCode? = null
 
     // Testado no equipamento em 11/08/2026: o áudio de boas-vindas saía
     // uns 4s atrasado, porque o TextToSpeech só era criado na primeira
@@ -62,6 +66,13 @@ class AndroidBridge(private val activity: Activity, private val webView: WebView
             if (status == TextToSpeech.SUCCESS) {
                 tts?.language = Locale("pt", "BR")
             }
+        }
+        try {
+            deviceServiceManager.init(activity)
+            cameraManager = deviceServiceManager.getCameraManager()
+            Log.i(TAG, "cameraManager inicializado: ${cameraManager != null}")
+        } catch (e: Exception) {
+            Log.e(TAG, "Erro ao inicializar o gerenciador de câmera da Topwise", e)
         }
     }
 
@@ -152,42 +163,74 @@ class AndroidBridge(private val activity: Activity, private val webView: WebView
     // Leitor -- NÃO funciona como teclado (testado e confirmado): as
     // páginas precisam pedir ativamente pra escanear. iniciarLeitura()
     // liga a câmera/leitor em modo contínuo; cada código lido volta pro
-    // JS via TotemActivity.onActivityResult -> receberCodigoLido(),
-    // definido em cada página de totem que aceita leitura. pararLeitura()
-    // é chamada ao trocar de tela (ver mostrarPagina() nas páginas) e no
-    // onPause da activity, pra nunca deixar a câmera ligada à toa.
+    // JS via receberCodigoLido(), definido em cada página de totem que
+    // aceita leitura. pararLeitura() é chamada ao trocar de tela (ver
+    // mostrarPagina() nas páginas) e no onPause da activity, pra nunca
+    // deixar a câmera ligada à toa.
     //
-    // BUG CONFIRMADO na SDK (decompilado o .aar em 11/08/2026, EasyLayer
-    // v219): a assinatura simples `codeScanner.scanCode(activity)` --
-    // usada tanto por nós quanto pelo exemplo OFICIAL da Gertec -- nunca
-    // funciona de verdade. `CodeScanner` guarda um campo interno
-    // `scanConfig` que só é inicializado por `scanCodeFebraban(...)`
-    // (um fluxo que ninguém chama aqui); no caminho `scanCode(activity)`
-    // esse campo continua `null` pra sempre, e é repassado direto pra
-    // `Scanner.getDecodeParameter(scanConfig, ...)`, que na primeira
-    // linha chama `scanConfig.getScanMode()` sem checar null --
-    // NullPointerException garantida, sem nenhum catch nesse caminho até
-    // voltar pra cá. É por isso que o leitor "liga" (a câmera/luz chega a
-    // acender, já que isso acontece antes do crash) mas nunca lê nada.
-    // Fix: usar a assinatura `scanCode(activity, ScanConfig, Collection)`
-    // com um ScanConfig de verdade (ver scanConfigPadrao/tiposCodigo
-    // abaixo) -- essa não depende do campo interno quebrado.
+    // HISTÓRICO DA INVESTIGAÇÃO (decompilado o .aar em 11/08/2026,
+    // EasyLayer v219): a princípio usávamos CodeScanner/Scanner (a SDK
+    // "EasyLayer" da Gertec). Achamos e corrigimos um bug real ali
+    // (scanCode(activity) nunca inicializava o campo scanConfig,
+    // NullPointerException garantida) -- mas mesmo depois de corrigir
+    // isso, o leitor continuou "ligando" (câmera/luz ativa, piscando)
+    // sem nunca decodificar nada. Cavando mais fundo, achamos por quê
+    // dessa vez é praticamente impossível saber COM CERTEZA sem decompilar
+    // de novo: o callback interno da EasyLayer (Scanner$1) trata erro de
+    // decodificação (onError) mostrando só um Toast do Android que a
+    // gente não tem nenhuma forma de interceptar, e o código de retorno
+    // de startDecode() (que indicaria se o pedido foi aceito ou recusado)
+    // é descartado (`pop` logo depois da chamada, no bytecode) -- ou
+    // seja, mesmo com o NPE corrigido, continuávamos sem nenhuma
+    // visibilidade real do que estava de fato acontecendo internamente.
+    //
+    // Por isso agora pulamos o wrapper EasyLayer inteiro pro leitor e
+    // falamos direto com o serviço de sistema da própria Topwise
+    // (fabricante do hardware por trás do SK210) via
+    // com.topwise.cloudpos.aidl.camera.* -- são classes públicas que já
+    // vêm dentro do próprio .aar da EasyLayer (libs/TOPSDK_*.jar), não é
+    // dependência nova. Com nosso próprio AidlDecodeCallBack, onError()
+    // e o código de retorno de startDecode() finalmente aparecem de
+    // verdade na tela via avisarErroNaPagina(), em vez de sumirem num
+    // Toast que ninguém vê.
     // ---------------------------------------------------------------
 
-    private val tiposCodigo: List<String> = ArrayList<String>().apply {
-        addAll(CodeScanner.SCAN_1D)
-        addAll(CodeScanner.SCAN_2D)
-    }
+    // Nomes EXATOS que o decodificador da Topwise espera (achados
+    // decompilando Scanner.allCodes/getCodes -- não são os mesmos nomes
+    // que a EasyLayer expõe como constantes públicas, tipo "QR_CODE").
+    // "QR CODE" cobre tanto o próprio ticket (impresso como QR, ver
+    // printCode() acima) quanto o QR da nota fiscal na tela de
+    // validação; o resto cobre os formatos 1D mais comuns, por garantia.
+    private val tiposCodigoSuportados = listOf(
+        "QR CODE", "AZTEC", "DATA MATRIX", "MAXICODE", "PDF417",
+        "C128", "C39", "C93", "EAN-13", "EAN-8", "I25", "Codabar",
+        "UPC-A", "UPC-E", "GS1 DATABAR",
+    )
 
-    private val scanConfigPadrao = ScanConfig().apply {
-        scanMode = ScanMode.MODE_CONTINUE_SCAN_CODE
-        timeout = 10000L
-        intervalTime = 200
-        isAutoDetect = true
-        // ScanConfig tem getBeepEnabled() E isBeepEnabled() ao mesmo tempo
-        // (SDK inconsistente) -- chama o setter direto pra não depender de
-        // qual getter o Kotlin decide sintetizar como propriedade.
-        setBeepEnabled(true)
+    private val callbackLeitura = object : AidlDecodeCallBack.Stub() {
+        override fun onResult(resultado: String?) {
+            // Roda numa thread de Binder, não na UI -- nunca mexer na
+            // WebView direto aqui fora do runOnUiThread.
+            if (resultado.isNullOrBlank()) return
+            Log.i(TAG, "onResult do leitor: código lido")
+            activity.runOnUiThread {
+                notificarLeituraRecebida()
+                val chamada = "if (window.receberCodigoLido) { window.receberCodigoLido(${JSONObject.quote(resultado)}); }"
+                webView.evaluateJavascript(chamada) { }
+            }
+        }
+
+        override fun onError(codigoErro: Int) {
+            // Esse é exatamente o retorno que a EasyLayer engolia num
+            // Toast interno inacessível -- agora chega de verdade na tela.
+            Log.e(TAG, "onError do leitor: código=$codigoErro")
+            avisarErroNaPagina("Erro do leitor (código $codigoErro)")
+        }
+
+        override fun onPreview(dados: ByteArray?, largura: Int, altura: Int) {
+            // Sem preview visual na tela -- só precisamos do resultado
+            // decodificado, não da imagem crua da câmera.
+        }
     }
 
     private var leituraPendenteAposPermissao = false
@@ -205,7 +248,7 @@ class AndroidBridge(private val activity: Activity, private val webView: WebView
             if (ContextCompat.checkSelfPermission(activity, Manifest.permission.CAMERA)
                 != PackageManager.PERMISSION_GRANTED
             ) {
-                // Câmera ainda não foi liberada -- chamar scanCode() aqui
+                // Câmera ainda não foi liberada -- chamar startDecode() aqui
                 // sempre falhava silenciosamente nesse caso. Marca a
                 // leitura como pendente; TotemActivity retoma sozinha via
                 // retomarLeituraSePendente() assim que a permissão for
@@ -215,26 +258,50 @@ class AndroidBridge(private val activity: Activity, private val webView: WebView
                 return@runOnUiThread
             }
             leituraPendenteAposPermissao = false
-            try {
-                codeScanner.scanCode(activity, scanConfigPadrao, tiposCodigo)
-                leituraAguardandoResultado = true
-                handler.removeCallbacks(watchdogLeitura)
-                handler.postDelayed(watchdogLeitura, TIMEOUT_WATCHDOG_MS)
-            } catch (e: Exception) {
-                Log.e(TAG, "Erro ao iniciar leitura", e)
-                avisarErroNaPagina("Erro ao ligar o leitor: ${e.message}")
+            dispararLeitura()
+        }
+    }
+
+    private fun dispararLeitura() {
+        val camera = cameraManager
+        if (camera == null) {
+            Log.e(TAG, "cameraManager é nulo -- getCameraManager() da Topwise não retornou instância")
+            avisarErroNaPagina("Leitor indisponível (gerenciador de câmera não inicializou)")
+            return
+        }
+        val parametro = DecodeParameter().apply {
+            setDecodeMode(DecodeMode.MODE_CONTINUE_SCAN_CODE)
+            setDecodeIntervalTime(200)
+            setDecodeSingleTimeout(10000)
+            setFlashLightTimeout(0)
+            setAutoDetect(1)
+            setSupportCodeTypeList(tiposCodigoSuportados)
+            setNoSupportCodeTypeList(emptyList())
+        }
+        try {
+            camera.setDecodeLibrary(0)
+            val codigoRetorno = camera.startDecode(parametro, callbackLeitura)
+            if (codigoRetorno != 0) {
+                Log.e(TAG, "startDecode retornou código $codigoRetorno (esperado 0)")
+                avisarErroNaPagina("Leitor recusou iniciar (código $codigoRetorno)")
+                return
             }
+            leituraAguardandoResultado = true
+            handler.removeCallbacks(watchdogLeitura)
+            handler.postDelayed(watchdogLeitura, TIMEOUT_WATCHDOG_MS)
+        } catch (e: Exception) {
+            Log.e(TAG, "Erro ao iniciar leitura", e)
+            avisarErroNaPagina("Erro ao ligar o leitor: ${e.message}")
         }
     }
 
     private fun reiniciarLeituraSilenciosa() {
         try {
-            codeScanner.stopService()
-            codeScanner.scanCode(activity, scanConfigPadrao, tiposCodigo)
-            handler.postDelayed(watchdogLeitura, TIMEOUT_WATCHDOG_MS)
+            cameraManager?.stopDecode()
         } catch (e: Exception) {
-            Log.e(TAG, "Erro ao reiniciar leitura", e)
+            Log.e(TAG, "Erro ao parar leitura antes de reiniciar", e)
         }
+        dispararLeitura()
     }
 
     /** Chamada por TotemActivity quando a permissão de câmera acaba de ser concedida. */
@@ -244,8 +311,8 @@ class AndroidBridge(private val activity: Activity, private val webView: WebView
         }
     }
 
-    /** Chamada por TotemActivity.onActivityResult assim que um código chega -- desarma o watchdog. */
-    fun notificarLeituraRecebida() {
+    /** Desarma o watchdog assim que um código chega (ver callbackLeitura.onResult). */
+    private fun notificarLeituraRecebida() {
         leituraAguardandoResultado = false
         handler.removeCallbacks(watchdogLeitura)
     }
@@ -257,7 +324,7 @@ class AndroidBridge(private val activity: Activity, private val webView: WebView
             leituraAguardandoResultado = false
             handler.removeCallbacks(watchdogLeitura)
             try {
-                codeScanner.stopService()
+                cameraManager?.stopDecode()
             } catch (e: Exception) {
                 Log.e(TAG, "Erro ao parar leitura", e)
             }
@@ -283,6 +350,9 @@ class AndroidBridge(private val activity: Activity, private val webView: WebView
 
     fun liberarRecursos() {
         handler.removeCallbacksAndMessages(null)
+        try {
+            cameraManager?.stopDecode()
+        } catch (e: Exception) { /* já estamos saindo, não importa */ }
         tts?.stop()
         tts?.shutdown()
         tts = null

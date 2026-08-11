@@ -3,7 +3,6 @@ package com.mypark.totem
 import android.Manifest
 import android.app.ActivityManager
 import android.content.Context
-import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.os.Handler
@@ -18,7 +17,6 @@ import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import org.json.JSONObject
 
 /**
  * Tela real do totem: WebView em tela cheia carregando uma das 3 URLs
@@ -116,34 +114,14 @@ class TotemActivity : AppCompatActivity() {
         androidBridge.liberarRecursos()
     }
 
-    // Resultado da leitura do scanner (CodeScanner.scanCode() da SDK
-    // EasyLayer entrega o código lido via onActivityResult, não como
-    // retorno direto -- ver AndroidBridge.iniciarLeitura()). Repassa o
-    // texto lido pra página web via receberCodigoLido(), que cada
-    // página de totem que aceita leitura já define (ver
-    // app/static/totem_saida.html e totem_validacao.html).
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-        if (resultCode != RESULT_OK || data == null) return
-        val conteudo = data.getStringExtra("content")
-        if (conteudo.isNullOrBlank()) return
-
-        androidBridge.notificarLeituraRecebida()
-        val chamada = "if (window.receberCodigoLido) { window.receberCodigoLido(${JSONObject.quote(conteudo)}); }"
-        webView.evaluateJavascript(chamada) { }
-        Log.i("TotemActivity", "Código lido repassado pra página")
-    }
-
     /**
-     * O leitor (EasyLayer/CodeScanner) usa a câmera -- é permissão
-     * "perigosa" (Android 6+), precisa ser concedida em tempo de
-     * execução, não só declarada no manifesto. O exemplo oficial da
-     * Gertec não pede isso manualmente (a tela de captura deles
-     * provavelmente já cuida disso sozinha, já que é baseada na
-     * biblioteca zxing-android-embedded, que tem esse tratamento
-     * embutido) -- pedimos aqui também, cedo, só por garantia: não
-     * custa nada se já tiver sido concedida, e evita a câmera falhar
-     * silenciosamente na primeira leitura se não tiver.
+     * O leitor usa a câmera -- é permissão "perigosa" (Android 6+),
+     * precisa ser concedida em tempo de execução, não só declarada no
+     * manifesto. Pedimos aqui cedo, assim que o totem abre, pra dar o
+     * máximo de tempo possível pro diálogo ser respondido antes da
+     * página pedir a primeira leitura (ver AndroidBridge.iniciarLeitura(),
+     * que ainda assim segura o pedido se a permissão não tiver sido
+     * concedida a tempo).
      */
     private fun pedirPermissaoCameraSeNecessario() {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
