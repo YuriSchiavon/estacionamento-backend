@@ -123,6 +123,22 @@
     width:100%;
   }
 
+  /* Indicador de que o leitor está ligado de verdade -- muda conforme
+     AndroidBridge.iniciarLeitura()/pararLeitura() são chamadas, não é
+     só o texto fixo da tela. */
+  .aviso-leitor{
+    margin-top:14px;
+    padding:10px 16px;
+    border-radius:10px;
+    background:#123522;
+    border:1px solid var(--ok);
+    color:#5FE39A;
+    font-size:13px;
+    font-weight:700;
+    text-align:center;
+    display:none;
+  }
+
   .resultado-box{
     width:100%;
     border-radius:18px;
@@ -222,6 +238,8 @@
     <div class="desc-pagina">Aproxime o ticket do leitor ou digite o código</div>
     <input class="codigo" id="saida-codigo" placeholder="CÓDIGO DO TICKET" autofocus>
     <button class="verificar" id="btn-saida">VERIFICAR</button>
+    <div class="aviso-leitor" id="aviso-leitor-ticket">📷 Leitor ativo -- aproxime o ticket</div>
+    <div class="erro" id="erro-leitor-ticket"></div>
   </div>
 
   <div class="pagina" id="pagina-resultado">
@@ -242,6 +260,7 @@
     <div class="titulo-pagina">Validar cupom</div>
     <div class="desc-pagina">Aproxime o QR code da nota fiscal do leitor</div>
     <input class="codigo" id="validar-qr" placeholder="AGUARDANDO LEITURA" autofocus>
+    <div class="aviso-leitor" id="aviso-leitor-validar">📷 Leitor ativo -- aproxime o QR code</div>
     <div class="erro" id="erro-validar"></div>
     <button class="secundaria" id="btn-cancelar-validar">voltar</button>
   </div>
@@ -325,6 +344,24 @@ function cancelarTrocaDeConta(){
 }
 
 function carregarSessao(){
+  // O app Android nativo agora faz o login antes de abrir esta página
+  // (ver android-totem/.../MainActivity.abrirTotem()) e manda a sessão
+  // já pronta na URL -- isso tem prioridade sobre qualquer coisa salva
+  // no localStorage, porque o login nativo é sempre feito de novo a
+  // cada vez que se entra num totem.
+  const params = new URLSearchParams(window.location.search);
+  if (params.has('token')){
+    sessao = {
+      token: params.get('token'),
+      papel: params.get('papel'),
+      nome: params.get('nome'),
+      pode_liberar_manualmente: params.get('pode_liberar_manualmente') === 'true',
+      unidade_operacional_id: parseInt(params.get('unidade_operacional_id'), 10),
+      unidade_operacional_nome: params.get('unidade_operacional_nome'),
+    };
+    salvarSessao();
+    return;
+  }
   const salva = localStorage.getItem(CHAVE_SESSAO);
   if (salva) sessao = JSON.parse(salva);
 }
@@ -710,10 +747,25 @@ function imprimirComprovante(codigo, valor, forma){
 // de Enter que já existia pra digitação manual, sem duplicar lógica.
 function iniciarLeituraScanner(){
   if (window.AndroidBridge && window.AndroidBridge.iniciarLeitura) window.AndroidBridge.iniciarLeitura();
+  document.querySelectorAll('.aviso-leitor').forEach(el => el.style.display = 'none');
+  const avisoAtivo = document.querySelector('.pagina.ativa .aviso-leitor');
+  if (avisoAtivo) avisoAtivo.style.display = 'block';
 }
 function pararLeituraScanner(){
   if (window.AndroidBridge && window.AndroidBridge.pararLeitura) window.AndroidBridge.pararLeitura();
+  document.querySelectorAll('.aviso-leitor').forEach(el => el.style.display = 'none');
 }
+// Erros de impressão/leitura que o app nativo captura (ex: leitor sem
+// conseguir focar a câmera) chegam aqui em vez de só ficarem no Logcat --
+// mostra no box de erro da página atual em vez de "não acontecer nada"
+// silenciosamente.
+window.receberErroNativo = function(mensagem){
+  const erroAtivo = document.querySelector('.pagina.ativa .erro');
+  if (erroAtivo){
+    erroAtivo.textContent = mensagem;
+    erroAtivo.style.display = 'block';
+  }
+};
 window.receberCodigoLido = function(texto){
   const ativo = document.activeElement;
   if (ativo && ativo.tagName === 'INPUT'){

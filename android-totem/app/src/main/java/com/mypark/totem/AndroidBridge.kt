@@ -1,6 +1,7 @@
 package com.mypark.totem
 
 import android.app.Activity
+import android.speech.tts.TextToSpeech
 import android.util.Log
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
@@ -12,6 +13,8 @@ import br.com.gertec.gdk.printer.CutType
 import br.com.gertec.gdk.printer.Printer
 import br.com.gertec.gdk.printer.PrinterError
 import br.com.gertec.gdk.printer.TextFormat
+import org.json.JSONObject
+import java.util.Locale
 
 /**
  * Ponte entre o JavaScript das páginas de totem e o Android nativo.
@@ -36,6 +39,19 @@ class AndroidBridge(private val activity: Activity, private val webView: WebView
 
     private val printer: Printer = Printer.getInstance(activity, this)
     private val codeScanner: CodeScanner = CodeScanner.getInstance(activity)
+    private var tts: TextToSpeech? = null
+
+    /**
+     * Repassa uma mensagem de erro pra página web mostrar na tela --
+     * antes os erros de impressão/leitura só iam pro Logcat (`Log.e`),
+     * então se algo falhava o operador via "nada acontecer", sem saber
+     * se era falha real ou se só precisava esperar. As páginas de totem
+     * definem `window.receberErroNativo(mensagem)` pra exibir isso.
+     */
+    private fun avisarErroNaPagina(mensagem: String) {
+        val chamada = "if (window.receberErroNativo) { window.receberErroNativo(${JSONObject.quote(mensagem)}); }"
+        activity.runOnUiThread { webView.evaluateJavascript(chamada) { } }
+    }
 
     // ---------------------------------------------------------------
     // Impressora -- cada chamada do JS corresponde a uma ação da GerSDK.
@@ -101,6 +117,7 @@ class AndroidBridge(private val activity: Activity, private val webView: WebView
 
     override fun onPrinterError(printerError: PrinterError) {
         Log.e(TAG, "Erro na impressora: $printerError")
+        avisarErroNaPagina("Erro na impressora: $printerError")
     }
 
     override fun onPrinterSuccessful(codigo: Int) {
@@ -124,6 +141,7 @@ class AndroidBridge(private val activity: Activity, private val webView: WebView
                 codeScanner.scanCode(activity)
             } catch (e: Exception) {
                 Log.e(TAG, "Erro ao iniciar leitura", e)
+                avisarErroNaPagina("Erro ao ligar o leitor: ${e.message}")
             }
         }
     }
@@ -137,5 +155,37 @@ class AndroidBridge(private val activity: Activity, private val webView: WebView
                 Log.e(TAG, "Erro ao parar leitura", e)
             }
         }
+    }
+
+    // ---------------------------------------------------------------
+    // Áudio de boas-vindas -- toca via TextToSpeech nativo do Android
+    // (sem precisar de nenhum arquivo de áudio embutido). Chamado pela
+    // página de totem_entrada.html assim que o ticket é emitido com
+    // sucesso.
+    // ---------------------------------------------------------------
+    @JavascriptInterface
+    fun tocarBoasVindas() {
+        activity.runOnUiThread {
+            try {
+                if (tts == null) {
+                    tts = TextToSpeech(activity) { status ->
+                        if (status == TextToSpeech.SUCCESS) {
+                            tts?.language = Locale("pt", "BR")
+                            tts?.speak("Seja bem-vindo", TextToSpeech.QUEUE_FLUSH, null, "boas-vindas")
+                        }
+                    }
+                } else {
+                    tts?.speak("Seja bem-vindo", TextToSpeech.QUEUE_FLUSH, null, "boas-vindas")
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Erro ao tocar áudio de boas-vindas", e)
+            }
+        }
+    }
+
+    fun liberarRecursos() {
+        tts?.stop()
+        tts?.shutdown()
+        tts = null
     }
 }

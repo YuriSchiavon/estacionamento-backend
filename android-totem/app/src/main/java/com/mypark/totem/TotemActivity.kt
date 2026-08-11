@@ -86,8 +86,11 @@ class TotemActivity : AppCompatActivity() {
                 // Só deixa navegar dentro das 3 URLs de totem -- qualquer
                 // outro destino (ex: o link "início" que as páginas
                 // mostram quando ninguém está logado) é simplesmente
-                // ignorado, sem navegar.
-                return request.url.toString() !in URLS_PERMITIDAS
+                // ignorado, sem navegar. Compara sem query string, já
+                // que a URL inicial agora carrega token/unidade nos
+                // parâmetros (ver MainActivity.abrirTotem()).
+                val semQuery = request.url.buildUpon().clearQuery().build().toString()
+                return semQuery !in URLS_PERMITIDAS
             }
         }
         webView.loadUrl(url)
@@ -106,6 +109,11 @@ class TotemActivity : AppCompatActivity() {
         // por qualquer motivo -- mesmo cuidado do onDestroy() do exemplo
         // oficial da Gertec (ver AndroidBridge.pararLeitura).
         androidBridge.pararLeitura()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        androidBridge.liberarRecursos()
     }
 
     // Resultado da leitura do scanner (CodeScanner.scanCode() da SDK

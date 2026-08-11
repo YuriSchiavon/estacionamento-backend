@@ -2,33 +2,218 @@ package com.mypark.totem
 
 import android.content.Intent
 import android.os.Bundle
+import android.view.View
+import android.widget.Button
+import android.widget.EditText
+import android.widget.LinearLayout
+import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import org.json.JSONArray
+import org.json.JSONObject
+import java.net.HttpURLConnection
+import java.net.URL
+import java.net.URLEncoder
 
 /**
- * Tela de escolha do equipamento: só existem 3 destinos possíveis
- * (Entrada / Saída / Validação) -- é essa restrição nativa, e não uma
- * regra em JavaScript, que garante que este app nunca alcança
- * gestão/operação/POS. TotemActivity entra em modo quiosque sozinha ao
- * abrir; o gesto de 5 toques no canto (ver TotemActivity) volta pra cá.
+ * Tela de escolha do equipamento -- só existem 3 destinos possíveis
+ * (Entrada / Saída / Validação), e só ficam disponíveis depois de
+ * logar. O login é feito aqui, nativamente (não dentro da WebView) --
+ * é essa restrição nativa, e não uma regra em JavaScript, que garante
+ * que este app nunca alcança gestão/operação/POS.
+ *
+ * A sessão (token + unidade resolvida) fica só em memória nesta
+ * Activity -- nunca salva em disco. Toda vez que essa tela reaparece
+ * (voltando de um totem via o gesto de 5 toques em TotemActivity), o
+ * login é exigido de novo -- ver onResume().
  */
 class MainActivity : AppCompatActivity() {
+
+    // Sessão em memória -- limpa a cada vez que a tela de login reaparece.
+    private var token: String? = null
+    private var papel: String? = null
+    private var nome: String? = null
+    private var podeLiberarManualmente: Boolean = false
+    private var unidadeOperacionalId: Int? = null
+    private var unidadeOperacionalNome: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        findViewById<android.widget.Button>(R.id.btn_entrada).setOnClickListener {
-            abrirTotem(Config.URL_ENTRADA)
-        }
-        findViewById<android.widget.Button>(R.id.btn_saida).setOnClickListener {
-            abrirTotem(Config.URL_SAIDA)
-        }
-        findViewById<android.widget.Button>(R.id.btn_validacao).setOnClickListener {
-            abrirTotem(Config.URL_VALIDACAO)
-        }
+        findViewById<Button>(R.id.btn_login).setOnClickListener { tentarLogin() }
+        findViewById<Button>(R.id.btn_entrada).setOnClickListener { abrirTotem(Config.URL_ENTRADA) }
+        findViewById<Button>(R.id.btn_saida).setOnClickListener { abrirTotem(Config.URL_SAIDA) }
+        findViewById<Button>(R.id.btn_validacao).setOnClickListener { abrirTotem(Config.URL_VALIDACAO) }
     }
 
-    private fun abrirTotem(url: String) {
+    override fun onResume() {
+        super.onResume()
+        // Sempre que esta tela volta a aparecer (cold start ou retorno de
+        // TotemActivity via o gesto de 5 toques), zera a sessão e mostra
+        // o login de novo -- "a única forma de sair [de um totem] é
+        // retomar a tela com as opções novamente e com usuário e senha".
+        limparSessao()
+        mostrarTela("login")
+    }
+
+    private fun limparSessao() {
+        token = null
+        papel = null
+        nome = null
+        podeLiberarManualmente = false
+        unidadeOperacionalId = null
+        unidadeOperacionalNome = null
+        findViewById<EditText>(R.id.login_senha).setText("")
+    }
+
+    private fun mostrarTela(tela: String) {
+        findViewById<View>(R.id.tela_login).visibility = if (tela == "login") View.VISIBLE else View.GONE
+        findViewById<View>(R.id.tela_selecao_unidade).visibility = if (tela == "selecao") View.VISIBLE else View.GONE
+        findViewById<View>(R.id.tela_picker).visibility = if (tela == "picker") View.VISIBLE else View.GONE
+    }
+
+    private fun mostrarErroLogin(mensagem: String) {
+        val erro = findViewById<TextView>(R.id.login_erro)
+        erro.text = mensagem
+        erro.visibility = View.VISIBLE
+    }
+
+    // -----------------------------------------------------------------
+    // Login -- POST /auth/login nativamente (sem passar pela WebView).
+    // Mesma API que app/static/totem_*.html já usa.
+    // -----------------------------------------------------------------
+    private fun tentarLogin() {
+        val usuario = findViewById<EditText>(R.id.login_usuario).text.toString()
+        val senha = findViewById<EditText>(R.id.login_senha).text.toString()
+        findViewById<TextView>(R.id.login_erro).visibility = View.GONE
+        if (usuario.isBlank() || senha.isBlank()) {
+            mostrarErroLogin("Preencha usuário e senha")
+            return
+        }
+
+        Thread {
+            try {
+                val conn = URL("${Config.BASE_URL}/auth/login").openConnection() as HttpURLConnection
+                conn.requestMethod = "POST"
+                conn.doOutput = true
+                conn.setRequestProperty("Content-Type", "application/json")
+                conn.connectTimeout = 15000
+                conn.readTimeout = 15000
+                val corpo = JSONObject().apply {
+                    put("username", usuario)
+                    put("senha", senha)
+                }.toString()
+                conn.outputStream.use { it.write(corpo.toByteArray(Charsets.UTF_8)) }
+
+                val codigo = conn.responseCode
+                val texto = (if (codigo in 200..299) conn.inputStream else conn.errorStream)
+                    .bufferedReader().use { it.readText() }
+                val json = JSONObject(texto)
+
+                runOnUiThread {
+                    if (codigo in 200..299) {
+                        token = json.getString("token")
+                        papel = json.getString("papel")
+                        nome = json.getString("nome")
+                        podeLiberarManualmente = json.optBoolean("pode_liberar_manualmente", false)
+                        resolverUnidade(forcarSelecao = false)
+                    } else {
+                        mostrarErroLogin(json.optString("detail", "Usuário ou senha inválidos"))
+                    }
+                }
+            } catch (e: Exception) {
+                runOnUiThread { mostrarErroLogin("Erro de conexão: ${e.message}") }
+            }
+        }.start()
+    }
+
+    // -----------------------------------------------------------------
+    // Resolve em qual unidade este login vai operar -- mesma lógica que
+    // resolverUnidadeOperacional() já usa em app/static/operacao.html:
+    // 0 unidades bloqueia, 1 segue direto, mais de uma pede pra escolher.
+    // -----------------------------------------------------------------
+    private fun resolverUnidade(forcarSelecao: Boolean) {
+        val tokenAtual = token ?: return
+        Thread {
+            try {
+                val conn = URL("${Config.BASE_URL}/auth/minhas-unidades").openConnection() as HttpURLConnection
+                conn.requestMethod = "GET"
+                conn.setRequestProperty("Authorization", "Bearer $tokenAtual")
+                conn.connectTimeout = 15000
+                conn.readTimeout = 15000
+
+                val codigo = conn.responseCode
+                if (codigo == 401) {
+                    runOnUiThread {
+                        limparSessao()
+                        mostrarErroLogin("Sessão inválida, tente entrar de novo")
+                        mostrarTela("login")
+                    }
+                    return@Thread
+                }
+                val texto = conn.inputStream.bufferedReader().use { it.readText() }
+                val unidades = JSONArray(texto)
+
+                runOnUiThread {
+                    if (unidades.length() == 0) {
+                        limparSessao()
+                        mostrarErroLogin("Sua conta não tem nenhuma unidade disponível")
+                        mostrarTela("login")
+                        return@runOnUiThread
+                    }
+                    if (unidades.length() == 1) {
+                        val u = unidades.getJSONObject(0)
+                        unidadeOperacionalId = u.getInt("id")
+                        unidadeOperacionalNome = u.getString("nome")
+                        mostrarTela("picker")
+                        return@runOnUiThread
+                    }
+                    montarSelecaoUnidade(unidades)
+                }
+            } catch (e: Exception) {
+                runOnUiThread { mostrarErroLogin("Erro ao carregar unidades: ${e.message}") }
+            }
+        }.start()
+    }
+
+    private fun montarSelecaoUnidade(unidades: JSONArray) {
+        val lista = findViewById<LinearLayout>(R.id.lista_unidades)
+        lista.removeAllViews()
+        for (i in 0 until unidades.length()) {
+            val u = unidades.getJSONObject(i)
+            val id = u.getInt("id")
+            val nomeUnidade = u.getString("nome")
+            val botao = Button(this).apply {
+                text = nomeUnidade
+                setTextColor(resources.getColor(R.color.texto_claro, theme))
+                backgroundTintList = resources.getColorStateList(R.color.navy_card, theme)
+                setPadding(32, 32, 32, 32)
+                setOnClickListener {
+                    unidadeOperacionalId = id
+                    unidadeOperacionalNome = nomeUnidade
+                    mostrarTela("picker")
+                }
+            }
+            val params = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+            params.bottomMargin = 24
+            lista.addView(botao, params)
+        }
+        mostrarTela("selecao")
+    }
+
+    // -----------------------------------------------------------------
+    // Abre o totem escolhido, já com a sessão embutida na URL (query
+    // params) -- assim a WebView não precisa pedir login de novo. Ver
+    // carregarSessao() em app/static/totem_*.html, que lê esses mesmos
+    // parâmetros antes de cair no login próprio da página.
+    // -----------------------------------------------------------------
+    private fun abrirTotem(baseUrl: String) {
+        val t = token ?: return
+        val unidadeId = unidadeOperacionalId ?: return
+        val enc = { s: String? -> URLEncoder.encode(s ?: "", "UTF-8") }
+        val url = "$baseUrl?token=${enc(t)}&papel=${enc(papel)}&nome=${enc(nome)}" +
+            "&pode_liberar_manualmente=$podeLiberarManualmente" +
+            "&unidade_operacional_id=$unidadeId&unidade_operacional_nome=${enc(unidadeOperacionalNome)}"
         val intent = Intent(this, TotemActivity::class.java)
         intent.putExtra(TotemActivity.EXTRA_URL, url)
         startActivity(intent)

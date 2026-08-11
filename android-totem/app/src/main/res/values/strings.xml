@@ -1,5 +1,10 @@
 <resources>
     <string name="app_name">MY PARK Totem</string>
+    <string name="titulo_login">MY PARK · Totem</string>
+    <string name="hint_usuario">Usuário</string>
+    <string name="hint_senha">Senha</string>
+    <string name="btn_entrar">Entrar</string>
+    <string name="titulo_selecao_unidade">Selecione a unidade</string>
     <string name="titulo_escolha">MY PARK · Totem</string>
     <string name="subtitulo_escolha">Escolha a tela deste equipamento</string>
     <string name="btn_entrada">Entrada</string>

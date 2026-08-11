@@ -1,64 +1,183 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/navy"
-    android:orientation="vertical"
-    android:gravity="center"
-    android:padding="32dp">
+    android:background="@color/navy">
 
-    <TextView
-        android:id="@+id/txt_titulo"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/titulo_escolha"
-        android:textColor="@color/lime"
-        android:textSize="26sp"
-        android:textStyle="bold" />
-
-    <TextView
-        android:id="@+id/txt_subtitulo"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="6dp"
-        android:layout_marginBottom="40dp"
-        android:text="@string/subtitulo_escolha"
-        android:textColor="@color/texto_secundario"
-        android:textSize="14sp" />
-
-    <Button
-        android:id="@+id/btn_entrada"
+    <!-- Tela de login, é a PRIMEIRA coisa que aparece, sempre, antes de
+         qualquer tela de totem (Entrada/Saída/Validação). -->
+    <ScrollView
+        android:id="@+id/tela_login"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginBottom="20dp"
-        android:padding="28dp"
-        android:text="@string/btn_entrada"
-        android:textSize="22sp"
-        android:textStyle="bold"
-        android:textColor="@color/navy"
-        android:backgroundTint="@color/lime" />
+        android:layout_height="match_parent">
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:padding="32dp"
+            android:minHeight="600dp">
 
-    <Button
-        android:id="@+id/btn_saida"
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="40dp"
+                android:text="@string/titulo_login"
+                android:textColor="@color/lime"
+                android:textSize="26sp"
+                android:textStyle="bold" />
+
+            <EditText
+                android:id="@+id/login_usuario"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                android:padding="16dp"
+                android:hint="@string/hint_usuario"
+                android:textColorHint="@color/texto_secundario"
+                android:textColor="@color/texto_claro"
+                android:background="@color/navy_card"
+                android:inputType="text"
+                android:maxLines="1" />
+
+            <EditText
+                android:id="@+id/login_senha"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="8dp"
+                android:padding="16dp"
+                android:hint="@string/hint_senha"
+                android:textColorHint="@color/texto_secundario"
+                android:textColor="@color/texto_claro"
+                android:background="@color/navy_card"
+                android:inputType="textPassword"
+                android:maxLines="1" />
+
+            <TextView
+                android:id="@+id/login_erro"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                android:text=""
+                android:textColor="#FF8A75"
+                android:visibility="gone" />
+
+            <Button
+                android:id="@+id/btn_login"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:padding="18dp"
+                android:text="@string/btn_entrar"
+                android:textSize="17sp"
+                android:textStyle="bold"
+                android:textColor="@color/navy"
+                android:backgroundTint="@color/lime" />
+
+        </LinearLayout>
+    </ScrollView>
+
+    <!-- Tela de seleção de unidade, só aparece se a conta tiver mais de
+         uma unidade autorizada; a lista de botões é montada em runtime. -->
+    <ScrollView
+        android:id="@+id/tela_selecao_unidade"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginBottom="20dp"
-        android:padding="28dp"
-        android:text="@string/btn_saida"
-        android:textSize="22sp"
-        android:textStyle="bold"
-        android:textColor="@color/navy"
-        android:backgroundTint="@color/lime" />
+        android:layout_height="match_parent"
+        android:visibility="gone">
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:padding="32dp">
 
-    <Button
-        android:id="@+id/btn_validacao"
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="24dp"
+                android:text="@string/titulo_selecao_unidade"
+                android:textColor="@color/lime"
+                android:textSize="22sp"
+                android:textStyle="bold" />
+
+            <LinearLayout
+                android:id="@+id/lista_unidades"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical" />
+
+        </LinearLayout>
+    </ScrollView>
+
+    <!-- Tela de escolha do totem, só fica disponível depois do login. -->
+    <LinearLayout
+        android:id="@+id/tela_picker"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:padding="28dp"
-        android:text="@string/btn_validacao"
-        android:textSize="22sp"
-        android:textStyle="bold"
-        android:textColor="@color/navy"
-        android:backgroundTint="@color/lime" />
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:padding="32dp"
+        android:visibility="gone">
 
-</LinearLayout>
+        <TextView
+            android:id="@+id/txt_titulo"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/titulo_escolha"
+            android:textColor="@color/lime"
+            android:textSize="26sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/txt_subtitulo"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:layout_marginBottom="40dp"
+            android:text="@string/subtitulo_escolha"
+            android:textColor="@color/texto_secundario"
+            android:textSize="14sp" />
+
+        <Button
+            android:id="@+id/btn_entrada"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="20dp"
+            android:padding="28dp"
+            android:text="@string/btn_entrada"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            android:textColor="@color/navy"
+            android:backgroundTint="@color/lime"
+            android:drawableStart="@drawable/ic_seta_cima"
+            android:drawablePadding="14dp" />
+
+        <Button
+            android:id="@+id/btn_saida"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="20dp"
+            android:padding="28dp"
+            android:text="@string/btn_saida"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            android:textColor="@color/navy"
+            android:backgroundTint="@color/lime"
+            android:drawableStart="@drawable/ic_seta_baixo"
+            android:drawablePadding="14dp" />
+
+        <Button
+            android:id="@+id/btn_validacao"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:padding="28dp"
+            android:text="@string/btn_validacao"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            android:textColor="@color/navy"
+            android:backgroundTint="@color/lime"
+            android:drawableStart="@drawable/ic_check"
+            android:drawablePadding="14dp" />
+
+    </LinearLayout>
+
+</FrameLayout>

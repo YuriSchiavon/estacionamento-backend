@@ -368,6 +368,24 @@ function cancelarTrocaDeConta(){
 }
 
 function carregarSessao(){
+  // O app Android nativo agora faz o login antes de abrir esta página
+  // (ver android-totem/.../MainActivity.abrirTotem()) e manda a sessão
+  // já pronta na URL -- isso tem prioridade sobre qualquer coisa salva
+  // no localStorage, porque o login nativo é sempre feito de novo a
+  // cada vez que se entra num totem.
+  const params = new URLSearchParams(window.location.search);
+  if (params.has('token')){
+    sessao = {
+      token: params.get('token'),
+      papel: params.get('papel'),
+      nome: params.get('nome'),
+      pode_liberar_manualmente: params.get('pode_liberar_manualmente') === 'true',
+      unidade_operacional_id: parseInt(params.get('unidade_operacional_id'), 10),
+      unidade_operacional_nome: params.get('unidade_operacional_nome'),
+    };
+    salvarSessao();
+    return;
+  }
   const salva = localStorage.getItem(CHAVE_SESSAO);
   if (salva) sessao = JSON.parse(salva);
 }
@@ -578,6 +596,7 @@ document.getElementById('btn-entrada').addEventListener('click', async () => {
       t.imprimir_automaticamente === false ? 'Imprimir ticket' : 'Imprimir novamente';
     origemResultadoAtual = 'normal';
     imprimirTicket(t);
+    tocarBoasVindas();
     document.getElementById('btn-reimprimir').classList.add('show');
   }catch(e){
     resultado.className = 'resultado show err';
@@ -631,6 +650,7 @@ async function emitirPrePago(forma){
     document.getElementById('resultado-pre-pago-codigo').textContent = t.codigo_barras;
     origemResultadoAtual = 'pre_pago';
     imprimirTicket(t);
+    tocarBoasVindas();
   }catch(e){
     erro.textContent = e.message;
     erro.style.display = 'block';
@@ -657,6 +677,25 @@ function chamarImpressao(titulo, linhas, codigo){
   }
   window.print();
 }
+
+// Áudio de boas-vindas -- só existe dentro do app Android nativo; fora
+// dele (navegador comum/simulador) não faz nada.
+function tocarBoasVindas(){
+  if (window.AndroidBridge && window.AndroidBridge.tocarBoasVindas){
+    try{ window.AndroidBridge.tocarBoasVindas(); }catch(e){ /* silencioso -- áudio não é essencial */ }
+  }
+}
+
+// Erros de impressão que o app nativo captura (ex: impressora sem
+// papel) chegam aqui em vez de só ficarem no Logcat -- mostra pro
+// operador em vez de "não acontecer nada" silenciosamente.
+window.receberErroNativo = function(mensagem){
+  const resultado = document.getElementById('resultado');
+  if (resultado.classList.contains('show')){
+    resultado.className = 'resultado show err';
+    document.getElementById('resultado-titulo').textContent = mensagem;
+  }
+};
 
 let ultimoTicketImpresso = null;
 

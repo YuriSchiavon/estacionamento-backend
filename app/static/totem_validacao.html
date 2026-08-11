@@ -84,6 +84,24 @@
   .pagina{display:none;width:100%;max-width:560px;flex-direction:column;align-items:center;}
   .pagina.ativa{display:flex;}
 
+  .etapa-validar{display:none;width:100%;flex-direction:column;align-items:center;}
+  .etapa-validar.ativa{display:flex;}
+  .passo-indicador{font-size:12px;font-weight:700;color:var(--lime);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;}
+
+  .aviso-leitor{
+    margin-top:14px;
+    padding:10px 16px;
+    border-radius:10px;
+    background:#123522;
+    border:1px solid var(--ok);
+    color:#5FE39A;
+    font-size:13px;
+    font-weight:700;
+    text-align:center;
+    display:none;
+    width:100%;
+  }
+
   .titulo-pagina{font-size:clamp(24px,4vw,32px);font-weight:800;margin-bottom:8px;text-align:center;}
   .desc-pagina{font-size:15px;color:#B9C2D6;margin-bottom:28px;text-align:center;}
 
@@ -237,11 +255,24 @@
 
   <div class="pagina" id="pagina-validar">
     <div class="titulo-pagina">Validar cupom</div>
-    <div class="desc-pagina">Aproxime o QR code da nota fiscal do leitor</div>
-    <input class="codigo" id="validar-codigo-ticket" placeholder="CÓDIGO DO TICKET">
-    <input class="codigo" id="validar-qr" placeholder="AGUARDANDO LEITURA DO CUPOM" style="margin-top:14px;">
-    <div class="resultado" id="resultado-validar"></div>
-    <button class="secundaria" id="btn-voltar-validar">voltar</button>
+
+    <div class="etapa-validar ativa" id="etapa-validar-ticket">
+      <div class="passo-indicador">Passo 1 de 2</div>
+      <div class="desc-pagina">Aproxime o ticket do leitor ou digite o código</div>
+      <input class="codigo" id="validar-codigo-ticket" placeholder="CÓDIGO DO TICKET">
+      <div class="aviso-leitor" id="aviso-leitor-validar-ticket">📷 Leitor ativo -- aproxime o ticket</div>
+      <div class="erro" id="erro-validar-ticket"></div>
+      <button class="secundaria" id="btn-voltar-validar">voltar</button>
+    </div>
+
+    <div class="etapa-validar" id="etapa-validar-qr">
+      <div class="passo-indicador">Passo 2 de 2</div>
+      <div class="desc-pagina">Aproxime o QR code da nota fiscal do leitor</div>
+      <input class="codigo" id="validar-qr" placeholder="AGUARDANDO LEITURA DO CUPOM">
+      <div class="aviso-leitor" id="aviso-leitor-validar-qr">📷 Leitor ativo -- aproxime o QR code</div>
+      <div class="resultado" id="resultado-validar"></div>
+      <button class="secundaria" id="btn-voltar-etapa-ticket">voltar ao ticket</button>
+    </div>
   </div>
 
   <div class="pagina" id="pagina-pagamento">
@@ -249,6 +280,7 @@
     <div class="desc-pagina">Digite ou leia o código do ticket para consultar o valor</div>
     <input class="codigo" id="consulta-codigo" placeholder="CÓDIGO DO TICKET" autofocus>
     <button class="principal" id="btn-consultar">CONSULTAR</button>
+    <div class="aviso-leitor" id="aviso-leitor-pagamento">📷 Leitor ativo -- aproxime o ticket</div>
 
     <div class="valor-devido" id="valor-devido">
       <div class="label">Valor a pagar</div>
@@ -334,6 +366,24 @@ function cancelarTrocaDeConta(){
 }
 
 function carregarSessao(){
+  // O app Android nativo agora faz o login antes de abrir esta página
+  // (ver android-totem/.../MainActivity.abrirTotem()) e manda a sessão
+  // já pronta na URL -- isso tem prioridade sobre qualquer coisa salva
+  // no localStorage, porque o login nativo é sempre feito de novo a
+  // cada vez que se entra num totem.
+  const params = new URLSearchParams(window.location.search);
+  if (params.has('token')){
+    sessao = {
+      token: params.get('token'),
+      papel: params.get('papel'),
+      nome: params.get('nome'),
+      pode_liberar_manualmente: params.get('pode_liberar_manualmente') === 'true',
+      unidade_operacional_id: parseInt(params.get('unidade_operacional_id'), 10),
+      unidade_operacional_nome: params.get('unidade_operacional_nome'),
+    };
+    salvarSessao();
+    return;
+  }
   const salva = localStorage.getItem(CHAVE_SESSAO);
   if (salva) sessao = JSON.parse(salva);
 }
@@ -378,8 +428,7 @@ function mostrarPagina(id){
     document.getElementById('validar-codigo-ticket').value = '';
     document.getElementById('validar-qr').value = '';
     document.getElementById('resultado-validar').className = 'resultado';
-    document.getElementById('validar-codigo-ticket').focus();
-    iniciarLeituraScanner();
+    mostrarEtapaValidar('ticket');
   }
   if (id === 'pagina-pagamento'){
     document.getElementById('consulta-codigo').value = '';
@@ -387,8 +436,41 @@ function mostrarPagina(id){
     document.getElementById('resultado-pagamento').className = 'resultado';
     ticketAtual = null;
     document.getElementById('consulta-codigo').focus();
-    iniciarLeituraScanner();
+    iniciarLeituraScanner('aviso-leitor-pagamento');
   }
+}
+
+// Wizard de validação de cupom: primeiro lê/digita o ticket (passo 1),
+// só depois abre o campo do QR code da nota fiscal (passo 2) -- em vez
+// de mostrar os dois campos juntos como antes, porque com o leitor de
+// verdade (câmera única) não dá pra ler os dois ao mesmo tempo mesmo.
+function mostrarEtapaValidar(etapa){
+  pararLeituraScanner();
+  document.querySelectorAll('.etapa-validar').forEach(e => e.classList.remove('ativa'));
+  if (etapa === 'ticket'){
+    document.getElementById('etapa-validar-ticket').classList.add('ativa');
+    document.getElementById('erro-validar-ticket').style.display = 'none';
+    document.getElementById('validar-codigo-ticket').focus();
+    iniciarLeituraScanner('aviso-leitor-validar-ticket');
+  }else{
+    document.getElementById('etapa-validar-qr').classList.add('ativa');
+    document.getElementById('validar-qr').value = '';
+    document.getElementById('resultado-validar').className = 'resultado';
+    document.getElementById('validar-qr').focus();
+    iniciarLeituraScanner('aviso-leitor-validar-qr');
+  }
+}
+
+function avancarParaEtapaQr(){
+  const codigoTicket = document.getElementById('validar-codigo-ticket').value.trim();
+  const erro = document.getElementById('erro-validar-ticket');
+  if (!codigoTicket){
+    erro.textContent = 'Informe o código do ticket.';
+    erro.style.display = 'block';
+    return;
+  }
+  erro.style.display = 'none';
+  mostrarEtapaValidar('qr');
 }
 
 async function resolverUnidadeOperacional(forcarSelecao){
@@ -526,6 +608,7 @@ async function chamarApi(metodo, url, body){
 document.getElementById('btn-menu-pagamento').addEventListener('click', () => mostrarPagina('pagina-pagamento'));
 document.getElementById('btn-menu-validar').addEventListener('click', () => mostrarPagina('pagina-validar'));
 document.getElementById('btn-voltar-validar').addEventListener('click', () => mostrarPagina('pagina-menu'));
+document.getElementById('btn-voltar-etapa-ticket').addEventListener('click', () => mostrarEtapaValidar('ticket'));
 document.getElementById('btn-voltar-pagamento').addEventListener('click', () => mostrarPagina('pagina-menu'));
 
 // -----------------------------------------------------------------
@@ -589,7 +672,7 @@ document.getElementById('validar-qr').addEventListener('keydown', (e) => {
   if (e.key === 'Enter') processarLeituraCupom();
 });
 document.getElementById('validar-codigo-ticket').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') document.getElementById('validar-qr').focus();
+  if (e.key === 'Enter') avancarParaEtapaQr();
 });
 
 // -----------------------------------------------------------------
@@ -710,12 +793,46 @@ function imprimirComprovante(codigo, valor, forma){
 // (ver android-totem/.../TotemActivity.onActivityResult) toda vez que
 // um código é lido -- reaproveita o campo em foco e o mesmo tratamento
 // de Enter que já existia pra digitação manual, sem duplicar lógica.
-function iniciarLeituraScanner(){
+// Cada campo legível pelo scanner tem seu próprio aviso-leitor -- esse mapa
+// resolve qual mostrar, tanto quando uma tela chama iniciarLeituraScanner
+// explicitamente quanto quando o religamento automático abaixo precisa
+// decidir sozinho (não sabe "qual tela" chamou, só qual campo tem foco).
+const AVISO_LEITOR_POR_CAMPO = {
+  'validar-codigo-ticket': 'aviso-leitor-validar-ticket',
+  'validar-qr': 'aviso-leitor-validar-qr',
+  'consulta-codigo': 'aviso-leitor-pagamento',
+};
+
+function iniciarLeituraScanner(avisoId){
   if (window.AndroidBridge && window.AndroidBridge.iniciarLeitura) window.AndroidBridge.iniciarLeitura();
+  document.querySelectorAll('.aviso-leitor').forEach(el => el.style.display = 'none');
+  if (avisoId){
+    const el = document.getElementById(avisoId);
+    if (el) el.style.display = 'block';
+  }
 }
 function pararLeituraScanner(){
   if (window.AndroidBridge && window.AndroidBridge.pararLeitura) window.AndroidBridge.pararLeitura();
+  document.querySelectorAll('.aviso-leitor').forEach(el => el.style.display = 'none');
 }
+// Erros que o app nativo captura (ex: câmera do leitor não abriu) chegam
+// aqui em vez de só ficarem no Logcat -- mostra no box de erro/resultado
+// da etapa/página em foco no momento.
+window.receberErroNativo = function(mensagem){
+  const escopo = document.querySelector('.pagina.ativa .etapa-validar.ativa') || document.querySelector('.pagina.ativa');
+  if (!escopo) return;
+  const erro = escopo.querySelector('.erro');
+  if (erro){
+    erro.textContent = mensagem;
+    erro.style.display = 'block';
+    return;
+  }
+  const resultado = escopo.querySelector('.resultado');
+  if (resultado){
+    resultado.className = 'resultado show err';
+    resultado.textContent = mensagem;
+  }
+};
 window.receberCodigoLido = function(texto){
   const ativo = document.activeElement;
   if (ativo && ativo.tagName === 'INPUT'){
@@ -724,12 +841,13 @@ window.receberCodigoLido = function(texto){
   }
   // scanCode() da EasyLayer entrega só uma leitura por chamada --
   // religa o leitor se o foco continuar num campo de código depois do
-  // Enter (ex: validar-codigo-ticket -> pula pro campo do QR, ou deu
-  // erro e a tela não navegou embora).
+  // Enter (ex: deu erro e a tela não navegou embora). Se a tela navegou
+  // (ex: ticket -> QR), o campo em foco mudou, então o aviso certo é
+  // resolvido de novo a partir dele.
   setTimeout(() => {
     const novoAtivo = document.activeElement;
     if (novoAtivo && novoAtivo.classList && novoAtivo.classList.contains('codigo')){
-      iniciarLeituraScanner();
+      iniciarLeituraScanner(AVISO_LEITOR_POR_CAMPO[novoAtivo.id]);
     }
   }, 50);
 };
