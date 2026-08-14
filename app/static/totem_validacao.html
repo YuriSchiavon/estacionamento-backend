@@ -115,33 +115,28 @@
   .etapa-validar.ativa{display:flex;}
   .passo-indicador{font-size:12px;font-weight:700;color:var(--lime);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;}
 
-  .aviso-leitor{
-    margin-top:14px;
-    padding:12px 18px;
-    border-radius:12px;
-    background:#123522;
-    border:1px solid var(--ok);
-    color:#5FE39A;
-    font-size:13px;
-    font-weight:700;
-    text-align:center;
-    display:none;
-    width:100%;
-    align-items:center;
-    justify-content:center;
-    gap:10px;
+  /* Ícone grande e fixo indicando "aproxime do leitor" -- a leitura no
+     SK210 é passiva (Scanner como teclado injeta o código como
+     digitação direto no campo em foco), então não existe mais um
+     estado "ligado/desligado" pra mostrar -- é só um indicativo visual
+     permanente em cima do título. */
+  .icone-leitor{
+    position:relative;
+    width:64px;
+    height:64px;
+    margin-bottom:16px;
+    color:var(--ok);
   }
-  .aviso-leitor .icone-scan{position:relative;width:24px;height:24px;flex-shrink:0;}
-  .aviso-leitor .icone-scan svg{width:100%;height:100%;display:block;position:relative;z-index:1;}
-  .aviso-leitor .icone-scan .onda{
+  .icone-leitor svg{width:100%;height:100%;display:block;position:relative;z-index:1;}
+  .icone-leitor .onda{
     position:absolute;
-    inset:-4px;
+    inset:-8px;
     border-radius:50%;
     border:2px solid var(--ok);
     opacity:0;
     animation:onda-leitor 1.6s ease-out infinite;
   }
-  .aviso-leitor .icone-scan .onda:nth-child(2){animation-delay:.55s;}
+  .icone-leitor .onda:nth-child(2){animation-delay:.55s;}
   @keyframes onda-leitor{
     0%{transform:scale(.5);opacity:.8;}
     100%{transform:scale(1.8);opacity:0;}
@@ -217,17 +212,23 @@
 
   .botoes-pagamento{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;width:100%;margin-top:8px;}
   button.btn-forma-pagamento{
-    background:#16294A;
-    color:#fff;
-    border:2px solid #2C3E5C;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:10px;
+    background:var(--lime);
+    color:var(--navy);
+    border:none;
     border-radius:14px;
-    padding:34px 8px;
+    padding:28px 8px;
     font-family:inherit;
-    font-weight:700;
-    font-size:clamp(16px,2vw,19px);
+    font-weight:800;
+    font-size:clamp(17px,2.4vw,21px);
     cursor:pointer;
   }
-  button.btn-forma-pagamento:hover{border-color:var(--lime);}
+  button.btn-forma-pagamento svg{width:30px;height:30px;flex-shrink:0;}
+  button.btn-forma-pagamento:hover{filter:brightness(1.08);}
   button.btn-forma-pagamento:disabled{opacity:.5;cursor:default;}
 
   .resultado{
@@ -295,60 +296,51 @@
     <div class="titulo-pagina">Validar cupom</div>
 
     <div class="etapa-validar ativa" id="etapa-validar-ticket">
-      <div class="passo-indicador">Passo 1 de 2</div>
-      <div class="desc-pagina">Aproxime o ticket do leitor ou digite o código</div>
-      <input class="codigo" id="validar-codigo-ticket" placeholder="CÓDIGO DO TICKET" autofocus>
-      <div class="aviso-leitor" id="aviso-leitor-validar-ticket">
-        <span class="icone-scan">
-          <span class="onda"></span>
-          <span class="onda"></span>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="3" y="7" width="18" height="10" rx="2"/>
-            <path d="M9 7v10" stroke-dasharray="2 2"/>
-          </svg>
-        </span>
-        <span>Leitor ativo — aproxime o ticket</span>
-      </div>
-      <div class="erro erro-leitor" id="erro-validar-ticket"></div>
-      <button class="secundaria" id="btn-pular-cupom">não tenho cupom, ir para pagamento</button>
-    </div>
-
-    <div class="etapa-validar" id="etapa-validar-qr">
-      <div class="passo-indicador">Passo 2 de 2</div>
-      <div class="desc-pagina">Aproxime o QR code da nota fiscal do leitor</div>
-      <input class="codigo" id="validar-qr" placeholder="AGUARDANDO LEITURA DO CUPOM">
-      <div class="aviso-leitor" id="aviso-leitor-validar-qr">
-        <span class="icone-scan">
-          <span class="onda"></span>
-          <span class="onda"></span>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="3" y="7" width="18" height="10" rx="2"/>
-            <path d="M9 7v10" stroke-dasharray="2 2"/>
-          </svg>
-        </span>
-        <span>Leitor ativo — aproxime o QR code</span>
-      </div>
-      <div class="resultado" id="resultado-validar"></div>
-      <button class="secundaria" id="btn-voltar-etapa-ticket">voltar ao ticket</button>
-    </div>
-  </div>
-
-  <div class="pagina" id="pagina-pagamento">
-    <div class="titulo-pagina">Pagamento</div>
-    <div class="desc-pagina">Digite ou leia o código do ticket para consultar o valor</div>
-    <input class="codigo" id="consulta-codigo" placeholder="CÓDIGO DO TICKET" autofocus>
-    <button class="principal" id="btn-consultar">CONSULTAR</button>
-    <div class="aviso-leitor" id="aviso-leitor-pagamento">
-      <span class="icone-scan">
+      <div class="icone-leitor">
         <span class="onda"></span>
         <span class="onda"></span>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <rect x="3" y="7" width="18" height="10" rx="2"/>
           <path d="M9 7v10" stroke-dasharray="2 2"/>
         </svg>
-      </span>
-      <span>Leitor ativo — aproxime o ticket</span>
+      </div>
+      <div class="passo-indicador">Passo 1 de 2</div>
+      <div class="desc-pagina">Aproxime o ticket do leitor ou digite o código</div>
+      <input class="codigo" id="validar-codigo-ticket" placeholder="CÓDIGO DO TICKET" autofocus>
+      <div class="erro erro-leitor" id="erro-validar-ticket"></div>
+      <button class="secundaria" id="btn-pular-cupom">não tenho cupom, ir para pagamento</button>
     </div>
+
+    <div class="etapa-validar" id="etapa-validar-qr">
+      <div class="icone-leitor">
+        <span class="onda"></span>
+        <span class="onda"></span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="7" width="18" height="10" rx="2"/>
+          <path d="M9 7v10" stroke-dasharray="2 2"/>
+        </svg>
+      </div>
+      <div class="passo-indicador">Passo 2 de 2</div>
+      <div class="desc-pagina">Aproxime o QR code da nota fiscal do leitor</div>
+      <input class="codigo" id="validar-qr" placeholder="AGUARDANDO LEITURA DO CUPOM">
+      <div class="resultado" id="resultado-validar"></div>
+      <button class="secundaria" id="btn-voltar-etapa-ticket">voltar ao ticket</button>
+    </div>
+  </div>
+
+  <div class="pagina" id="pagina-pagamento">
+    <div class="icone-leitor">
+      <span class="onda"></span>
+      <span class="onda"></span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="7" width="18" height="10" rx="2"/>
+        <path d="M9 7v10" stroke-dasharray="2 2"/>
+      </svg>
+    </div>
+    <div class="titulo-pagina">Pagamento</div>
+    <div class="desc-pagina">Digite ou leia o código do ticket para consultar o valor</div>
+    <input class="codigo" id="consulta-codigo" placeholder="CÓDIGO DO TICKET" autofocus>
+    <button class="principal" id="btn-consultar">CONSULTAR</button>
 
     <div class="valor-devido" id="valor-devido">
       <div class="label">Valor a pagar</div>
@@ -356,9 +348,18 @@
       <div id="bloco-pagamento">
         <label style="text-align:center;">Toque na forma de pagamento</label>
         <div class="botoes-pagamento">
-          <button class="btn-forma-pagamento" data-forma="pix">PIX</button>
-          <button class="btn-forma-pagamento" data-forma="credito">Crédito</button>
-          <button class="btn-forma-pagamento" data-forma="debito">Débito</button>
+          <button class="btn-forma-pagamento" data-forma="pix">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3" fill="currentColor" stroke="none"/></svg>
+            PIX
+          </button>
+          <button class="btn-forma-pagamento" data-forma="credito">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+            Crédito
+          </button>
+          <button class="btn-forma-pagamento" data-forma="debito">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><rect x="5" y="9" width="5" height="4" rx="1" fill="currentColor" stroke="none"/></svg>
+            Débito
+          </button>
         </div>
       </div>
     </div>
@@ -461,7 +462,6 @@ function salvarSessao(){
 }
 
 function mostrarTela(){
-  pararLeituraScanner();
   document.getElementById('tela-login').style.display = 'none';
   document.getElementById('tela-selecao-unidade').style.display = 'none';
   document.getElementById('tela-kiosk').style.display = 'none';
@@ -494,7 +494,6 @@ function mostrarTela(){
 
 function mostrarPagina(id){
   if (timeoutAutoReset){ clearTimeout(timeoutAutoReset); timeoutAutoReset = null; }
-  pararLeituraScanner();
   document.querySelectorAll('.pagina').forEach(p => p.classList.remove('ativa'));
   document.getElementById(id).classList.add('ativa');
   if (id === 'pagina-validar'){
@@ -509,7 +508,6 @@ function mostrarPagina(id){
     document.getElementById('resultado-pagamento').className = 'resultado';
     ticketAtual = null;
     document.getElementById('consulta-codigo').focus();
-    iniciarLeituraScanner('aviso-leitor-pagamento');
   }
 }
 
@@ -518,19 +516,16 @@ function mostrarPagina(id){
 // de mostrar os dois campos juntos como antes, porque com o leitor de
 // verdade (câmera única) não dá pra ler os dois ao mesmo tempo mesmo.
 function mostrarEtapaValidar(etapa){
-  pararLeituraScanner();
   document.querySelectorAll('.etapa-validar').forEach(e => e.classList.remove('ativa'));
   if (etapa === 'ticket'){
     document.getElementById('etapa-validar-ticket').classList.add('ativa');
     document.getElementById('erro-validar-ticket').style.display = 'none';
     document.getElementById('validar-codigo-ticket').focus();
-    iniciarLeituraScanner('aviso-leitor-validar-ticket');
   }else{
     document.getElementById('etapa-validar-qr').classList.add('ativa');
     document.getElementById('validar-qr').value = '';
     document.getElementById('resultado-validar').className = 'resultado';
     document.getElementById('validar-qr').focus();
-    iniciarLeituraScanner('aviso-leitor-validar-qr');
   }
 }
 
@@ -761,6 +756,25 @@ document.getElementById('validar-codigo-ticket').addEventListener('keydown', (e)
   if (e.key === 'Enter') avancarParaEtapaQr();
 });
 
+// Verificação automática -- o "Scanner como teclado" do SK210 digita o
+// código lido no campo focado como se fosse teclado físico, sem
+// necessariamente mandar Enter no final. Debounce: assim que o campo
+// para de receber caracteres por 400ms, segue sozinho para o próximo
+// passo -- sem precisar tocar em botão nenhum.
+function armarAutoAvanco(idCampo, acao){
+  let timeoutId = null;
+  document.getElementById(idCampo).addEventListener('input', () => {
+    clearTimeout(timeoutId);
+    if (!document.getElementById(idCampo).value.trim()) return;
+    timeoutId = setTimeout(() => {
+      if (document.getElementById(idCampo).value.trim()) acao();
+    }, 400);
+  });
+}
+armarAutoAvanco('validar-qr', processarLeituraCupom);
+armarAutoAvanco('validar-codigo-ticket', avancarParaEtapaQr);
+armarAutoAvanco('consulta-codigo', () => document.getElementById('btn-consultar').click());
+
 // -----------------------------------------------------------------
 // Pagamento -- botões diretos, sem menu (auto-atendimento, sem mouse)
 // -----------------------------------------------------------------
@@ -871,39 +885,17 @@ function imprimirComprovante(codigo, valor, forma){
 }
 
 // -----------------------------------------------------------------
-// Leitor -- não funciona como teclado, precisa da SDK (EasyLayer) pra
-// ativar a câmera/leitor. iniciarLeituraScanner()/pararLeituraScanner()
-// só têm efeito dentro do app Android nativo (window.AndroidBridge);
-// num navegador comum, a digitação manual continua funcionando igual
-// sempre funcionou. receberCodigoLido() é chamada pelo app nativo
-// (ver android-totem/.../TotemActivity.onActivityResult) toda vez que
-// um código é lido -- reaproveita o campo em foco e o mesmo tratamento
-// de Enter que já existia pra digitação manual, sem duplicar lógica.
-// Cada campo legível pelo scanner tem seu próprio aviso-leitor -- esse mapa
-// resolve qual mostrar, tanto quando uma tela chama iniciarLeituraScanner
-// explicitamente quanto quando o religamento automático abaixo precisa
-// decidir sozinho (não sabe "qual tela" chamou, só qual campo tem foco).
-const AVISO_LEITOR_POR_CAMPO = {
-  'validar-codigo-ticket': 'aviso-leitor-validar-ticket',
-  'validar-qr': 'aviso-leitor-validar-qr',
-  'consulta-codigo': 'aviso-leitor-pagamento',
-};
+// Leitor -- o SK210 tem um app de sistema ("Scanner como teclado",
+// Configurações > Sistema > Idiomas e entrada) que injeta o código lido
+// como digitação de teclado direto no campo de texto em foco. Não
+// precisa de nenhuma ponte com o app nativo pra isso -- os campos
+// .codigo já reagem normalmente a 'input'/'keydown' (ver
+// armarAutoAvanco mais abaixo), igual reagiriam a digitação manual.
+// -----------------------------------------------------------------
 
-function iniciarLeituraScanner(avisoId){
-  if (window.AndroidBridge && window.AndroidBridge.iniciarLeitura) window.AndroidBridge.iniciarLeitura();
-  document.querySelectorAll('.aviso-leitor').forEach(el => el.style.display = 'none');
-  if (avisoId){
-    const el = document.getElementById(avisoId);
-    if (el) el.style.display = 'flex';
-  }
-}
-function pararLeituraScanner(){
-  if (window.AndroidBridge && window.AndroidBridge.pararLeitura) window.AndroidBridge.pararLeitura();
-  document.querySelectorAll('.aviso-leitor').forEach(el => el.style.display = 'none');
-}
-// Erros que o app nativo captura (ex: câmera do leitor não abriu) chegam
-// aqui em vez de só ficarem no Logcat -- mostra no box de erro/resultado
-// da etapa/página em foco no momento.
+// Erros que o app nativo captura (ex: impressora) chegam aqui em vez de
+// só ficarem no Logcat -- mostra no box de erro/resultado da
+// etapa/página em foco no momento.
 window.receberErroNativo = function(mensagem){
   const escopo = document.querySelector('.pagina.ativa .etapa-validar.ativa') || document.querySelector('.pagina.ativa');
   if (!escopo) return;
@@ -918,23 +910,5 @@ window.receberErroNativo = function(mensagem){
     resultado.className = 'resultado show err';
     resultado.textContent = mensagem;
   }
-};
-window.receberCodigoLido = function(texto){
-  const ativo = document.activeElement;
-  if (ativo && ativo.tagName === 'INPUT'){
-    ativo.value = texto;
-    ativo.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
-  }
-  // scanCode() da EasyLayer entrega só uma leitura por chamada --
-  // religa o leitor se o foco continuar num campo de código depois do
-  // Enter (ex: deu erro e a tela não navegou embora). Se a tela navegou
-  // (ex: ticket -> QR), o campo em foco mudou, então o aviso certo é
-  // resolvido de novo a partir dele.
-  setTimeout(() => {
-    const novoAtivo = document.activeElement;
-    if (novoAtivo && novoAtivo.classList && novoAtivo.classList.contains('codigo')){
-      iniciarLeituraScanner(AVISO_LEITOR_POR_CAMPO[novoAtivo.id]);
-    }
-  }, 50);
 };
 </script>

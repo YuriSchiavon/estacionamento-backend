@@ -1,6 +1,5 @@
 package com.mypark.totem
 
-import android.Manifest
 import android.app.ActivityManager
 import android.content.Context
 import android.content.pm.PackageManager
@@ -15,8 +14,6 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.app.ActivityCompat
-import androidx.core.content.ContextCompat
 
 /**
  * Tela real do totem: WebView em tela cheia carregando uma das 3 URLs
@@ -38,7 +35,7 @@ class TotemActivity : AppCompatActivity() {
         const val EXTRA_URL = "extra_url"
         private const val JANELA_GESTO_SAIDA_MS = 3000L
         private const val TOQUES_PARA_SAIR = 5
-        private const val REQUEST_CODE_CAMERA = 100
+        private const val PACOTE_SCANNER_TECLADO = "com.android.scanneraskeyboard"
 
         private val URLS_PERMITIDAS = setOf(
             Config.URL_ENTRADA, Config.URL_SAIDA, Config.URL_VALIDACAO,
@@ -49,7 +46,6 @@ class TotemActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_totem)
         ativarTelaCheia()
-        pedirPermissaoCameraSeNecessario()
 
         // Testado no equipamento em 11/08/2026: o override do método
         // onBackPressed() antigo (deprecated) não estava consumindo o
@@ -104,14 +100,7 @@ class TotemActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         entrarEmModoQuiosque()
-    }
-
-    override fun onPause() {
-        super.onPause()
-        // Nunca deixa a câmera do leitor ligada se a tela sair de foco
-        // por qualquer motivo -- mesmo cuidado do onDestroy() do exemplo
-        // oficial da Gertec (ver AndroidBridge.pararLeitura).
-        androidBridge.pararLeitura()
+        garantirScannerComoTecladoAtivo()
     }
 
     override fun onDestroy() {
@@ -120,34 +109,43 @@ class TotemActivity : AppCompatActivity() {
     }
 
     /**
-     * O leitor usa a câmera -- é permissão "perigosa" (Android 6+),
-     * precisa ser concedida em tempo de execução, não só declarada no
-     * manifesto. Pedimos aqui cedo, assim que o totem abre, pra dar o
-     * máximo de tempo possível pro diálogo ser respondido antes da
-     * página pedir a primeira leitura (ver AndroidBridge.iniciarLeitura(),
-     * que ainda assim segura o pedido se a permissão não tiver sido
-     * concedida a tempo).
+     * O leitor de código de barras/QR do SK210 não passa por nenhuma API
+     * nossa -- é o app de sistema "Scanner como teclado"
+     * (com.android.scanneraskeyboard) que injeta o código lido como
+     * digitação direto no campo de texto em foco (ver
+     * AndroidBridge, cabeçalho da classe). Esse app precisa estar
+     * habilitado (Configurações > Sistema > Idiomas e entrada > "Scanner
+     * como teclado"), o que normalmente é feito uma vez na configuração
+     * do equipamento -- aqui só confirmamos que continua habilitado a
+     * cada vez que o totem volta ao primeiro plano, e tentamos
+     * reabilitar sozinhos se não estiver (best-effort: apps comuns não
+     * têm permissão de sistema pra mudar o estado de outro pacote, então
+     * isso pode falhar silenciosamente -- nesse caso só avisamos no
+     * Logcat, sem travar o totem por causa disso).
      */
-    private fun pedirPermissaoCameraSeNecessario() {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
-            != PackageManager.PERMISSION_GRANTED
-        ) {
-            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.CAMERA), REQUEST_CODE_CAMERA)
-        }
-    }
-
-    override fun onRequestPermissionsResult(
-        requestCode: Int, permissions: Array<out String>, grantResults: IntArray,
-    ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == REQUEST_CODE_CAMERA) {
-            val concedida = grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED
-            Log.i("TotemActivity", "Permissão de câmera: ${if (concedida) "concedida" else "negada"}")
-            // Testado ao vivo: numa instalação nova, a página costuma pedir
-            // pra escanear antes desse diálogo ser respondido -- essa
-            // chamada retoma a leitura que ficou pendente (ver
-            // AndroidBridge.iniciarLeitura()/retomarLeituraSePendente()).
-            if (concedida) androidBridge.retomarLeituraSePendente()
+    private fun garantirScannerComoTecladoAtivo() {
+        try {
+            val estadoAtual = packageManager.getApplicationEnabledSetting(PACOTE_SCANNER_TECLADO)
+            val desabilitado = estadoAtual == PackageManager.COMPONENT_ENABLED_STATE_DISABLED ||
+                estadoAtual == PackageManager.COMPONENT_ENABLED_STATE_DISABLED_USER
+            if (desabilitado) {
+                Log.w("TotemActivity", "Scanner como teclado está desabilitado -- tentando reabilitar")
+                try {
+                    packageManager.setApplicationEnabledSetting(
+                        PACOTE_SCANNER_TECLADO, PackageManager.COMPONENT_ENABLED_STATE_ENABLED, 0,
+                    )
+                    Log.i("TotemActivity", "Scanner como teclado reabilitado com sucesso")
+                } catch (e: SecurityException) {
+                    Log.e(
+                        "TotemActivity",
+                        "Sem permissão pra reabilitar o Scanner como teclado sozinho -- " +
+                            "precisa ativar manualmente em Configurações > Sistema > Idiomas e entrada",
+                        e,
+                    )
+                }
+            }
+        } catch (e: PackageManager.NameNotFoundException) {
+            Log.e("TotemActivity", "Pacote $PACOTE_SCANNER_TECLADO não encontrado nesse equipamento", e)
         }
     }
 
