@@ -2,7 +2,6 @@ package com.mypark.totem
 
 import android.app.ActivityManager
 import android.content.Context
-import android.content.pm.PackageManager
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -35,7 +34,6 @@ class TotemActivity : AppCompatActivity() {
         const val EXTRA_URL = "extra_url"
         private const val JANELA_GESTO_SAIDA_MS = 3000L
         private const val TOQUES_PARA_SAIR = 5
-        private const val PACOTE_SCANNER_TECLADO = "com.android.scanneraskeyboard"
 
         private val URLS_PERMITIDAS = setOf(
             Config.URL_ENTRADA, Config.URL_SAIDA, Config.URL_VALIDACAO,
@@ -100,53 +98,11 @@ class TotemActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         entrarEmModoQuiosque()
-        garantirScannerComoTecladoAtivo()
     }
 
     override fun onDestroy() {
         super.onDestroy()
         androidBridge.liberarRecursos()
-    }
-
-    /**
-     * O leitor de código de barras/QR do SK210 não passa por nenhuma API
-     * nossa -- é o app de sistema "Scanner como teclado"
-     * (com.android.scanneraskeyboard) que injeta o código lido como
-     * digitação direto no campo de texto em foco (ver
-     * AndroidBridge, cabeçalho da classe). Esse app precisa estar
-     * habilitado (Configurações > Sistema > Idiomas e entrada > "Scanner
-     * como teclado"), o que normalmente é feito uma vez na configuração
-     * do equipamento -- aqui só confirmamos que continua habilitado a
-     * cada vez que o totem volta ao primeiro plano, e tentamos
-     * reabilitar sozinhos se não estiver (best-effort: apps comuns não
-     * têm permissão de sistema pra mudar o estado de outro pacote, então
-     * isso pode falhar silenciosamente -- nesse caso só avisamos no
-     * Logcat, sem travar o totem por causa disso).
-     */
-    private fun garantirScannerComoTecladoAtivo() {
-        try {
-            val estadoAtual = packageManager.getApplicationEnabledSetting(PACOTE_SCANNER_TECLADO)
-            val desabilitado = estadoAtual == PackageManager.COMPONENT_ENABLED_STATE_DISABLED ||
-                estadoAtual == PackageManager.COMPONENT_ENABLED_STATE_DISABLED_USER
-            if (desabilitado) {
-                Log.w("TotemActivity", "Scanner como teclado está desabilitado -- tentando reabilitar")
-                try {
-                    packageManager.setApplicationEnabledSetting(
-                        PACOTE_SCANNER_TECLADO, PackageManager.COMPONENT_ENABLED_STATE_ENABLED, 0,
-                    )
-                    Log.i("TotemActivity", "Scanner como teclado reabilitado com sucesso")
-                } catch (e: SecurityException) {
-                    Log.e(
-                        "TotemActivity",
-                        "Sem permissão pra reabilitar o Scanner como teclado sozinho -- " +
-                            "precisa ativar manualmente em Configurações > Sistema > Idiomas e entrada",
-                        e,
-                    )
-                }
-            }
-        } catch (e: PackageManager.NameNotFoundException) {
-            Log.e("TotemActivity", "Pacote $PACOTE_SCANNER_TECLADO não encontrado nesse equipamento", e)
-        }
     }
 
     @Suppress("DEPRECATION")

@@ -33,8 +33,19 @@ import java.util.Locale
  * como teclado") que injeta o código lido como se fosse digitação de
  * teclado físico, direto no campo de texto em foco. Isso deixou toda a
  * integração via AIDL (com.topwise.cloudpos.aidl.camera.*) que estava
- * aqui antes desnecessária -- removida. Ver TotemActivity para a
- * checagem/tentativa de manter esse app de sistema ativo.
+ * aqui antes desnecessária -- removida.
+ *
+ * Essa ativação é manual, feita uma vez na configuração do
+ * equipamento -- tentamos checar/reativar sozinhos via
+ * PackageManager.getApplicationEnabledSetting() e não funcionou: mesmo
+ * com o recurso ativo e funcionando de verdade, esse estado nunca saía
+ * de COMPONENT_ENABLED_STATE_DEFAULT (confirmado com o app já
+ * habilitado manualmente). O toggle de "Scanner como teclado" controla
+ * algum estado interno do próprio app de sistema, não o enabled-state
+ * do pacote -- sem acesso root não deu pra descobrir onde (app de
+ * sistema, sem SharedPreferences legíveis por app comum). Tratar como
+ * configuração de equipamento (feita uma vez, como data/hora e Wi-Fi),
+ * não como algo que o app consegue garantir sozinho.
  */
 class AndroidBridge(private val activity: Activity, private val webView: WebView) : Printer.Listener {
 

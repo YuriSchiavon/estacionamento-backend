@@ -3,15 +3,6 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
 
-    <!-- Visibilidade de pacote (Android 11+), necessária pra
-         TotemActivity.garantirScannerComoTecladoAtivo() conseguir
-         consultar o estado do app de sistema "Scanner como teclado" do
-         SK210. Sem isso, PackageManager.getApplicationEnabledSetting()
-         lança NameNotFoundException mesmo com o pacote instalado. -->
-    <queries>
-        <package android:name="com.android.scanneraskeyboard" />
-    </queries>
-
     <application
         android:allowBackup="false"
         android:icon="@drawable/ic_launcher"
@@ -35,7 +26,8 @@
             android:exported="false"
             android:launchMode="singleTask"
             android:screenOrientation="portrait"
-            android:configChanges="orientation|screenSize|keyboardHidden" />
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:windowSoftInputMode="stateAlwaysHidden|adjustPan" />
 
     </application>
 </manifest>
