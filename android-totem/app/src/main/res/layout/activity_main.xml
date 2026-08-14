@@ -156,72 +156,121 @@
             android:textColor="@color/texto_secundario"
             android:textSize="14sp" />
 
-        <!-- Os 3 botões dividem igualmente o espaço vertical restante
-             (layout_weight), em vez de padding fixo, assim se ajustam
-             sozinhos a qualquer altura de tela, sem sobrar nem faltar
-             espaço dependendo do equipamento. autoSizeTextType encolhe o
-             texto se a tela for baixa/estreita demais pro tamanho padrão. -->
+        <!-- 3 cards quadrados lado a lado, ícone grande em cima e texto
+             pequeno embaixo. layout_weight divide a largura igualmente
+             entre os 3; a altura fixa (180dp) é o que dá a proporção de
+             quadrado num totem em pé (portrait). autoSizeTextType encolhe
+             o texto se a tela for estreita demais pro tamanho padrão. -->
         <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1"
-            android:orientation="vertical">
+            android:layout_height="180dp"
+            android:orientation="horizontal">
 
-            <Button
+            <LinearLayout
                 android:id="@+id/btn_entrada"
-                android:layout_width="match_parent"
-                android:layout_height="0dp"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
                 android:layout_weight="1"
-                android:layout_marginBottom="16dp"
-                android:paddingStart="28dp"
-                android:paddingEnd="28dp"
-                android:text="@string/btn_entrada"
-                android:textSize="22sp"
-                android:textStyle="bold"
-                android:textColor="@color/navy"
-                android:backgroundTint="@color/lime"
-                android:drawableStart="@drawable/ic_seta_cima"
-                android:drawablePadding="14dp"
-                android:autoSizeTextType="uniform"
-                android:autoSizeMinTextSize="14sp"
-                android:autoSizeMaxTextSize="22sp" />
+                android:layout_marginEnd="8dp"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:background="@drawable/bg_card_totem"
+                android:foreground="?attr/selectableItemBackground"
+                android:clickable="true"
+                android:focusable="true"
+                android:padding="12dp">
 
-            <Button
+                <ImageView
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:src="@drawable/ic_seta_cima"
+                    android:importantForAccessibility="no" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:text="@string/btn_entrada"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/navy"
+                    android:gravity="center"
+                    android:autoSizeTextType="uniform"
+                    android:autoSizeMinTextSize="10sp"
+                    android:autoSizeMaxTextSize="13sp" />
+
+            </LinearLayout>
+
+            <LinearLayout
                 android:id="@+id/btn_saida"
-                android:layout_width="match_parent"
-                android:layout_height="0dp"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
                 android:layout_weight="1"
-                android:layout_marginBottom="16dp"
-                android:paddingStart="28dp"
-                android:paddingEnd="28dp"
-                android:text="@string/btn_saida"
-                android:textSize="22sp"
-                android:textStyle="bold"
-                android:textColor="@color/navy"
-                android:backgroundTint="@color/lime"
-                android:drawableStart="@drawable/ic_seta_baixo"
-                android:drawablePadding="14dp"
-                android:autoSizeTextType="uniform"
-                android:autoSizeMinTextSize="14sp"
-                android:autoSizeMaxTextSize="22sp" />
+                android:layout_marginStart="8dp"
+                android:layout_marginEnd="8dp"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:background="@drawable/bg_card_totem"
+                android:foreground="?attr/selectableItemBackground"
+                android:clickable="true"
+                android:focusable="true"
+                android:padding="12dp">
 
-            <Button
+                <ImageView
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:src="@drawable/ic_seta_baixo"
+                    android:importantForAccessibility="no" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:text="@string/btn_saida"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/navy"
+                    android:gravity="center"
+                    android:autoSizeTextType="uniform"
+                    android:autoSizeMinTextSize="10sp"
+                    android:autoSizeMaxTextSize="13sp" />
+
+            </LinearLayout>
+
+            <LinearLayout
                 android:id="@+id/btn_validacao"
-                android:layout_width="match_parent"
-                android:layout_height="0dp"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
                 android:layout_weight="1"
-                android:paddingStart="28dp"
-                android:paddingEnd="28dp"
-                android:text="@string/btn_validacao"
-                android:textSize="22sp"
-                android:textStyle="bold"
-                android:textColor="@color/navy"
-                android:backgroundTint="@color/lime"
-                android:drawableStart="@drawable/ic_check"
-                android:drawablePadding="14dp"
-                android:autoSizeTextType="uniform"
-                android:autoSizeMinTextSize="14sp"
-                android:autoSizeMaxTextSize="22sp" />
+                android:layout_marginStart="8dp"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:background="@drawable/bg_card_totem"
+                android:foreground="?attr/selectableItemBackground"
+                android:clickable="true"
+                android:focusable="true"
+                android:padding="12dp">
+
+                <ImageView
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:src="@drawable/ic_check"
+                    android:importantForAccessibility="no" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:text="@string/btn_validacao"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/navy"
+                    android:gravity="center"
+                    android:autoSizeTextType="uniform"
+                    android:autoSizeMinTextSize="10sp"
+                    android:autoSizeMaxTextSize="13sp" />
+
+            </LinearLayout>
 
         </LinearLayout>
 

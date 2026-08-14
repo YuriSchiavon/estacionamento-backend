@@ -52,14 +52,19 @@ class TotemActivity : AppCompatActivity() {
         pedirPermissaoCameraSeNecessario()
 
         // Testado no equipamento em 11/08/2026: o override do método
-        // onBackPressed() antigo (deprecated) NÃO estava consumindo o
-        // botão voltar físico -- o app caía de volta pra tela de login.
-        // Registrar um OnBackPressedCallback (API atual do
-        // androidx.activity) é a forma correta e garante que o botão
-        // voltar não faça nada aqui, como já era a intenção.
+        // onBackPressed() antigo (deprecated) não estava consumindo o
+        // botão voltar físico -- por isso o registro via
+        // OnBackPressedCallback (API atual do androidx.activity), que de
+        // fato intercepta o botão.
+        //
+        // Testado em 14/08/2026: o botão voltar deve encerrar o totem e
+        // retornar à MainActivity, igual ao gesto de 5 toques
+        // (sairDoQuiosque()) -- MainActivity.onResume() já exige login de
+        // novo automaticamente, então isso não abre nenhum atalho de
+        // segurança, só dá outra forma de sair além do gesto.
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
-                // no-op de propósito -- ver docstring da classe
+                sairDoQuiosque()
             }
         })
 

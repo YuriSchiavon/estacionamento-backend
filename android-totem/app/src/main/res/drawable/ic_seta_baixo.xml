@@ -1,10 +1,11 @@
+<!-- Seta para baixo, saída. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="24dp"
-    android:height="24dp"
+    android:width="48dp"
+    android:height="48dp"
     android:viewportWidth="24"
     android:viewportHeight="24"
     android:tint="@color/navy">
     <path
         android:fillColor="#000000"
-        android:pathData="M12,20 L4,10 L9,10 L9,4 L15,4 L15,10 L20,10 Z" />
+        android:pathData="M20,12l-1.41,-1.41L13,16.17V4h-2v12.17l-5.58,-5.59L4,12l8,8z" />
 </vector>

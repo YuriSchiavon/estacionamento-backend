@@ -3,12 +3,15 @@ package com.mypark.totem
 import android.content.Intent
 import android.os.Bundle
 import android.text.InputType
+import android.text.method.HideReturnsTransformationMethod
+import android.text.method.PasswordTransformationMethod
 import android.view.View
 import android.widget.Button
 import android.widget.EditText
 import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import org.json.JSONArray
 import org.json.JSONObject
@@ -44,9 +47,24 @@ class MainActivity : AppCompatActivity() {
 
         findViewById<Button>(R.id.btn_login).setOnClickListener { tentarLogin() }
         findViewById<ImageButton>(R.id.btn_toggle_senha).setOnClickListener { alternarVisibilidadeSenha() }
-        findViewById<Button>(R.id.btn_entrada).setOnClickListener { abrirTotem(Config.URL_ENTRADA) }
-        findViewById<Button>(R.id.btn_saida).setOnClickListener { abrirTotem(Config.URL_SAIDA) }
-        findViewById<Button>(R.id.btn_validacao).setOnClickListener { abrirTotem(Config.URL_VALIDACAO) }
+        // Cards de escolha (Entrada/Saída/Validação) -- não são mais
+        // Button, e sim um LinearLayout clicável (ver activity_main.xml),
+        // pra caber ícone grande em cima e texto pequeno embaixo.
+        findViewById<View>(R.id.btn_entrada).setOnClickListener { abrirTotem(Config.URL_ENTRADA) }
+        findViewById<View>(R.id.btn_saida).setOnClickListener { abrirTotem(Config.URL_SAIDA) }
+        findViewById<View>(R.id.btn_validacao).setOnClickListener { abrirTotem(Config.URL_VALIDACAO) }
+
+        // Esta é a raiz da tarefa (não existe tela anterior dentro do
+        // app) -- o botão voltar aqui NUNCA deve fechar o app e cair no
+        // launcher do Android, mesmo sem estar em Lock Task Mode. Como
+        // esta tela não alcança gestão/operação/POS (só login e escolha
+        // de totem), não há nenhum risco em simplesmente ignorar o
+        // gesto.
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                // no-op de propósito
+            }
+        })
     }
 
     override fun onResume() {
@@ -69,22 +87,35 @@ class MainActivity : AppCompatActivity() {
         val campoSenha = findViewById<EditText>(R.id.login_senha)
         campoSenha.setText("")
         campoSenha.inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+        campoSenha.transformationMethod = PasswordTransformationMethod.getInstance()
         findViewById<ImageButton>(R.id.btn_toggle_senha).setImageResource(R.drawable.ic_olho)
     }
 
-    // Alterna o campo de senha entre oculto e visível (ícone de olho),
-    // igual ao padrão já usado nas páginas web (ver toggle-senha em
-    // app/static/totem_*.html).
+    // Alterna o campo de senha entre oculto e visível (ícone de olho).
+    //
+    // Testado no equipamento em 14/08/2026: a versão antiga só mudava o
+    // inputType (TYPE_TEXT_VARIATION_VISIBLE_PASSWORD) e confiava que o
+    // Android trocaria o TransformationMethod sozinho -- na prática,
+    // nessa ROM (ver comentário grande de AndroidBridge.kt sobre o
+    // firmware da Topwise por trás do SK210), isso não bastou e a senha
+    // continuava mascarada mesmo com o ícone mudando. Setar o
+    // transformationMethod diretamente é o mecanismo que de fato
+    // controla se os caracteres aparecem ou viram •••, então é o que
+    // decide a visibilidade aqui -- o inputType continua sendo ajustado
+    // só para o teclado não tentar sugestão/autocorreção com a senha à
+    // mostra.
     private fun alternarVisibilidadeSenha() {
         val campo = findViewById<EditText>(R.id.login_senha)
         val botao = findViewById<ImageButton>(R.id.btn_toggle_senha)
         val selecaoAtual = campo.selectionStart.coerceAtLeast(0)
-        val oculta = campo.inputType and InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD == 0
+        val oculta = campo.transformationMethod is PasswordTransformationMethod
         if (oculta) {
+            campo.transformationMethod = HideReturnsTransformationMethod.getInstance()
             campo.inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
             botao.setImageResource(R.drawable.ic_olho_fechado)
             botao.contentDescription = getString(R.string.ocultar_senha)
         } else {
+            campo.transformationMethod = PasswordTransformationMethod.getInstance()
             campo.inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
             botao.setImageResource(R.drawable.ic_olho)
             botao.contentDescription = getString(R.string.mostrar_senha)

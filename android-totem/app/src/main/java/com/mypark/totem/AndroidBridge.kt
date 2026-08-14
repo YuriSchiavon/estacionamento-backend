@@ -279,7 +279,13 @@ class AndroidBridge(private val activity: Activity, private val webView: WebView
             setNoSupportCodeTypeList(emptyList())
         }
         try {
-            camera.setDecodeLibrary(0)
+            // Testado no equipamento em 14/08/2026: com setDecodeLibrary(0),
+            // startDecode() sempre retornava -1 -- a câmera abria e fechava
+            // em ~36ms sem nunca decodificar. O manual do SK210 lista um
+            // "Scanner 1D/2D" com LED próprio, separado da câmera frontal
+            // (specs + itens 4/5 do diagrama) -- 1 aqui seleciona esse motor
+            // de decodificação dedicado em vez do decode via câmera pura.
+            camera.setDecodeLibrary(1)
             val codigoRetorno = camera.startDecode(parametro, callbackLeitura)
             if (codigoRetorno != 0) {
                 Log.e(TAG, "startDecode retornou código $codigoRetorno (esperado 0)")
