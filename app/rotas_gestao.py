@@ -238,7 +238,16 @@ def atualizar_credenciado(
         raise HTTPException(404, "Credenciado não encontrado")
     _verificar_acesso_unidade(usuario, credenciado.unidade_id)
 
-    for campo, valor in payload.model_dump(exclude_unset=True).items():
+    dados = payload.model_dump(exclude_unset=True)
+    novo_identificador = dados.get("identificador_facial")
+    if novo_identificador and novo_identificador != credenciado.identificador_facial:
+        conflito = db.query(models.Credenciado).filter_by(
+            unidade_id=credenciado.unidade_id, identificador_facial=novo_identificador
+        ).first()
+        if conflito:
+            raise HTTPException(409, "Já existe um credenciado com esse identificador facial nessa unidade")
+
+    for campo, valor in dados.items():
         setattr(credenciado, campo, valor)
 
     db.commit()
@@ -335,7 +344,18 @@ def atualizar_estabelecimento(
         raise HTTPException(404, "Estabelecimento não encontrado")
     _verificar_acesso_unidade(usuario, estabelecimento.unidade_id)
 
-    for campo, valor in payload.model_dump(exclude_unset=True).items():
+    dados = payload.model_dump(exclude_unset=True)
+    novo_cnpj = dados.get("cnpj")
+    if novo_cnpj and novo_cnpj != estabelecimento.cnpj:
+        if not CNPJ_REGEX.match(novo_cnpj):
+            raise HTTPException(422, "CNPJ precisa ter 14 dígitos numéricos, sem pontuação")
+        conflito = db.query(models.Estabelecimento).filter_by(
+            unidade_id=estabelecimento.unidade_id, cnpj=novo_cnpj
+        ).first()
+        if conflito:
+            raise HTTPException(409, "Já existe um estabelecimento com esse CNPJ nessa unidade")
+
+    for campo, valor in dados.items():
         setattr(estabelecimento, campo, valor)
 
     db.commit()

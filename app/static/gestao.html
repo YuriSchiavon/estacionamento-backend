@@ -309,6 +309,57 @@
     font-size:13px;font-weight:400;color:var(--navy);margin:0;
   }
   .lista-check-unidades input{width:auto;}
+
+  /* Menu de ações (tree dots) -- substitui a fileira de botões
+     secundários que cada linha de tabela acumulava (Editar, Ativar,
+     Excluir, Renovar...); agora fica tudo dentro de um menu que abre
+     sob demanda. */
+  .menu-acoes{position:relative; display:inline-block;}
+  .menu-acoes-btn{
+    background:none;
+    border:1px solid var(--border);
+    color:var(--navy);
+    width:32px;
+    height:32px;
+    border-radius:8px;
+    font-size:18px;
+    font-weight:700;
+    line-height:1;
+    cursor:pointer;
+  }
+  .menu-acoes-btn:hover{background:var(--bg);}
+  .menu-acoes-lista{
+    display:none;
+    position:absolute;
+    right:0;
+    top:calc(100% + 4px);
+    background:#fff;
+    border:1px solid var(--border);
+    border-radius:10px;
+    box-shadow:0 8px 24px rgba(20,42,75,.16);
+    min-width:170px;
+    z-index:20;
+    padding:4px;
+  }
+  .menu-acoes.aberto .menu-acoes-lista{display:block;}
+  .menu-acoes-lista button{
+    display:block;
+    width:100%;
+    text-align:left;
+    background:none;
+    border:none;
+    padding:9px 12px;
+    font-family:inherit;
+    font-size:13px;
+    font-weight:600;
+    color:var(--navy);
+    border-radius:6px;
+    cursor:pointer;
+    white-space:nowrap;
+  }
+  .menu-acoes-lista button:hover{background:var(--bg);}
+  .menu-acoes-lista button.perigo{color:var(--danger);}
+  td.col-acoes{text-align:right;}
 </style>
 
 <div id="tela-login">
@@ -347,13 +398,9 @@
     <nav class="sidebar">
       <div class="sidebar-grupo">
         <div class="sidebar-titulo">Visão geral</div>
-        <button class="tab-btn active" data-tab="patio">
+        <button class="tab-btn active" data-tab="dashboard">
           <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="2.5" width="6" height="6" rx="1.2"/><rect x="9.5" y="2.5" width="6" height="6" rx="1.2"/><rect x="2.5" y="9.5" width="6" height="6" rx="1.2"/><rect x="9.5" y="9.5" width="6" height="6" rx="1.2"/></svg>
-          Pátio
-        </button>
-        <button class="tab-btn" data-tab="tickets">
-          <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="5" width="13" height="8" rx="1.5"/><line x1="9" y1="5" x2="9" y2="13" stroke-dasharray="2 2"/></svg>
-          Tickets
+          Dashboard
         </button>
       </div>
 
@@ -403,6 +450,14 @@
 
       <div class="sidebar-grupo">
         <div class="sidebar-titulo">Controle</div>
+        <button class="tab-btn" data-tab="patio">
+          <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="6.5" width="13" height="5" rx="1.5"/><path d="M4 6.5 L5.5 3 H12.5 L14 6.5"/><circle cx="5.5" cy="11.5" r="1.3" fill="currentColor" stroke="none"/><circle cx="12.5" cy="11.5" r="1.3" fill="currentColor" stroke="none"/></svg>
+          Pátio
+        </button>
+        <button class="tab-btn" data-tab="tickets">
+          <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="5" width="13" height="8" rx="1.5"/><line x1="9" y1="5" x2="9" y2="13" stroke-dasharray="2 2"/></svg>
+          Tickets
+        </button>
         <button class="tab-btn" data-tab="auditoria">
           <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="7.5" r="4.5"/><line x1="10.8" y1="10.8" x2="15.5" y2="15.5"/></svg>
           Auditoria
@@ -430,7 +485,7 @@
       </div>
     </section>
 
-    <div class="panel active" id="panel-patio">
+    <div class="panel active" id="panel-dashboard">
       <section class="card">
         <h2>Dashboard</h2>
         <div class="desc">Movimento no período (inclusive acessos de credenciado/mensalista) + pátio em tempo real, independente do filtro de data.</div>
@@ -441,7 +496,9 @@
         </div>
         <div class="resumo" id="resumo-dashboard"></div>
       </section>
+    </div>
 
+    <div class="panel" id="panel-patio">
       <section class="card">
         <h2>Pátio</h2>
         <div class="desc">O que está acontecendo agora -- estacionados no pátio, já liberados, de credenciados/mensalistas, ou já pagos.</div>
@@ -596,8 +653,9 @@
 
     <div class="panel" id="panel-estabelecimentos">
       <section class="card">
-        <h2>Convênios</h2>
+        <h2 id="titulo-cadastro-estabelecimento">Cadastrar convênio</h2>
         <div class="desc">Cada convênio tem seu próprio regulamento (contratos diferentes) — ou dá minutos grátis de tolerância por valor de compra, ou dá desconto percentual na tarifa, válido só até um número fixo de horas. O CNPJ é conferido contra o embutido na chave de acesso da NFC-e lida no totem — cupom de fora não conta.</div>
+        <input type="hidden" id="e-edit-id">
         <div class="grid-form">
           <div>
             <label>CNPJ (14 dígitos, sem pontuação)</label>
@@ -618,8 +676,9 @@
             <label>Unidade</label>
             <select id="e-unidade"></select>
           </div>
-          <div>
+          <div style="display:flex; gap:8px; align-items:end;">
             <button class="action" id="btn-cadastrar-estabelecimento" style="width:100%;">Cadastrar</button>
+            <button class="secundario" type="button" id="btn-cancelar-edicao-e" style="display:none;">Cancelar</button>
           </div>
         </div>
         <div class="msg" id="msg-estabelecimento"></div>
@@ -912,8 +971,9 @@
 
     <div class="panel" id="panel-unidades">
       <section class="card" id="secao-unidades">
-        <h2>Unidades</h2>
-        <div class="desc">Cada unidade nova já ganha as 3 contas de totem (entrada/validação/saída) prontas — as senhas só aparecem aqui, uma vez, na criação. Anote e distribua para os equipamentos.</div>
+        <h2 id="titulo-cadastro-unidade">Cadastrar unidade</h2>
+        <div class="desc">Cada unidade nova já ganha as 3 contas de totem (entrada/validação/saída) prontas — as senhas só aparecem aqui, uma vez, na criação. Anote e distribua para os equipamentos. Tarifa, horário e outras configurações ficam na aba Regulamento, com a unidade selecionada no filtro "Visualizando".</div>
+        <input type="hidden" id="u-edit-id">
         <div class="grid-form">
           <div>
             <label>Nome da unidade</label>
@@ -931,8 +991,9 @@
             <label>Validade da mensalidade (dias)</label>
             <input id="u-dias-mensalidade" type="number" value="30">
           </div>
-          <div>
+          <div style="display:flex; gap:8px; align-items:end;">
             <button class="action" id="btn-cadastrar-unidade" style="width:100%;">Cadastrar unidade</button>
+            <button class="secundario" type="button" id="btn-cancelar-edicao-u" style="display:none;">Cancelar</button>
           </div>
         </div>
         <div class="msg" id="msg-unidade"></div>
@@ -951,6 +1012,20 @@
 let sessao = null; // { token, papel, unidade_id, nome, pode_liberar_manualmente }
 let unidadeFiltro = ''; // '' = geral (só dono/gerente de operações usa isso de verdade)
 let listaUnidades = [];
+
+// Menu de ações (tree dots) -- um único listener no documento cuida de
+// abrir/fechar qualquer ".menu-acoes" da página, incluindo os que ainda
+// nem existem (as linhas de tabela são recriadas via innerHTML a cada
+// carregar*()). Clicar no botão alterna o menu daquela linha; clicar em
+// qualquer outro lugar fecha todos.
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest('.menu-acoes-btn');
+  const menuClicado = btn ? btn.closest('.menu-acoes') : null;
+  document.querySelectorAll('.menu-acoes.aberto').forEach(m => {
+    if (m !== menuClicado) m.classList.remove('aberto');
+  });
+  if (menuClicado) menuClicado.classList.toggle('aberto');
+});
 
 // gerente_operacoes tem exatamente as mesmas permissões do dono (multi-
 // unidade, acesso total) -- só o cargo é diferente. Toda checagem que
@@ -1134,28 +1209,48 @@ async function carregarUnidades(){
       <td>${badgeStatus(u.ativo)}</td>
       <td>${u.tolerancia_padrao_minutos} min</td>
       <td>R$ ${u.valor_mensalidade.toFixed(2)} / ${u.dias_validade_mensalidade} dias</td>
-      <td>
-        <button class="secundario" onclick="editarNomeUnidade(${u.id}, '${u.nome.replace(/'/g, "\\'")}')">Editar</button>
-        <button class="secundario" onclick="alternarAtivoUnidade(${u.id}, ${u.ativo})">${u.ativo ? 'Desativar' : 'Ativar'}</button>
+      <td class="col-acoes">
+        <div class="menu-acoes">
+          <button type="button" class="menu-acoes-btn" aria-label="Ações">⋮</button>
+          <div class="menu-acoes-lista">
+            <button onclick="editarUnidade(${u.id})">Editar</button>
+            <button onclick="alternarAtivoUnidade(${u.id}, ${u.ativo})">${u.ativo ? 'Desativar' : 'Ativar'}</button>
+          </div>
+        </div>
       </td>
     </tr>
   `).join('');
 }
 
-// Editar aqui é só o nome -- tarifa/tolerância/mensalidade/horário já
-// têm tela própria (aba Regulamento, com a unidade selecionada no
-// filtro "Visualizando"); duplicar esses campos aqui ia dar duas telas
-// editando a mesma coisa, com risco de uma sobrescrever a outra.
-async function editarNomeUnidade(id, nomeAtual){
-  const novoNome = prompt('Novo nome da unidade:', nomeAtual);
-  if (novoNome === null || !novoNome.trim() || novoNome === nomeAtual) return;
-  try{
-    await api('PATCH', `/gestao/unidades/${id}`, { nome: novoNome.trim() });
-    carregarUnidades();
-  }catch(e){
-    alert(e.message);
-  }
+// Edita os mesmos campos do cadastro (nome + os 3 padrões iniciais).
+// Tarifa/horário/impressão continuam só na aba Regulamento -- não dá
+// pra cadastrar isso na criação da unidade mesmo, então não faz
+// sentido duplicar aqui.
+function editarUnidade(id){
+  const u = listaUnidades.find(x => x.id === id);
+  if (!u) return;
+  document.getElementById('u-edit-id').value = u.id;
+  document.getElementById('u-nome').value = u.nome;
+  document.getElementById('u-tolerancia').value = u.tolerancia_padrao_minutos;
+  document.getElementById('u-valor-mensalidade').value = u.valor_mensalidade;
+  document.getElementById('u-dias-mensalidade').value = u.dias_validade_mensalidade;
+  document.getElementById('titulo-cadastro-unidade').textContent = 'Editar unidade';
+  document.getElementById('btn-cadastrar-unidade').textContent = 'Salvar edição';
+  document.getElementById('btn-cancelar-edicao-u').style.display = 'inline-block';
+  document.getElementById('panel-unidades').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
+
+function cancelarEdicaoUnidade(){
+  document.getElementById('u-edit-id').value = '';
+  document.getElementById('u-nome').value = '';
+  document.getElementById('u-tolerancia').value = '15';
+  document.getElementById('u-valor-mensalidade').value = '200.00';
+  document.getElementById('u-dias-mensalidade').value = '30';
+  document.getElementById('titulo-cadastro-unidade').textContent = 'Cadastrar unidade';
+  document.getElementById('btn-cadastrar-unidade').textContent = 'Cadastrar unidade';
+  document.getElementById('btn-cancelar-edicao-u').style.display = 'none';
+}
+document.getElementById('btn-cancelar-edicao-u').addEventListener('click', cancelarEdicaoUnidade);
 
 async function alternarAtivoUnidade(id, ativoAtual){
   if (ativoAtual && !confirm('Desativar esta unidade? As contas presas a ela (totens, supervisor, operadores) não conseguem mais logar enquanto estiver desativada.')) return;
@@ -1268,19 +1363,32 @@ document.getElementById('btn-cadastrar-unidade').addEventListener('click', async
   const msg = document.getElementById('msg-unidade');
   msg.className = 'msg';
   msg.textContent = '';
+  const editId = document.getElementById('u-edit-id').value;
   try{
-    const resp = await api('POST', '/gestao/unidades', {
-      nome: document.getElementById('u-nome').value,
-      tolerancia_padrao_minutos: parseInt(document.getElementById('u-tolerancia').value || '15', 10),
-      valor_mensalidade: parseFloat(document.getElementById('u-valor-mensalidade').value || '200'),
-      dias_validade_mensalidade: parseInt(document.getElementById('u-dias-mensalidade').value || '30', 10),
-    });
-    msg.className = 'msg ok';
-    msg.textContent = `Unidade "${resp.unidade.nome}" criada. Contas de totem geradas -- anote as senhas, elas só aparecem agora:`;
-    document.getElementById('contas-criadas').innerHTML = resp.contas.map(c => `
-      <div class="conta-criada">${c.papel}: usuário <b>${c.username}</b> / senha <b>${c.senha}</b></div>
-    `).join('');
-    document.getElementById('u-nome').value = '';
+    if (editId){
+      await api('PATCH', `/gestao/unidades/${editId}`, {
+        nome: document.getElementById('u-nome').value,
+        tolerancia_padrao_minutos: parseInt(document.getElementById('u-tolerancia').value || '15', 10),
+        valor_mensalidade: parseFloat(document.getElementById('u-valor-mensalidade').value || '200'),
+        dias_validade_mensalidade: parseInt(document.getElementById('u-dias-mensalidade').value || '30', 10),
+      });
+      msg.className = 'msg ok';
+      msg.textContent = 'Alterações salvas.';
+      cancelarEdicaoUnidade();
+    }else{
+      const resp = await api('POST', '/gestao/unidades', {
+        nome: document.getElementById('u-nome').value,
+        tolerancia_padrao_minutos: parseInt(document.getElementById('u-tolerancia').value || '15', 10),
+        valor_mensalidade: parseFloat(document.getElementById('u-valor-mensalidade').value || '200'),
+        dias_validade_mensalidade: parseInt(document.getElementById('u-dias-mensalidade').value || '30', 10),
+      });
+      msg.className = 'msg ok';
+      msg.textContent = `Unidade "${resp.unidade.nome}" criada. Contas de totem geradas -- anote as senhas, elas só aparecem agora:`;
+      document.getElementById('contas-criadas').innerHTML = resp.contas.map(c => `
+        <div class="conta-criada">${c.papel}: usuário <b>${c.username}</b> / senha <b>${c.senha}</b></div>
+      `).join('');
+      document.getElementById('u-nome').value = '';
+    }
     carregarUnidades();
   }catch(e){
     msg.className = 'msg err';
@@ -1313,10 +1421,15 @@ async function carregarCredenciados(){
         <td><code>${c.identificador_facial}</code></td>
         <td>${c.placa || '—'}</td>
         <td>${badgeStatus(c.ativo)}</td>
-        <td>
-          <button class="secundario" onclick="editarCredenciado(${c.id})">Editar</button>
-          <button class="secundario" onclick="alternarAtivo(${c.id}, ${c.ativo})">${c.ativo ? 'Desativar' : 'Ativar'}</button>
-          ${ehNivelDono() ? `<button class="secundario" onclick="excluirCredenciado(${c.id}, '${c.nome.replace(/'/g, "\\'")}')">Excluir</button>` : ''}
+        <td class="col-acoes">
+          <div class="menu-acoes">
+            <button type="button" class="menu-acoes-btn" aria-label="Ações">⋮</button>
+            <div class="menu-acoes-lista">
+              <button onclick="editarCredenciado(${c.id})">Editar</button>
+              <button onclick="alternarAtivo(${c.id}, ${c.ativo})">${c.ativo ? 'Desativar' : 'Ativar'}</button>
+              ${ehNivelDono() ? `<button class="perigo" onclick="excluirCredenciado(${c.id}, '${c.nome.replace(/'/g, "\\'")}')">Excluir</button>` : ''}
+            </div>
+          </div>
         </td>
       `;
       tbodyC.appendChild(tr);
@@ -1334,11 +1447,16 @@ async function carregarCredenciados(){
         <td>${c.placa || '—'}</td>
         <td>${badgeStatus(c.ativo)}</td>
         <td><span style="color:${vencido ? 'var(--danger)' : 'var(--ok)'}">${fmtData(c.data_validade)}</span></td>
-        <td>
-          <button class="secundario" onclick="renovar(${c.id})">Renovar</button>
-          <button class="secundario" onclick="editarMensalista(${c.id})">Editar</button>
-          <button class="secundario" onclick="alternarAtivo(${c.id}, ${c.ativo})">${c.ativo ? 'Desativar' : 'Ativar'}</button>
-          ${ehNivelDono() ? `<button class="secundario" onclick="excluirCredenciado(${c.id}, '${c.nome.replace(/'/g, "\\'")}')">Excluir</button>` : ''}
+        <td class="col-acoes">
+          <div class="menu-acoes">
+            <button type="button" class="menu-acoes-btn" aria-label="Ações">⋮</button>
+            <div class="menu-acoes-lista">
+              <button onclick="renovar(${c.id})">Renovar</button>
+              <button onclick="editarMensalista(${c.id})">Editar</button>
+              <button onclick="alternarAtivo(${c.id}, ${c.ativo})">${c.ativo ? 'Desativar' : 'Ativar'}</button>
+              ${ehNivelDono() ? `<button class="perigo" onclick="excluirCredenciado(${c.id}, '${c.nome.replace(/'/g, "\\'")}')">Excluir</button>` : ''}
+            </div>
+          </div>
         </td>
       `;
       tbodyM.appendChild(tr);
@@ -1401,10 +1519,12 @@ async function excluirCredenciado(id, nome){
 
 // ---------------------------------------------------------------------
 // Edição -- reaproveita o mesmo formulário de cadastro: "Editar" numa
-// linha preenche os campos e troca o botão para "Salvar edição" (PATCH
-// em vez de POST). Tipo e identificador facial não entram no PATCH
-// (ver CredenciadoUpdate no backend) -- por isso o identificador fica
-// travado enquanto edita, pra não sugerir que dá pra trocar.
+// linha preenche todos os campos (inclusive identificador facial, que
+// o backend agora aceita trocar via PATCH, com a mesma checagem de
+// duplicidade que a criação já tinha) e troca o botão para "Salvar
+// edição" (PATCH em vez de POST). Tipo não é editável -- trocar um
+// credenciado pra mensalista ou vice-versa é um cadastro novo, não uma
+// edição (muda cobrança/validade).
 // ---------------------------------------------------------------------
 function editarCredenciado(id){
   const c = credenciadosCache.find(x => x.id === id);
@@ -1412,7 +1532,6 @@ function editarCredenciado(id){
   document.getElementById('c-edit-id').value = c.id;
   document.getElementById('c-nome').value = c.nome;
   document.getElementById('c-identificador').value = c.identificador_facial;
-  document.getElementById('c-identificador').disabled = true;
   document.getElementById('c-documento').value = c.documento || '';
   document.getElementById('c-placa').value = c.placa || '';
   document.getElementById('c-empresa').value = c.empresa_vinculo || '';
@@ -1425,7 +1544,6 @@ function editarCredenciado(id){
 function cancelarEdicaoCredenciado(){
   document.getElementById('c-edit-id').value = '';
   ['c-nome','c-identificador','c-documento','c-placa','c-empresa'].forEach(id => document.getElementById(id).value = '');
-  document.getElementById('c-identificador').disabled = false;
   document.getElementById('titulo-cadastro-credenciado').textContent = 'Cadastrar credenciado';
   document.getElementById('btn-cadastrar').textContent = 'Cadastrar';
   document.getElementById('btn-cancelar-edicao-c').style.display = 'none';
@@ -1438,7 +1556,6 @@ function editarMensalista(id){
   document.getElementById('m-edit-id').value = c.id;
   document.getElementById('m-nome').value = c.nome;
   document.getElementById('m-identificador').value = c.identificador_facial;
-  document.getElementById('m-identificador').disabled = true;
   document.getElementById('m-documento').value = c.documento || '';
   document.getElementById('m-placa').value = c.placa || '';
   document.getElementById('m-empresa').value = c.empresa_vinculo || '';
@@ -1451,7 +1568,6 @@ function editarMensalista(id){
 function cancelarEdicaoMensalista(){
   document.getElementById('m-edit-id').value = '';
   ['m-nome','m-identificador','m-documento','m-placa','m-empresa'].forEach(id => document.getElementById(id).value = '');
-  document.getElementById('m-identificador').disabled = false;
   document.getElementById('titulo-cadastro-mensalista').textContent = 'Cadastrar mensalista';
   document.getElementById('btn-cadastrar-mensalista').textContent = 'Cadastrar';
   document.getElementById('btn-cancelar-edicao-m').style.display = 'none';
@@ -1467,6 +1583,7 @@ document.getElementById('btn-cadastrar').addEventListener('click', async () => {
     if (editId){
       await api('PATCH', `/gestao/credenciados/${editId}`, {
         nome: document.getElementById('c-nome').value,
+        identificador_facial: document.getElementById('c-identificador').value,
         documento: document.getElementById('c-documento').value || null,
         placa: document.getElementById('c-placa').value || null,
         empresa_vinculo: document.getElementById('c-empresa').value || null,
@@ -1505,6 +1622,7 @@ document.getElementById('btn-cadastrar-mensalista').addEventListener('click', as
     if (editId){
       await api('PATCH', `/gestao/credenciados/${editId}`, {
         nome: document.getElementById('m-nome').value,
+        identificador_facial: document.getElementById('m-identificador').value,
         documento: document.getElementById('m-documento').value || null,
         placa: document.getElementById('m-placa').value || null,
         empresa_vinculo: document.getElementById('m-empresa').value || null,
@@ -1867,10 +1985,13 @@ document.getElementById('btn-liberacao-manual').addEventListener('click', async 
   }
 });
 
+let estabelecimentosCache = [];
+
 async function carregarEstabelecimentos(){
   const container = document.getElementById('lista-estabelecimentos');
   try{
     const lista = await api('GET', `/gestao/estabelecimentos?${query()}`);
+    estabelecimentosCache = lista;
     if (!lista.length){
       container.innerHTML = '<div class="empty">Nenhum estabelecimento cadastrado ainda.</div>';
       return;
@@ -1925,11 +2046,16 @@ async function carregarEstabelecimentos(){
             <span style="color:var(--gray); font-size:12px;"> — CNPJ <code>${e.cnpj}</code></span>
             ${badgeTipoBeneficio}
           </div>
-          <div>
+          <div style="display:flex; align-items:center; gap:8px;">
             ${badgeStatus(e.ativo)}
-            <button class="secundario" onclick="editarEstabelecimento(${e.id}, '${e.nome.replace(/'/g, "\\'")}')">Editar</button>
-            <button class="secundario" onclick="alternarAtivoEstabelecimento(${e.id}, ${e.ativo})">${e.ativo ? 'Desativar' : 'Ativar'}</button>
-            ${ehNivelDono() ? `<button class="secundario" onclick="excluirEstabelecimento(${e.id}, '${e.nome.replace(/'/g, "\\'")}')">Excluir</button>` : ''}
+            <div class="menu-acoes">
+              <button type="button" class="menu-acoes-btn" aria-label="Ações">⋮</button>
+              <div class="menu-acoes-lista">
+                <button onclick="editarEstabelecimento(${e.id})">Editar</button>
+                <button onclick="alternarAtivoEstabelecimento(${e.id}, ${e.ativo})">${e.ativo ? 'Desativar' : 'Ativar'}</button>
+                ${ehNivelDono() ? `<button class="perigo" onclick="excluirEstabelecimento(${e.id}, '${e.nome.replace(/'/g, "\\'")}')">Excluir</button>` : ''}
+              </div>
+            </div>
           </div>
         </div>
         ${tabelaRegras}
@@ -1941,16 +2067,29 @@ async function carregarEstabelecimentos(){
   }
 }
 
-async function editarEstabelecimento(id, nomeAtual){
-  const novoNome = prompt('Novo nome do convênio:', nomeAtual);
-  if (novoNome === null || !novoNome.trim() || novoNome === nomeAtual) return;
-  try{
-    await api('PATCH', `/gestao/estabelecimentos/${id}`, { nome: novoNome.trim() });
-    carregarEstabelecimentos();
-  }catch(e){
-    alert(e.message);
-  }
+function editarEstabelecimento(id){
+  const e = estabelecimentosCache.find(x => x.id === id);
+  if (!e) return;
+  document.getElementById('e-edit-id').value = e.id;
+  document.getElementById('e-cnpj').value = e.cnpj;
+  document.getElementById('e-nome').value = e.nome;
+  document.getElementById('e-tipo-beneficio').value = e.tipo_beneficio;
+  document.getElementById('titulo-cadastro-estabelecimento').textContent = 'Editar convênio';
+  document.getElementById('btn-cadastrar-estabelecimento').textContent = 'Salvar edição';
+  document.getElementById('btn-cancelar-edicao-e').style.display = 'inline-block';
+  document.getElementById('panel-estabelecimentos').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
+
+function cancelarEdicaoEstabelecimento(){
+  document.getElementById('e-edit-id').value = '';
+  document.getElementById('e-cnpj').value = '';
+  document.getElementById('e-nome').value = '';
+  document.getElementById('e-tipo-beneficio').value = 'tolerancia';
+  document.getElementById('titulo-cadastro-estabelecimento').textContent = 'Cadastrar convênio';
+  document.getElementById('btn-cadastrar-estabelecimento').textContent = 'Cadastrar';
+  document.getElementById('btn-cancelar-edicao-e').style.display = 'none';
+}
+document.getElementById('btn-cancelar-edicao-e').addEventListener('click', cancelarEdicaoEstabelecimento);
 
 async function alternarAtivoEstabelecimento(id, ativoAtual){
   try{
@@ -2033,18 +2172,30 @@ document.getElementById('btn-cadastrar-estabelecimento').addEventListener('click
   const msg = document.getElementById('msg-estabelecimento');
   msg.className = 'msg';
   msg.textContent = '';
+  const editId = document.getElementById('e-edit-id').value;
   try{
-    const payload = {
-      cnpj: document.getElementById('e-cnpj').value,
-      nome: document.getElementById('e-nome').value,
-      tipo_beneficio: document.getElementById('e-tipo-beneficio').value,
-    };
-    if (ehNivelDono()) payload.unidade_id = parseInt(document.getElementById('e-unidade').value, 10);
-    await api('POST', '/gestao/estabelecimentos', payload);
-    msg.className = 'msg ok';
-    msg.textContent = 'Cadastrado com sucesso.';
-    document.getElementById('e-cnpj').value = '';
-    document.getElementById('e-nome').value = '';
+    if (editId){
+      await api('PATCH', `/gestao/estabelecimentos/${editId}`, {
+        cnpj: document.getElementById('e-cnpj').value,
+        nome: document.getElementById('e-nome').value,
+        tipo_beneficio: document.getElementById('e-tipo-beneficio').value,
+      });
+      msg.className = 'msg ok';
+      msg.textContent = 'Alterações salvas.';
+      cancelarEdicaoEstabelecimento();
+    }else{
+      const payload = {
+        cnpj: document.getElementById('e-cnpj').value,
+        nome: document.getElementById('e-nome').value,
+        tipo_beneficio: document.getElementById('e-tipo-beneficio').value,
+      };
+      if (ehNivelDono()) payload.unidade_id = parseInt(document.getElementById('e-unidade').value, 10);
+      await api('POST', '/gestao/estabelecimentos', payload);
+      msg.className = 'msg ok';
+      msg.textContent = 'Cadastrado com sucesso.';
+      document.getElementById('e-cnpj').value = '';
+      document.getElementById('e-nome').value = '';
+    }
     carregarEstabelecimentos();
   }catch(e){
     msg.className = 'msg err';
@@ -2147,11 +2298,16 @@ async function carregarUsuarios(){
         <td>${u.papel}</td>
         <td>${badgeStatus(u.ativo)}</td>
         <td>${u.pode_liberar_manualmente ? 'sim' : 'não'}</td>
-        <td>
-          <button class="secundario" onclick="alternarAtivoUsuario(${u.id}, ${u.ativo})">${u.ativo ? 'Desativar' : 'Ativar'}</button>
-          <button class="secundario" onclick="alternarLiberaManualUsuario(${u.id}, ${u.pode_liberar_manualmente})">${u.pode_liberar_manualmente ? 'Tirar liberação manual' : 'Dar liberação manual'}</button>
-          ${podeGerenciarUnidades ? `<button class="secundario" onclick="alternarPainelUnidadesAutorizadas(${u.id})">Unidades</button>` : ''}
-          ${ehNivelDono() ? `<button class="secundario" onclick="excluirUsuario(${u.id}, '${u.nome.replace(/'/g, "\\'")}')">Excluir</button>` : ''}
+        <td class="col-acoes">
+          <div class="menu-acoes">
+            <button type="button" class="menu-acoes-btn" aria-label="Ações">⋮</button>
+            <div class="menu-acoes-lista">
+              <button onclick="alternarAtivoUsuario(${u.id}, ${u.ativo})">${u.ativo ? 'Desativar' : 'Ativar'}</button>
+              <button onclick="alternarLiberaManualUsuario(${u.id}, ${u.pode_liberar_manualmente})">${u.pode_liberar_manualmente ? 'Tirar liberação manual' : 'Dar liberação manual'}</button>
+              ${podeGerenciarUnidades ? `<button onclick="alternarPainelUnidadesAutorizadas(${u.id})">Unidades autorizadas</button>` : ''}
+              ${ehNivelDono() ? `<button class="perigo" onclick="excluirUsuario(${u.id}, '${u.nome.replace(/'/g, "\\'")}')">Excluir</button>` : ''}
+            </div>
+          </div>
         </td>
       `;
       tbody.appendChild(tr);

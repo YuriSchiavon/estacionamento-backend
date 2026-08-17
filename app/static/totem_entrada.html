@@ -99,11 +99,19 @@
   }
   .logo-grande{
     font-weight:800;
-    font-size:clamp(32px, 6vw, 52px);
-    letter-spacing:1px;
+    line-height:1.2;
     margin-bottom:56px;
   }
-  .logo-grande span{color:var(--lime);}
+  .logo-grande .logo-marca{
+    font-size:clamp(28px, 5vw, 44px);
+    letter-spacing:1px;
+  }
+  .logo-grande .logo-tipo{
+    font-size:clamp(15px, 2.4vw, 20px);
+    color:var(--lime);
+    letter-spacing:3px;
+    margin-top:2px;
+  }
   button.retirar{
     background:var(--lime);
     color:var(--navy);
@@ -282,7 +290,10 @@
 </div>
 
 <div class="kiosk" id="tela-kiosk" style="display:none;">
-  <div class="logo-grande">MY PARK<span>·</span>ENTRADA</div>
+  <div class="logo-grande">
+    <div class="logo-marca">MY PARK</div>
+    <div class="logo-tipo">ENTRADA</div>
+  </div>
   <button class="retirar" id="btn-entrada">RETIRAR TICKET</button>
   <div class="resultado" id="resultado">
     <div class="titulo" id="resultado-titulo"></div>
@@ -299,7 +310,10 @@
      regulamento (ver GET /gestao/unidades/{id}/config-totem); senão o
      fluxo nunca sai da tela-kiosk acima, idêntico a sempre. -->
 <div class="kiosk" id="tela-escolha-entrada" style="display:none;">
-  <div class="logo-grande">MY PARK<span>·</span>ENTRADA</div>
+  <div class="logo-grande">
+    <div class="logo-marca">MY PARK</div>
+    <div class="logo-tipo">ENTRADA</div>
+  </div>
   <div class="subtitulo">Como prefere pagar?</div>
   <button class="opcao-entrada" id="btn-pagamento-saida">Pagamento na saída (normal)</button>
   <button class="opcao-entrada contorno" id="btn-ir-pre-pagamento"></button>
@@ -310,7 +324,10 @@
 </div>
 
 <div class="kiosk" id="tela-pre-pagamento" style="display:none;">
-  <div class="logo-grande">MY PARK<span>·</span>ENTRADA</div>
+  <div class="logo-grande">
+    <div class="logo-marca">MY PARK</div>
+    <div class="logo-tipo">ENTRADA</div>
+  </div>
   <div class="subtitulo" id="pre-pagamento-valor">Toque na forma de pagamento</div>
   <div class="botoes-pagamento">
     <button class="btn-forma-pagamento" data-forma="pix">
@@ -346,7 +363,10 @@
 </div>
 
 <div class="kiosk" id="tela-resultado-pre-pago" style="display:none;">
-  <div class="logo-grande">MY PARK<span>·</span>ENTRADA</div>
+  <div class="logo-grande">
+    <div class="logo-marca">MY PARK</div>
+    <div class="logo-tipo">ENTRADA</div>
+  </div>
   <div class="resultado show">
     <div class="titulo">Pago! Retire seu ticket</div>
     <div class="ticket-code" id="resultado-pre-pago-codigo"></div>

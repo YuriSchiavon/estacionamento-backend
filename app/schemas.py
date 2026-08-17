@@ -216,6 +216,7 @@ class CredenciadoIn(BaseModel):
 
 class CredenciadoUpdate(BaseModel):
     nome: Optional[str] = None
+    identificador_facial: Optional[str] = None
     documento: Optional[str] = None
     placa: Optional[str] = None
     empresa_vinculo: Optional[str] = None
@@ -337,6 +338,8 @@ class EstabelecimentoIn(BaseModel):
 
 class EstabelecimentoUpdate(BaseModel):
     nome: Optional[str] = None
+    cnpj: Optional[str] = None
+    tipo_beneficio: Optional[Literal["tolerancia", "desconto_percentual"]] = None
     ativo: Optional[bool] = None
 
 
