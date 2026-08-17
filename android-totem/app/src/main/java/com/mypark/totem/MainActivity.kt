@@ -243,7 +243,7 @@ class MainActivity : AppCompatActivity() {
             val botao = Button(this).apply {
                 text = nomeUnidade
                 setTextColor(resources.getColor(R.color.texto_claro, theme))
-                backgroundTintList = resources.getColorStateList(R.color.navy_card, theme)
+                background = resources.getDrawable(R.drawable.bg_botao_secundario, theme)
                 setPadding(32, 32, 32, 32)
                 setOnClickListener {
                     unidadeOperacionalId = id

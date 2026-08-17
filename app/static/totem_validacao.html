@@ -349,7 +349,15 @@
         <label style="text-align:center;">Toque na forma de pagamento</label>
         <div class="botoes-pagamento">
           <button class="btn-forma-pagamento" data-forma="pix">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3" fill="currentColor" stroke="none"/></svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round">
+              <rect x="3" y="3" width="6" height="6"/>
+              <rect x="15" y="3" width="6" height="6"/>
+              <rect x="3" y="15" width="6" height="6"/>
+              <rect x="14" y="14" width="3" height="3" fill="currentColor" stroke="none"/>
+              <rect x="18" y="14" width="3" height="3" fill="currentColor" stroke="none"/>
+              <rect x="14" y="18" width="3" height="3" fill="currentColor" stroke="none"/>
+              <rect x="18" y="18" width="3" height="3" fill="currentColor" stroke="none"/>
+            </svg>
             PIX
           </button>
           <button class="btn-forma-pagamento" data-forma="credito">
@@ -357,7 +365,14 @@
             Crédito
           </button>
           <button class="btn-forma-pagamento" data-forma="debito">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><rect x="5" y="9" width="5" height="4" rx="1" fill="currentColor" stroke="none"/></svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 10 L12 4 L21 10 Z"/>
+              <line x1="5" y1="10" x2="5" y2="18"/>
+              <line x1="9" y1="10" x2="9" y2="18"/>
+              <line x1="15" y1="10" x2="15" y2="18"/>
+              <line x1="19" y1="10" x2="19" y2="18"/>
+              <line x1="3" y1="20" x2="21" y2="20"/>
+            </svg>
             Débito
           </button>
         </div>
