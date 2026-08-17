@@ -114,6 +114,16 @@ def login(payload: schemas.LoginRequest, db: Session = Depends(get_db)):
     if not usuario or not conferir_senha(payload.senha, usuario.senha_hash):
         raise HTTPException(401, "Usuário ou senha inválidos")
 
+    # Conta presa a uma unidade (totem, operador, supervisor) não loga
+    # enquanto essa unidade estiver desativada -- mesmo critério que já
+    # tira a unidade da lista de seleção do dono/gerente de operações
+    # (ver unidades_selecionaveis em security.py), só que aqui bloqueando
+    # de fato quem só enxerga essa unidade.
+    if usuario.unidade_id:
+        unidade = db.get(models.Unidade, usuario.unidade_id)
+        if unidade and not unidade.ativo:
+            raise HTTPException(401, "Esta unidade está desativada -- fale com o administrador")
+
     sessao = criar_sessao(db, usuario)
     return schemas.LoginResponse(
         token=sessao.token,

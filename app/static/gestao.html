@@ -11,6 +11,8 @@
     --border:#E4E7EC;
     --danger:#C0392B;
     --ok:#1E8E4F;
+    --laranja:#B7791F;
+    --azul:#2C5FA8;
   }
   *{box-sizing:border-box;}
   body{
@@ -222,8 +224,6 @@
   }
   .badge.ativo{background:#EAF7EE;color:var(--ok);}
   .badge.inativo{background:#FBEAEA;color:var(--danger);}
-  .badge.credenciado{background:#EAF2FB;color:var(--navy);}
-  .badge.mensalista{background:#FFF6DA;color:#8A6D00;}
   .msg{font-size:13px;margin-top:10px;}
   .msg.ok{color:var(--ok);}
   .msg.err{color:var(--danger);}
@@ -359,6 +359,14 @@
 
       <div class="sidebar-grupo">
         <div class="sidebar-titulo">Cadastros</div>
+        <button class="tab-btn" data-tab="unidades" id="tab-btn-unidades" style="display:none;">
+          <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="4" width="13" height="4" rx="1"/><rect x="2.5" y="10" width="13" height="4" rx="1"/></svg>
+          Unidades
+        </button>
+        <button class="tab-btn" data-tab="mensalistas">
+          <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="4" width="13" height="11" rx="1.5"/><line x1="2.5" y1="7.5" x2="15.5" y2="7.5"/><line x1="6" y1="2.5" x2="6" y2="5.5"/><line x1="12" y1="2.5" x2="12" y2="5.5"/></svg>
+          Mensalistas
+        </button>
         <button class="tab-btn" data-tab="credenciados">
           <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="6.5" r="2.8"/><path d="M3.5 15c0-3 2.5-5 5.5-5s5.5 2 5.5 5"/></svg>
           Credenciados
@@ -402,10 +410,6 @@
         <button class="tab-btn" data-tab="acoes" id="tab-btn-acoes" style="display:none;">
           <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2.5 L16 15 H2 Z"/><line x1="9" y1="7" x2="9" y2="10.5"/><circle cx="9" cy="13" r="0.9" fill="currentColor" stroke="none"/></svg>
           Ações
-        </button>
-        <button class="tab-btn" data-tab="unidades" id="tab-btn-unidades" style="display:none;">
-          <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="4" width="13" height="4" rx="1"/><rect x="2.5" y="10" width="13" height="4" rx="1"/></svg>
-          Unidades
         </button>
       </div>
     </nav>
@@ -481,21 +485,70 @@
       </section>
     </div>
 
+    <div class="panel" id="panel-mensalistas">
+      <section class="card">
+        <h2 id="titulo-cadastro-mensalista">Cadastrar mensalista</h2>
+        <div class="desc">Paga mensalidade e tem acesso liberado até a validade vencer. O identificador facial é o que a câmera do totem retorna ao reconhecer a pessoa — aqui, para teste, pode ser qualquer texto único.</div>
+        <input type="hidden" id="m-edit-id">
+        <div class="grid-form">
+          <div>
+            <label>Nome</label>
+            <input id="m-nome" placeholder="Nome completo">
+          </div>
+          <div>
+            <label>Identificador facial</label>
+            <input id="m-identificador" placeholder="ex: FACE-001">
+          </div>
+          <div>
+            <label>Documento (opcional)</label>
+            <input id="m-documento" placeholder="CPF">
+          </div>
+          <div>
+            <label>Placa (opcional)</label>
+            <input id="m-placa" placeholder="ABC1D23">
+          </div>
+          <div>
+            <label>Empresa/vínculo (opcional)</label>
+            <input id="m-empresa" placeholder="ex: Loja Parceira">
+          </div>
+          <div id="m-unidade-wrap" style="display:none;">
+            <label>Unidade</label>
+            <select id="m-unidade"></select>
+          </div>
+          <div style="display:flex; gap:8px; align-items:end;">
+            <button class="action" id="btn-cadastrar-mensalista" style="width:100%;">Cadastrar</button>
+            <button class="secundario" type="button" id="btn-cancelar-edicao-m" style="display:none;">Cancelar</button>
+          </div>
+        </div>
+        <div class="msg" id="msg-cadastro-mensalista"></div>
+      </section>
+
+      <section class="card">
+        <h2>Mensalistas cadastrados</h2>
+        <div class="desc">Vencidos aparecem com validade em vermelho — use "Renovar" para dar mais dias.</div>
+        <input type="text" id="filtro-mensalistas" placeholder="Buscar por nome ou placa..." style="max-width:320px; margin-bottom:12px;">
+        <table>
+          <thead>
+            <tr>
+              <th>Nome</th><th>Identificador facial</th><th>Placa</th>
+              <th>Status</th><th>Validade</th><th>Ações</th>
+            </tr>
+          </thead>
+          <tbody id="tabela-mensalistas"></tbody>
+        </table>
+        <div class="empty" id="mensalistas-vazio" style="display:none;">Nenhum mensalista cadastrado ainda.</div>
+      </section>
+    </div>
+
     <div class="panel" id="panel-credenciados">
       <section class="card">
-        <h2>Cadastrar credenciado / mensalista</h2>
-        <div class="desc">O identificador facial é o que a câmera do totem retorna ao reconhecer a pessoa — aqui, para teste, pode ser qualquer texto único.</div>
+        <h2 id="titulo-cadastro-credenciado">Cadastrar credenciado</h2>
+        <div class="desc">Acesso 100% liberado, sem cobrança. O identificador facial é o que a câmera do totem retorna ao reconhecer a pessoa — aqui, para teste, pode ser qualquer texto único.</div>
+        <input type="hidden" id="c-edit-id">
         <div class="grid-form">
           <div>
             <label>Nome</label>
             <input id="c-nome" placeholder="Nome completo">
-          </div>
-          <div>
-            <label>Tipo</label>
-            <select id="c-tipo">
-              <option value="credenciado">Credenciado (100% liberado)</option>
-              <option value="mensalista">Mensalista (paga R$200 / 30 dias)</option>
-            </select>
           </div>
           <div>
             <label>Identificador facial</label>
@@ -517,8 +570,9 @@
             <label>Unidade</label>
             <select id="c-unidade"></select>
           </div>
-          <div>
+          <div style="display:flex; gap:8px; align-items:end;">
             <button class="action" id="btn-cadastrar" style="width:100%;">Cadastrar</button>
+            <button class="secundario" type="button" id="btn-cancelar-edicao-c" style="display:none;">Cancelar</button>
           </div>
         </div>
         <div class="msg" id="msg-cadastro"></div>
@@ -526,12 +580,12 @@
 
       <section class="card">
         <h2>Credenciados cadastrados</h2>
-        <div class="desc">Mensalistas vencidos aparecem com validade em vermelho — use "Renovar" para dar mais 30 dias.</div>
+        <input type="text" id="filtro-credenciados" placeholder="Buscar por nome ou placa..." style="max-width:320px; margin-bottom:12px;">
         <table>
           <thead>
             <tr>
-              <th>Nome</th><th>Tipo</th><th>Identificador facial</th><th>Placa</th>
-              <th>Status</th><th>Validade</th><th>Ações</th>
+              <th>Nome</th><th>Identificador facial</th><th>Placa</th>
+              <th>Status</th><th>Ações</th>
             </tr>
           </thead>
           <tbody id="tabela-credenciados"></tbody>
@@ -884,7 +938,7 @@
         <div class="msg" id="msg-unidade"></div>
         <div id="contas-criadas"></div>
         <table>
-          <thead><tr><th>Nome</th><th>Status</th><th>Tolerância padrão</th><th>Mensalidade</th></tr></thead>
+          <thead><tr><th>Nome</th><th>Status</th><th>Tolerância padrão</th><th>Mensalidade</th><th>Ações</th></tr></thead>
           <tbody id="tabela-unidades"></tbody>
         </table>
       </section>
@@ -933,10 +987,6 @@ async function api(metodo, url, body){
 function fmtData(iso){
   if (!iso) return '—';
   return new Date(iso).toLocaleString('pt-BR');
-}
-
-function badgeTipo(tipo){
-  return `<span class="badge ${tipo}">${tipo}</span>`;
 }
 
 function badgeStatus(ativo){
@@ -1058,7 +1108,7 @@ document.getElementById('btn-aplicar-filtro-unidade').addEventListener('click', 
 });
 
 function preencherSelectsDeUnidade(){
-  const selects = ['e-unidade', 'c-unidade', 'lm-unidade', 'lp-unidade', 'us-unidade'];
+  const selects = ['e-unidade', 'c-unidade', 'm-unidade', 'lm-unidade', 'lp-unidade', 'us-unidade'];
   selects.forEach(id => {
     const select = document.getElementById(id);
     select.innerHTML = listaUnidades.map(u => `<option value="${u.id}">${u.nome}</option>`).join('');
@@ -1084,8 +1134,37 @@ async function carregarUnidades(){
       <td>${badgeStatus(u.ativo)}</td>
       <td>${u.tolerancia_padrao_minutos} min</td>
       <td>R$ ${u.valor_mensalidade.toFixed(2)} / ${u.dias_validade_mensalidade} dias</td>
+      <td>
+        <button class="secundario" onclick="editarNomeUnidade(${u.id}, '${u.nome.replace(/'/g, "\\'")}')">Editar</button>
+        <button class="secundario" onclick="alternarAtivoUnidade(${u.id}, ${u.ativo})">${u.ativo ? 'Desativar' : 'Ativar'}</button>
+      </td>
     </tr>
   `).join('');
+}
+
+// Editar aqui é só o nome -- tarifa/tolerância/mensalidade/horário já
+// têm tela própria (aba Regulamento, com a unidade selecionada no
+// filtro "Visualizando"); duplicar esses campos aqui ia dar duas telas
+// editando a mesma coisa, com risco de uma sobrescrever a outra.
+async function editarNomeUnidade(id, nomeAtual){
+  const novoNome = prompt('Novo nome da unidade:', nomeAtual);
+  if (novoNome === null || !novoNome.trim() || novoNome === nomeAtual) return;
+  try{
+    await api('PATCH', `/gestao/unidades/${id}`, { nome: novoNome.trim() });
+    carregarUnidades();
+  }catch(e){
+    alert(e.message);
+  }
+}
+
+async function alternarAtivoUnidade(id, ativoAtual){
+  if (ativoAtual && !confirm('Desativar esta unidade? As contas presas a ela (totens, supervisor, operadores) não conseguem mais logar enquanto estiver desativada.')) return;
+  try{
+    await api('PATCH', `/gestao/unidades/${id}`, { ativo: !ativoAtual });
+    carregarUnidades();
+  }catch(e){
+    alert(e.message);
+  }
 }
 
 function unidadeRegulamentoAtual(){
@@ -1209,40 +1288,86 @@ document.getElementById('btn-cadastrar-unidade').addEventListener('click', async
   }
 });
 
+let credenciadosCache = [];
+
+// Um único GET alimenta as duas telas (Credenciados e Mensalistas) --
+// são o mesmo cadastro no backend, só filtrado por tipo aqui na hora
+// de montar cada tabela.
 async function carregarCredenciados(){
-  const tbody = document.getElementById('tabela-credenciados');
-  const vazio = document.getElementById('credenciados-vazio');
+  const tbodyC = document.getElementById('tabela-credenciados');
+  const vazioC = document.getElementById('credenciados-vazio');
+  const tbodyM = document.getElementById('tabela-mensalistas');
+  const vazioM = document.getElementById('mensalistas-vazio');
   try{
     const lista = await api('GET', `/gestao/credenciados?${query()}`);
-    tbody.innerHTML = '';
-    vazio.style.display = lista.length ? 'none' : 'block';
+    credenciadosCache = lista;
     const agora = new Date();
-    lista.forEach(c => {
-      const vencido = c.tipo === 'mensalista' && (!c.data_validade || new Date(c.data_validade) < agora);
-      const validadeHtml = c.tipo === 'mensalista'
-        ? `<span style="color:${vencido ? 'var(--danger)' : 'var(--ok)'}">${fmtData(c.data_validade)}</span>`
-        : '—';
+
+    const credenciados = lista.filter(c => c.tipo === 'credenciado');
+    tbodyC.innerHTML = '';
+    vazioC.style.display = credenciados.length ? 'none' : 'block';
+    credenciados.forEach(c => {
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td>${c.nome}</td>
-        <td>${badgeTipo(c.tipo)}</td>
         <td><code>${c.identificador_facial}</code></td>
         <td>${c.placa || '—'}</td>
         <td>${badgeStatus(c.ativo)}</td>
-        <td>${validadeHtml}</td>
         <td>
-          ${c.tipo === 'mensalista' ? `<button class="secundario" onclick="renovar(${c.id})">Renovar</button>` : ''}
+          <button class="secundario" onclick="editarCredenciado(${c.id})">Editar</button>
           <button class="secundario" onclick="alternarAtivo(${c.id}, ${c.ativo})">${c.ativo ? 'Desativar' : 'Ativar'}</button>
           ${ehNivelDono() ? `<button class="secundario" onclick="excluirCredenciado(${c.id}, '${c.nome.replace(/'/g, "\\'")}')">Excluir</button>` : ''}
         </td>
       `;
-      tbody.appendChild(tr);
+      tbodyC.appendChild(tr);
     });
+
+    const mensalistas = lista.filter(c => c.tipo === 'mensalista');
+    tbodyM.innerHTML = '';
+    vazioM.style.display = mensalistas.length ? 'none' : 'block';
+    mensalistas.forEach(c => {
+      const vencido = !c.data_validade || new Date(c.data_validade) < agora;
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${c.nome}</td>
+        <td><code>${c.identificador_facial}</code></td>
+        <td>${c.placa || '—'}</td>
+        <td>${badgeStatus(c.ativo)}</td>
+        <td><span style="color:${vencido ? 'var(--danger)' : 'var(--ok)'}">${fmtData(c.data_validade)}</span></td>
+        <td>
+          <button class="secundario" onclick="renovar(${c.id})">Renovar</button>
+          <button class="secundario" onclick="editarMensalista(${c.id})">Editar</button>
+          <button class="secundario" onclick="alternarAtivo(${c.id}, ${c.ativo})">${c.ativo ? 'Desativar' : 'Ativar'}</button>
+          ${ehNivelDono() ? `<button class="secundario" onclick="excluirCredenciado(${c.id}, '${c.nome.replace(/'/g, "\\'")}')">Excluir</button>` : ''}
+        </td>
+      `;
+      tbodyM.appendChild(tr);
+    });
+
+    aplicarFiltroTabela('filtro-credenciados', 'tabela-credenciados');
+    aplicarFiltroTabela('filtro-mensalistas', 'tabela-mensalistas');
   }catch(e){
-    tbody.innerHTML = '';
+    tbodyC.innerHTML = '';
+    tbodyM.innerHTML = '';
     document.getElementById('msg-cadastro').textContent = e.message;
+    document.getElementById('msg-cadastro-mensalista').textContent = e.message;
   }
 }
+
+// Filtro client-side (nome/placa/identificador já estão na linha) --
+// não é uma nova chamada à API, só esconde linhas que não batem com o
+// termo digitado. Reaplicado no fim de carregarCredenciados() pra não
+// "desfiltrar" sozinho toda vez que a lista recarrega.
+function aplicarFiltroTabela(inputId, tbodyId){
+  const campo = document.getElementById(inputId);
+  if (!campo) return;
+  const termo = campo.value.trim().toLowerCase();
+  document.querySelectorAll(`#${tbodyId} tr`).forEach(tr => {
+    tr.style.display = !termo || tr.textContent.toLowerCase().includes(termo) ? '' : 'none';
+  });
+}
+document.getElementById('filtro-credenciados').addEventListener('input', () => aplicarFiltroTabela('filtro-credenciados', 'tabela-credenciados'));
+document.getElementById('filtro-mensalistas').addEventListener('input', () => aplicarFiltroTabela('filtro-mensalistas', 'tabela-mensalistas'));
 
 async function renovar(id){
   const valor = prompt('Valor da renovação (R$):', '200.00');
@@ -1274,24 +1399,134 @@ async function excluirCredenciado(id, nome){
   }
 }
 
+// ---------------------------------------------------------------------
+// Edição -- reaproveita o mesmo formulário de cadastro: "Editar" numa
+// linha preenche os campos e troca o botão para "Salvar edição" (PATCH
+// em vez de POST). Tipo e identificador facial não entram no PATCH
+// (ver CredenciadoUpdate no backend) -- por isso o identificador fica
+// travado enquanto edita, pra não sugerir que dá pra trocar.
+// ---------------------------------------------------------------------
+function editarCredenciado(id){
+  const c = credenciadosCache.find(x => x.id === id);
+  if (!c) return;
+  document.getElementById('c-edit-id').value = c.id;
+  document.getElementById('c-nome').value = c.nome;
+  document.getElementById('c-identificador').value = c.identificador_facial;
+  document.getElementById('c-identificador').disabled = true;
+  document.getElementById('c-documento').value = c.documento || '';
+  document.getElementById('c-placa').value = c.placa || '';
+  document.getElementById('c-empresa').value = c.empresa_vinculo || '';
+  document.getElementById('titulo-cadastro-credenciado').textContent = 'Editar credenciado';
+  document.getElementById('btn-cadastrar').textContent = 'Salvar edição';
+  document.getElementById('btn-cancelar-edicao-c').style.display = 'inline-block';
+  document.getElementById('panel-credenciados').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function cancelarEdicaoCredenciado(){
+  document.getElementById('c-edit-id').value = '';
+  ['c-nome','c-identificador','c-documento','c-placa','c-empresa'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('c-identificador').disabled = false;
+  document.getElementById('titulo-cadastro-credenciado').textContent = 'Cadastrar credenciado';
+  document.getElementById('btn-cadastrar').textContent = 'Cadastrar';
+  document.getElementById('btn-cancelar-edicao-c').style.display = 'none';
+}
+document.getElementById('btn-cancelar-edicao-c').addEventListener('click', cancelarEdicaoCredenciado);
+
+function editarMensalista(id){
+  const c = credenciadosCache.find(x => x.id === id);
+  if (!c) return;
+  document.getElementById('m-edit-id').value = c.id;
+  document.getElementById('m-nome').value = c.nome;
+  document.getElementById('m-identificador').value = c.identificador_facial;
+  document.getElementById('m-identificador').disabled = true;
+  document.getElementById('m-documento').value = c.documento || '';
+  document.getElementById('m-placa').value = c.placa || '';
+  document.getElementById('m-empresa').value = c.empresa_vinculo || '';
+  document.getElementById('titulo-cadastro-mensalista').textContent = 'Editar mensalista';
+  document.getElementById('btn-cadastrar-mensalista').textContent = 'Salvar edição';
+  document.getElementById('btn-cancelar-edicao-m').style.display = 'inline-block';
+  document.getElementById('panel-mensalistas').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function cancelarEdicaoMensalista(){
+  document.getElementById('m-edit-id').value = '';
+  ['m-nome','m-identificador','m-documento','m-placa','m-empresa'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('m-identificador').disabled = false;
+  document.getElementById('titulo-cadastro-mensalista').textContent = 'Cadastrar mensalista';
+  document.getElementById('btn-cadastrar-mensalista').textContent = 'Cadastrar';
+  document.getElementById('btn-cancelar-edicao-m').style.display = 'none';
+}
+document.getElementById('btn-cancelar-edicao-m').addEventListener('click', cancelarEdicaoMensalista);
+
 document.getElementById('btn-cadastrar').addEventListener('click', async () => {
   const msg = document.getElementById('msg-cadastro');
   msg.className = 'msg';
   msg.textContent = '';
+  const editId = document.getElementById('c-edit-id').value;
   try{
-    const payload = {
-      nome: document.getElementById('c-nome').value,
-      tipo: document.getElementById('c-tipo').value,
-      identificador_facial: document.getElementById('c-identificador').value,
-      documento: document.getElementById('c-documento').value || null,
-      placa: document.getElementById('c-placa').value || null,
-      empresa_vinculo: document.getElementById('c-empresa').value || null,
-    };
-    if (ehNivelDono()) payload.unidade_id = parseInt(document.getElementById('c-unidade').value, 10);
-    await api('POST', '/gestao/credenciados', payload);
-    msg.className = 'msg ok';
-    msg.textContent = 'Cadastrado com sucesso.';
-    ['c-nome','c-identificador','c-documento','c-placa','c-empresa'].forEach(id => document.getElementById(id).value = '');
+    if (editId){
+      await api('PATCH', `/gestao/credenciados/${editId}`, {
+        nome: document.getElementById('c-nome').value,
+        documento: document.getElementById('c-documento').value || null,
+        placa: document.getElementById('c-placa').value || null,
+        empresa_vinculo: document.getElementById('c-empresa').value || null,
+      });
+      msg.className = 'msg ok';
+      msg.textContent = 'Alterações salvas.';
+      cancelarEdicaoCredenciado();
+    }else{
+      const payload = {
+        nome: document.getElementById('c-nome').value,
+        tipo: 'credenciado',
+        identificador_facial: document.getElementById('c-identificador').value,
+        documento: document.getElementById('c-documento').value || null,
+        placa: document.getElementById('c-placa').value || null,
+        empresa_vinculo: document.getElementById('c-empresa').value || null,
+      };
+      if (ehNivelDono()) payload.unidade_id = parseInt(document.getElementById('c-unidade').value, 10);
+      await api('POST', '/gestao/credenciados', payload);
+      msg.className = 'msg ok';
+      msg.textContent = 'Cadastrado com sucesso.';
+      ['c-nome','c-identificador','c-documento','c-placa','c-empresa'].forEach(id => document.getElementById(id).value = '');
+    }
+    carregarCredenciados();
+  }catch(e){
+    msg.className = 'msg err';
+    msg.textContent = e.message;
+  }
+});
+
+document.getElementById('btn-cadastrar-mensalista').addEventListener('click', async () => {
+  const msg = document.getElementById('msg-cadastro-mensalista');
+  msg.className = 'msg';
+  msg.textContent = '';
+  const editId = document.getElementById('m-edit-id').value;
+  try{
+    if (editId){
+      await api('PATCH', `/gestao/credenciados/${editId}`, {
+        nome: document.getElementById('m-nome').value,
+        documento: document.getElementById('m-documento').value || null,
+        placa: document.getElementById('m-placa').value || null,
+        empresa_vinculo: document.getElementById('m-empresa').value || null,
+      });
+      msg.className = 'msg ok';
+      msg.textContent = 'Alterações salvas.';
+      cancelarEdicaoMensalista();
+    }else{
+      const payload = {
+        nome: document.getElementById('m-nome').value,
+        tipo: 'mensalista',
+        identificador_facial: document.getElementById('m-identificador').value,
+        documento: document.getElementById('m-documento').value || null,
+        placa: document.getElementById('m-placa').value || null,
+        empresa_vinculo: document.getElementById('m-empresa').value || null,
+      };
+      if (ehNivelDono()) payload.unidade_id = parseInt(document.getElementById('m-unidade').value, 10);
+      await api('POST', '/gestao/credenciados', payload);
+      msg.className = 'msg ok';
+      msg.textContent = 'Cadastrado com sucesso.';
+      ['m-nome','m-identificador','m-documento','m-placa','m-empresa'].forEach(id => document.getElementById(id).value = '');
+    }
     carregarCredenciados();
   }catch(e){
     msg.className = 'msg err';
@@ -1642,7 +1877,7 @@ async function carregarEstabelecimentos(){
     }
     container.innerHTML = lista.map(e => {
       const ehDesconto = e.tipo_beneficio === 'desconto_percentual';
-      const badgeTipo = `<span class="badge" style="background:${ehDesconto ? 'var(--laranja, #f59e0b)' : 'var(--azul, #3b82f6)'}; color:#fff;">${ehDesconto ? 'Desconto %' : 'Tolerância'}</span>`;
+      const badgeTipoBeneficio = `<span class="badge" style="background:${ehDesconto ? 'var(--laranja)' : 'var(--azul)'}; color:#fff;">${ehDesconto ? 'Desconto %' : 'Tolerância'}</span>`;
       const tabelaRegras = ehDesconto ? `
         <table style="margin-top:10px;">
           <thead><tr><th>Valor mínimo</th><th>Desconto</th><th>Válido até</th><th></th></tr></thead>
@@ -1688,10 +1923,11 @@ async function carregarEstabelecimentos(){
           <div>
             <strong style="color:var(--navy);">${e.nome}</strong>
             <span style="color:var(--gray); font-size:12px;"> — CNPJ <code>${e.cnpj}</code></span>
-            ${badgeTipo}
+            ${badgeTipoBeneficio}
           </div>
           <div>
             ${badgeStatus(e.ativo)}
+            <button class="secundario" onclick="editarEstabelecimento(${e.id}, '${e.nome.replace(/'/g, "\\'")}')">Editar</button>
             <button class="secundario" onclick="alternarAtivoEstabelecimento(${e.id}, ${e.ativo})">${e.ativo ? 'Desativar' : 'Ativar'}</button>
             ${ehNivelDono() ? `<button class="secundario" onclick="excluirEstabelecimento(${e.id}, '${e.nome.replace(/'/g, "\\'")}')">Excluir</button>` : ''}
           </div>
@@ -1702,6 +1938,17 @@ async function carregarEstabelecimentos(){
     }).join('');
   }catch(err){
     container.innerHTML = `<div class="msg err">${err.message}</div>`;
+  }
+}
+
+async function editarEstabelecimento(id, nomeAtual){
+  const novoNome = prompt('Novo nome do convênio:', nomeAtual);
+  if (novoNome === null || !novoNome.trim() || novoNome === nomeAtual) return;
+  try{
+    await api('PATCH', `/gestao/estabelecimentos/${id}`, { nome: novoNome.trim() });
+    carregarEstabelecimentos();
+  }catch(e){
+    alert(e.message);
   }
 }
 
@@ -2019,6 +2266,7 @@ async function iniciarApp(){
   document.getElementById('secao-filtro-unidade').style.display = nivelDono ? 'block' : 'none';
   document.getElementById('e-unidade-wrap').style.display = nivelDono ? 'block' : 'none';
   document.getElementById('c-unidade-wrap').style.display = nivelDono ? 'block' : 'none';
+  document.getElementById('m-unidade-wrap').style.display = nivelDono ? 'block' : 'none';
   document.getElementById('lm-unidade-wrap').style.display = nivelDono ? 'block' : 'none';
   document.getElementById('lp-unidade-wrap').style.display = nivelDono ? 'block' : 'none';
 
