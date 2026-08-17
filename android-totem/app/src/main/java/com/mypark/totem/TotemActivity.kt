@@ -11,6 +11,7 @@ import android.view.WindowManager
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.widget.EditText
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 
@@ -76,7 +77,8 @@ class TotemActivity : AppCompatActivity() {
             builtInZoomControls = false
             displayZoomControls = false
         }
-        androidBridge = AndroidBridge(this, webView)
+        val campoCaptura = findViewById<EditText>(R.id.campo_captura_nativa)
+        androidBridge = AndroidBridge(this, webView, campoCaptura)
         webView.addJavascriptInterface(androidBridge, "AndroidBridge")
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {

@@ -1,10 +1,15 @@
 package com.mypark.totem
 
 import android.app.Activity
+import android.os.Handler
+import android.os.Looper
 import android.speech.tts.TextToSpeech
+import android.text.Editable
+import android.text.TextWatcher
 import android.util.Log
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
+import android.widget.EditText
 import br.com.gertec.gdk.printer.Alignment
 import br.com.gertec.gdk.printer.BarcodeFormat
 import br.com.gertec.gdk.printer.BarcodeType
@@ -46,13 +51,78 @@ import java.util.Locale
  * sistema, sem SharedPreferences legíveis por app comum). Tratar como
  * configuração de equipamento (feita uma vez, como data/hora e Wi-Fi),
  * não como algo que o app consegue garantir sozinho.
+ *
+ * Leitura do QR do cupom fiscal: passa por AQUI (campoCaptura), não
+ * pelo campo HTML da WebView. Testado ao vivo em 17/08/2026: uma chave
+ * de acesso NFC-e de 44 dígitos, digitada pelo "Scanner como teclado"
+ * direto num <input> do WebView, chegava cortada -- só os últimos ~25
+ * caracteres sobreviviam (confirmado comparando com o mesmo cupom
+ * escaneado direto no Chrome do equipamento, onde chegou inteiro). O
+ * WebView não dá conta da rajada de teclas rápida o bastante; um
+ * EditText nativo dá. Por isso essa ponte tem um campo nativo invisível
+ * (activity_totem.xml) que fica em foco só durante a leitura do cupom
+ * (ver prepararLeituraCupom/pararLeituraCupom, chamados pelo JS em
+ * mostrarPagina()/mostrarEtapaValidar() de totem_saida.html e
+ * totem_validacao.html) -- o texto completo só é repassado pro
+ * JavaScript depois de parar de mudar por DEBOUNCE_CAPTURA_MS.
  */
-class AndroidBridge(private val activity: Activity, private val webView: WebView) : Printer.Listener {
+class AndroidBridge(
+    private val activity: Activity,
+    private val webView: WebView,
+    private val campoCaptura: EditText,
+) : Printer.Listener {
 
     private val TAG = "AndroidBridge"
 
     private val printer: Printer = Printer.getInstance(activity, this)
     private var tts: TextToSpeech? = null
+
+    private val handlerCaptura = Handler(Looper.getMainLooper())
+    private var runnableDebounceCaptura: Runnable? = null
+
+    companion object {
+        private const val DEBOUNCE_CAPTURA_MS = 400L
+    }
+
+    init {
+        campoCaptura.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: Editable?) {
+                runnableDebounceCaptura?.let { handlerCaptura.removeCallbacks(it) }
+                if (s.isNullOrEmpty()) return
+                val runnable = Runnable { entregarLeituraCupom() }
+                runnableDebounceCaptura = runnable
+                handlerCaptura.postDelayed(runnable, DEBOUNCE_CAPTURA_MS)
+            }
+        })
+    }
+
+    private fun entregarLeituraCupom() {
+        val texto = campoCaptura.text.toString()
+        campoCaptura.setText("")
+        if (texto.isBlank()) return
+        val chamada = "if (window.receberLeituraCupomNativa) { window.receberLeituraCupomNativa(${JSONObject.quote(texto)}); }"
+        webView.evaluateJavascript(chamada) { }
+        webView.requestFocus()
+    }
+
+    @JavascriptInterface
+    fun prepararLeituraCupom() {
+        activity.runOnUiThread {
+            campoCaptura.setText("")
+            campoCaptura.requestFocus()
+        }
+    }
+
+    @JavascriptInterface
+    fun pararLeituraCupom() {
+        activity.runOnUiThread {
+            runnableDebounceCaptura?.let { handlerCaptura.removeCallbacks(it) }
+            campoCaptura.setText("")
+            webView.requestFocus()
+        }
+    }
 
     // Testado no equipamento em 11/08/2026: o áudio de boas-vindas saía
     // uns 4s atrasado, porque o TextToSpeech só era criado na primeira

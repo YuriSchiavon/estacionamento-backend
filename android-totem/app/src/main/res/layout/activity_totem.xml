@@ -22,4 +22,26 @@
         android:layout_height="56dp"
         android:layout_gravity="bottom|start" />
 
+    <!-- Campo nativo invisível que recebe a leitura do QR code do cupom
+         fiscal em vez do campo HTML dentro da WebView. Testado ao
+         vivo em 17/08/2026: o WebView perde os primeiros caracteres de
+         uma rajada rápida de teclas injetadas pelo "Scanner como
+         teclado" (chave de acesso de 44 dígitos chegava cortada, só os
+         últimos ~25 caracteres sobreviviam); um EditText nativo recebe
+         a rajada inteira sem perda (confirmado comparando com o Chrome
+         do próprio equipamento). Ver AndroidBridge.prepararLeituraCupom;
+         só fica em foco durante a etapa de leitura do cupom. -->
+    <EditText
+        android:id="@+id/campo_captura_nativa"
+        android:layout_width="1dp"
+        android:layout_height="1dp"
+        android:layout_gravity="bottom|start"
+        android:background="@null"
+        android:textColor="@android:color/transparent"
+        android:textCursorDrawable="@null"
+        android:inputType="text"
+        android:maxLines="1"
+        android:importantForAutofill="no"
+        android:contentDescription="captura nativa de leitura de cupom" />
+
 </FrameLayout>

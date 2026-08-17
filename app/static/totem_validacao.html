@@ -511,6 +511,10 @@ function mostrarPagina(id){
   if (timeoutAutoReset){ clearTimeout(timeoutAutoReset); timeoutAutoReset = null; }
   document.querySelectorAll('.pagina').forEach(p => p.classList.remove('ativa'));
   document.getElementById(id).classList.add('ativa');
+  // Por padrão a leitura nativa do cupom fica desarmada -- só liga de
+  // novo dentro de mostrarEtapaValidar('qr'). Assim ela nunca fica presa
+  // "ligada" fora dessa etapa roubando o foco de outro campo.
+  pararLeituraCupomNativa();
   if (id === 'pagina-validar'){
     document.getElementById('validar-codigo-ticket').value = '';
     document.getElementById('validar-qr').value = '';
@@ -526,6 +530,29 @@ function mostrarPagina(id){
   }
 }
 
+// -----------------------------------------------------------------
+// Leitura nativa do cupom -- ver AndroidBridge.kt. O WebView perde os
+// primeiros caracteres de uma rajada rápida de teclas do "Scanner como
+// teclado" (chave de acesso de 44 dígitos chegava cortada, só ~25
+// sobreviviam); um EditText nativo aguenta a rajada inteira. Fora do
+// app nativo (navegador/simulador) essas chamadas simplesmente não
+// fazem nada e o campo HTML continua recebendo a digitação normal.
+// -----------------------------------------------------------------
+function prepararLeituraCupomNativa(){
+  if (window.AndroidBridge && window.AndroidBridge.prepararLeituraCupom){
+    try{ window.AndroidBridge.prepararLeituraCupom(); }catch(e){ /* silencioso */ }
+  }
+}
+function pararLeituraCupomNativa(){
+  if (window.AndroidBridge && window.AndroidBridge.pararLeituraCupom){
+    try{ window.AndroidBridge.pararLeituraCupom(); }catch(e){ /* silencioso */ }
+  }
+}
+window.receberLeituraCupomNativa = function(texto){
+  document.getElementById('validar-qr').value = texto;
+  processarLeituraCupom();
+};
+
 // Wizard de validação de cupom: primeiro lê/digita o ticket (passo 1),
 // só depois abre o campo do QR code da nota fiscal (passo 2) -- em vez
 // de mostrar os dois campos juntos como antes, porque com o leitor de
@@ -536,11 +563,13 @@ function mostrarEtapaValidar(etapa){
     document.getElementById('etapa-validar-ticket').classList.add('ativa');
     document.getElementById('erro-validar-ticket').style.display = 'none';
     document.getElementById('validar-codigo-ticket').focus();
+    pararLeituraCupomNativa();
   }else{
     document.getElementById('etapa-validar-qr').classList.add('ativa');
     document.getElementById('validar-qr').value = '';
     document.getElementById('resultado-validar').className = 'resultado';
     document.getElementById('validar-qr').focus();
+    prepararLeituraCupomNativa();
   }
 }
 
