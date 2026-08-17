@@ -324,6 +324,11 @@
       <div class="desc-pagina">Aproxime o QR code da nota fiscal do leitor</div>
       <input class="codigo" id="validar-qr" placeholder="AGUARDANDO LEITURA DO CUPOM">
       <div class="resultado" id="resultado-validar"></div>
+      <div id="valor-manual-wrap" style="display:none; margin-top:16px;">
+        <div class="desc-pagina" style="margin-bottom:8px;">Não conseguimos ler o valor da compra automaticamente. Digite o valor impresso no cupom:</div>
+        <input class="codigo" id="valor-manual" type="number" step="0.01" inputmode="decimal" placeholder="0,00" style="letter-spacing:normal;">
+        <button class="principal" id="btn-confirmar-valor-manual" style="margin-top:12px;">Confirmar</button>
+      </div>
       <button class="secundaria" id="btn-voltar-etapa-ticket">voltar ao ticket</button>
     </div>
   </div>
@@ -519,6 +524,8 @@ function mostrarPagina(id){
     document.getElementById('validar-codigo-ticket').value = '';
     document.getElementById('validar-qr').value = '';
     document.getElementById('resultado-validar').className = 'resultado';
+    document.getElementById('valor-manual-wrap').style.display = 'none';
+    cupomPendente = null;
     mostrarEtapaValidar('ticket');
   }
   if (id === 'pagina-pagamento'){
@@ -756,6 +763,11 @@ function lerCupomFiscal(textoLido){
   return { chave, valor };
 }
 
+// Chave (e ticket) lidos mas ainda sem valor confirmado -- fica
+// pendente enquanto espera o operador digitar o valor manualmente (ver
+// valor-manual-wrap). Null sempre que não há leitura em aberto.
+let cupomPendente = null;
+
 async function processarLeituraCupom(){
   const codigoTicket = document.getElementById('validar-codigo-ticket').value.trim();
   const texto = document.getElementById('validar-qr').value.trim();
@@ -763,17 +775,34 @@ async function processarLeituraCupom(){
   if (!codigoTicket || !texto) return;
 
   const { chave, valor } = lerCupomFiscal(texto);
-  if (!chave || valor == null || isNaN(valor)){
+  if (!chave){
     resultado.className = 'resultado show err';
     resultado.textContent = 'Não foi possível ler os dados do cupom. Tente novamente.';
     document.getElementById('validar-qr').value = '';
     return;
   }
+  if (valor == null || isNaN(valor)){
+    // Alguns estados (ex: MG) têm QR de NFC-e que não embute o valor da
+    // compra -- em vez de travar o fluxo com erro, pede pro operador
+    // digitar o valor impresso no cupom.
+    cupomPendente = { codigoTicket, chave };
+    document.getElementById('valor-manual-wrap').style.display = 'block';
+    document.getElementById('valor-manual').value = '';
+    document.getElementById('valor-manual').focus();
+    return;
+  }
+  await validarCupomComValor(codigoTicket, chave, valor);
+}
+
+async function validarCupomComValor(codigoTicket, chave, valor){
+  const resultado = document.getElementById('resultado-validar');
   try{
     await chamarApi('POST', '/loja/validar-cupom', {
       codigo_barras: codigoTicket, chave_acesso_nfce: chave, valor_compra: valor,
       unidade_id: sessao.unidade_operacional_id,
     });
+    cupomPendente = null;
+    document.getElementById('valor-manual-wrap').style.display = 'none';
     const r = await chamarApi('GET', '/saida/verificar/' + encodeURIComponent(codigoTicket) + '?unidade_id=' + sessao.unidade_operacional_id);
     if (r.liberar_cancela || r.valor_calculado <= 0){
       resultado.className = 'resultado show ok';
@@ -798,6 +827,19 @@ document.getElementById('validar-qr').addEventListener('keydown', (e) => {
 });
 document.getElementById('validar-codigo-ticket').addEventListener('keydown', (e) => {
   if (e.key === 'Enter') avancarParaEtapaQr();
+});
+
+document.getElementById('btn-confirmar-valor-manual').addEventListener('click', () => {
+  const resultado = document.getElementById('resultado-validar');
+  const valor = parseFloat(document.getElementById('valor-manual').value);
+  if (!valor || isNaN(valor) || valor <= 0){
+    resultado.className = 'resultado show err';
+    resultado.textContent = 'Informe um valor válido.';
+    return;
+  }
+  if (!cupomPendente) return;
+  document.getElementById('valor-manual-wrap').style.display = 'none';
+  validarCupomComValor(cupomPendente.codigoTicket, cupomPendente.chave, valor);
 });
 
 // Verificação automática -- o "Scanner como teclado" do SK210 digita o

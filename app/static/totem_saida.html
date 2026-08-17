@@ -320,6 +320,11 @@
     <div class="desc-pagina">Aproxime o QR code da nota fiscal do leitor</div>
     <input class="codigo" id="validar-qr" placeholder="AGUARDANDO LEITURA" autofocus>
     <div class="erro erro-leitor" id="erro-validar"></div>
+    <div id="valor-manual-wrap" style="display:none; margin-top:16px;">
+      <div class="desc-pagina" style="margin-bottom:8px;">Não conseguimos ler o valor da compra automaticamente. Digite o valor impresso no cupom:</div>
+      <input class="codigo" id="valor-manual" type="number" step="0.01" inputmode="decimal" placeholder="0,00" style="letter-spacing:normal;">
+      <button class="acao-grande" id="btn-confirmar-valor-manual" style="margin-top:12px;">Confirmar</button>
+    </div>
     <button class="secundaria" id="btn-cancelar-validar">voltar</button>
   </div>
 
@@ -493,6 +498,8 @@ function mostrarPagina(id){
   if (id === 'pagina-validar'){
     document.getElementById('validar-qr').value = '';
     document.getElementById('erro-validar').style.display = 'none';
+    document.getElementById('valor-manual-wrap').style.display = 'none';
+    chaveCupomPendente = null;
     document.getElementById('validar-qr').focus();
     prepararLeituraCupomNativa();
   }
@@ -762,23 +769,45 @@ function lerCupomFiscal(textoLido){
 document.getElementById('btn-ir-validar').addEventListener('click', () => mostrarPagina('pagina-validar'));
 document.getElementById('btn-cancelar-validar').addEventListener('click', () => mostrarPagina('pagina-resultado'));
 
+// Chave lida mas ainda sem valor confirmado -- fica pendente enquanto
+// espera o operador digitar o valor manualmente (ver
+// valor-manual-wrap). Null sempre que não há leitura em aberto.
+let chaveCupomPendente = null;
+
 async function processarLeituraCupom(){
   const texto = document.getElementById('validar-qr').value.trim();
   if (!texto) return;
   const erro = document.getElementById('erro-validar');
   erro.style.display = 'none';
   const { chave, valor } = lerCupomFiscal(texto);
-  if (!chave || valor == null || isNaN(valor)){
+  if (!chave){
     erro.textContent = 'Não foi possível ler os dados do cupom. Tente novamente.';
     erro.style.display = 'block';
     document.getElementById('validar-qr').value = '';
     return;
   }
+  if (valor == null || isNaN(valor)){
+    // Alguns estados (ex: MG) têm QR de NFC-e que não embute o valor da
+    // compra -- em vez de travar o fluxo com erro, pede pro operador
+    // digitar o valor impresso no cupom.
+    chaveCupomPendente = chave;
+    document.getElementById('valor-manual-wrap').style.display = 'block';
+    document.getElementById('valor-manual').value = '';
+    document.getElementById('valor-manual').focus();
+    return;
+  }
+  await validarCupomComValor(chave, valor);
+}
+
+async function validarCupomComValor(chave, valor){
+  const erro = document.getElementById('erro-validar');
   try{
     await chamarApi('POST', '/loja/validar-cupom', {
       codigo_barras: codigoAtual, chave_acesso_nfce: chave, valor_compra: valor,
       unidade_id: sessao.unidade_operacional_id,
     });
+    chaveCupomPendente = null;
+    document.getElementById('valor-manual-wrap').style.display = 'none';
     const r = await verificarSaida(codigoAtual);
     // Cupom não foi suficiente pra cobrir a tolerância (não se enquadrou
     // no regulamento de cobrança) -- vai direto pro pagamento, sem exigir
@@ -790,6 +819,20 @@ async function processarLeituraCupom(){
     document.getElementById('validar-qr').value = '';
   }
 }
+
+document.getElementById('btn-confirmar-valor-manual').addEventListener('click', () => {
+  const erro = document.getElementById('erro-validar');
+  const valor = parseFloat(document.getElementById('valor-manual').value);
+  if (!valor || isNaN(valor) || valor <= 0){
+    erro.textContent = 'Informe um valor válido.';
+    erro.style.display = 'block';
+    return;
+  }
+  if (!chaveCupomPendente) return;
+  erro.style.display = 'none';
+  document.getElementById('valor-manual-wrap').style.display = 'none';
+  validarCupomComValor(chaveCupomPendente, valor);
+});
 
 document.getElementById('validar-qr').addEventListener('keydown', (e) => {
   if (e.key === 'Enter') processarLeituraCupom();
