@@ -514,7 +514,12 @@ function mostrarPagina(id){
     document.getElementById('erro-validar').style.display = 'none';
     document.getElementById('valor-manual-wrap').style.display = 'none';
     chaveCupomPendente = null;
-    focarSemTeclado('validar-qr');
+    // Só o campo nativo fica em foco aqui -- chamar focarSemTeclado()
+    // no campo do WebView também disputava o foco com
+    // prepararLeituraCupomNativa() (os dois rodando quase juntos), e só
+    // "resolvia" na segunda tentativa de leitura, depois do foco nativo
+    // se estabilizar. A leitura desse campo não passa mais pelo WebView
+    // de jeito nenhum (ver AndroidBridge.kt) -- só precisa do nativo.
     prepararLeituraCupomNativa();
   }
 }
