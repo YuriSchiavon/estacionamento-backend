@@ -1,12 +1,14 @@
 package com.mypark.totem
 
 import android.app.Activity
+import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import android.speech.tts.TextToSpeech
 import android.text.Editable
 import android.text.TextWatcher
 import android.util.Log
+import android.view.inputmethod.InputMethodManager
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import android.widget.EditText
@@ -85,6 +87,15 @@ class AndroidBridge(
     }
 
     init {
+        // Recebe a rajada de teclas do "Scanner como teclado" normalmente,
+        // mas nunca abre o teclado virtual -- testado ao vivo em
+        // 17/08/2026: dar foco nesse campo (requestFocus()) estava
+        // levantando o teclado do Android por cima da WebView, mesmo com
+        // TotemActivity usando windowSoftInputMode="stateAlwaysHidden".
+        // Esse atributo é o que de fato controla se o foco programático
+        // pede o teclado virtual ou não -- não afeta a entrada via
+        // teclado físico/HID, que não depende do teclado virtual.
+        campoCaptura.showSoftInputOnFocus = false
         campoCaptura.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
@@ -121,6 +132,22 @@ class AndroidBridge(
             runnableDebounceCaptura?.let { handlerCaptura.removeCallbacks(it) }
             campoCaptura.setText("")
             webView.requestFocus()
+        }
+    }
+
+    // Testado ao vivo em 17/08/2026: chamar `.focus()` num <input> de
+    // dentro do WebView consegue levantar o teclado virtual mesmo com
+    // TotemActivity em windowSoftInputMode="stateAlwaysHidden" -- o
+    // Chromium tem sua própria heurística de "foco iniciado pelo
+    // usuário" que nem sempre respeita a dica de estado da janela
+    // Android. As páginas de totem chamam isso logo depois de focar
+    // qualquer campo que é só pra leitura do scanner (nunca digitação
+    // manual esperada) -- ver focarSemTeclado() em app/static/totem_*.html.
+    @JavascriptInterface
+    fun esconderTeclado() {
+        activity.runOnUiThread {
+            val imm = activity.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+            imm.hideSoftInputFromWindow(webView.windowToken, 0)
         }
     }
 

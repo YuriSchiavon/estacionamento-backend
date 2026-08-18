@@ -392,6 +392,20 @@
 <script>
 document.addEventListener('contextmenu', e => e.preventDefault());
 
+// Foca um campo que só existe pra receber o scanner (nunca digitação
+// manual esperada) sem deixar o teclado virtual subir por cima da
+// tela. Testado ao vivo em 17/08/2026: mesmo com o app nativo em
+// windowSoftInputMode="stateAlwaysHidden", o `.focus()` de dentro do
+// WebView conseguia levantar o teclado -- por isso o pedido extra pro
+// nativo escondê-lo logo em seguida (fora do app/em navegador comum,
+// window.AndroidBridge não existe e essa chamada não faz nada).
+function focarSemTeclado(id){
+  document.getElementById(id).focus();
+  if (window.AndroidBridge && window.AndroidBridge.esconderTeclado){
+    setTimeout(() => { try{ window.AndroidBridge.esconderTeclado(); }catch(e){} }, 50);
+  }
+}
+
 const API = "";
 const CHAVE_SESSAO = 'sessao_totem_saida';
 let sessao = null;
@@ -493,14 +507,14 @@ function mostrarPagina(id){
   pararLeituraCupomNativa();
   if (id === 'pagina-ticket'){
     document.getElementById('saida-codigo').value = '';
-    document.getElementById('saida-codigo').focus();
+    focarSemTeclado('saida-codigo');
   }
   if (id === 'pagina-validar'){
     document.getElementById('validar-qr').value = '';
     document.getElementById('erro-validar').style.display = 'none';
     document.getElementById('valor-manual-wrap').style.display = 'none';
     chaveCupomPendente = null;
-    document.getElementById('validar-qr').focus();
+    focarSemTeclado('validar-qr');
     prepararLeituraCupomNativa();
   }
 }

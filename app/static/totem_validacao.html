@@ -416,6 +416,20 @@
 <script>
 document.addEventListener('contextmenu', e => e.preventDefault());
 
+// Foca um campo que só existe pra receber o scanner (nunca digitação
+// manual esperada) sem deixar o teclado virtual subir por cima da
+// tela. Testado ao vivo em 17/08/2026: mesmo com o app nativo em
+// windowSoftInputMode="stateAlwaysHidden", o `.focus()` de dentro do
+// WebView conseguia levantar o teclado -- por isso o pedido extra pro
+// nativo escondê-lo logo em seguida (fora do app/em navegador comum,
+// window.AndroidBridge não existe e essa chamada não faz nada).
+function focarSemTeclado(id){
+  document.getElementById(id).focus();
+  if (window.AndroidBridge && window.AndroidBridge.esconderTeclado){
+    setTimeout(() => { try{ window.AndroidBridge.esconderTeclado(); }catch(e){} }, 50);
+  }
+}
+
 const API = "";
 const CHAVE_SESSAO = 'sessao_totem_validacao';
 let sessao = null;
@@ -533,7 +547,7 @@ function mostrarPagina(id){
     document.getElementById('valor-devido').className = 'valor-devido';
     document.getElementById('resultado-pagamento').className = 'resultado';
     ticketAtual = null;
-    document.getElementById('consulta-codigo').focus();
+    focarSemTeclado('consulta-codigo');
   }
 }
 
@@ -569,13 +583,13 @@ function mostrarEtapaValidar(etapa){
   if (etapa === 'ticket'){
     document.getElementById('etapa-validar-ticket').classList.add('ativa');
     document.getElementById('erro-validar-ticket').style.display = 'none';
-    document.getElementById('validar-codigo-ticket').focus();
+    focarSemTeclado('validar-codigo-ticket');
     pararLeituraCupomNativa();
   }else{
     document.getElementById('etapa-validar-qr').classList.add('ativa');
     document.getElementById('validar-qr').value = '';
     document.getElementById('resultado-validar').className = 'resultado';
-    document.getElementById('validar-qr').focus();
+    focarSemTeclado('validar-qr');
     prepararLeituraCupomNativa();
   }
 }
