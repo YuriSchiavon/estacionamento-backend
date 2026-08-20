@@ -246,6 +246,14 @@ class SaidaActivity : AppCompatActivity() {
                 val r = JSONObject(resposta)
                 runOnUiThread {
                     exibirResultado(r)
+                    // Só recebe quem "bem-vindo" quando a interação vai
+                    // continuar (precisa validar cupom/pagar) -- numa
+                    // liberação imediata (isento), exibirResultado()
+                    // já dispara "Volte sempre", e falar as duas coisas
+                    // quase juntas cortava uma por cima da outra.
+                    if (!r.optBoolean("liberar_cancela", false)) {
+                        locutor.falar("Seja bem-vindo")
+                    }
                     botao.isEnabled = true
                 }
             } catch (e: ApiException) {
@@ -258,6 +266,7 @@ class SaidaActivity : AppCompatActivity() {
                         put("valor_calculado", 0.0)
                     }
                     exibirResultado(erro, semDetalhesDeTempo = true)
+                    locutor.falar("Ticket não encontrado")
                     botao.isEnabled = true
                 }
             }
@@ -310,6 +319,11 @@ class SaidaActivity : AppCompatActivity() {
         mostrarPagina(paginaResultado)
 
         if (liberado) {
+            // Único lugar que fala "Volte sempre" -- cobre liberação
+            // isenta (direto na primeira leitura do ticket), depois de
+            // validar cupom e depois de pagar, todas de uma vez, sem
+            // duplicar a chamada em cada um desses fluxos.
+            locutor.falar("Volte sempre")
             val runnable = Runnable { mostrarPagina(paginaTicket) }
             timeoutAutoReset = runnable
             handler.postDelayed(runnable, ATRASO_RESET_MS)
@@ -407,6 +421,7 @@ class SaidaActivity : AppCompatActivity() {
             erro.text = "Não foi possível ler os dados do cupom. Tente novamente."
             erro.visibility = View.VISIBLE
             campo.setText("")
+            locutor.falar("Não foi possível ler o cupom")
             return
         }
         if (valor == null) {
@@ -447,6 +462,7 @@ class SaidaActivity : AppCompatActivity() {
                     erro.text = e.message
                     erro.visibility = View.VISIBLE
                     findViewById<EditText>(R.id.campo_qr).setText("")
+                    locutor.falar("Cupom inválido")
                 }
             }
         }.start()
@@ -492,16 +508,17 @@ class SaidaActivity : AppCompatActivity() {
                         put("unidade_id", sessao.unidadeId)
                     },
                 )
-                runOnUiThread {
-                    imprimirComprovante(codigo, valor, forma)
-                    locutor.falar("Volte sempre")
-                }
+                // "Volte sempre" sai de exibirResultado() quando
+                // verificarSaidaEExibir() confirmar liberar_cancela=true
+                // logo abaixo -- não repete aqui.
+                runOnUiThread { imprimirComprovante(codigo, valor, forma) }
                 verificarSaidaEExibir(codigo) { botoesFormaPagamento().forEach { it.isEnabled = true } }
             } catch (e: ApiException) {
                 runOnUiThread {
                     erro.text = e.message
                     erro.visibility = View.VISIBLE
                     botoesFormaPagamento().forEach { it.isEnabled = true }
+                    locutor.falar("Não foi possível concluir o pagamento")
                 }
             }
         }.start()
@@ -630,7 +647,7 @@ class SaidaActivity : AppCompatActivity() {
                 val codigo = codigoAtual ?: return
                 val valor = ultimaVerificacao?.optDouble("valor_calculado", 0.0) ?: 0.0
                 imprimirComprovante(codigo, valor, "pix")
-                locutor.falar("Volte sempre")
+                // "Volte sempre" sai de exibirResultado() logo abaixo.
                 verificarSaidaEExibir(codigo) { }
             }
             "expirado" -> {
@@ -640,6 +657,7 @@ class SaidaActivity : AppCompatActivity() {
                     text = "O tempo pra pagar esse QR code acabou. Volte e tente de novo."
                     visibility = View.VISIBLE
                 }
+                locutor.falar("QR code expirado")
             }
             // "pendente" -- continua esperando, sem fazer nada.
         }
