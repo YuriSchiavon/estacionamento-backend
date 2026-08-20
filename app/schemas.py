@@ -202,6 +202,22 @@ class PagamentoRequest(BaseModel):
     unidade_id: Optional[int] = None  # ver ValidarCupomRequest.unidade_id
 
 
+class CriarCobrancaPixRequest(BaseModel):
+    codigo_barras: str
+    valor: float
+    unidade_id: Optional[int] = None
+
+
+class CobrancaPixOut(BaseModel):
+    id: int
+    status: str
+    qr_code_texto: Optional[str] = None
+    expira_em: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
 class CredenciadoIn(BaseModel):
     nome: str
     tipo: Literal["credenciado", "mensalista"]

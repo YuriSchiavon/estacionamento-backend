@@ -6,6 +6,7 @@ python-dotenv>=1.0
 bcrypt>=4.0
 psycopg2-binary>=2.9   # Postgres -- necessário em produção (Railway/Render), ver DATABASE_URL no .env.example
 qrcode>=7.4            # gera o QR code do ticket impresso no totem de entrada (fábrica SVG, sem precisar de Pillow)
+requests>=2.31          # chamadas à API da Pagar.me (cobrança PIX), ver app/pagarme.py
 
 # Driver alternativo, só se o banco de produção escolhido for MySQL em vez de Postgres:
 # pymysql>=1.1

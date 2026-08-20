@@ -49,5 +49,10 @@ dependencies {
     // impressora térmica, EasyLayer pro leitor 1D/2D. Baixados do portal
     // de desenvolvedor da Gertec (gertec.atlassian.net), não são
     // publicados em nenhum repositório Maven público.
+    // O AAR da EasyLayer (leitor 1D/2D) já embute a com.google.zxing:core
+    // inteira -- SaidaActivity.gerarBitmapQr() usa
+    // com.google.zxing.qrcode.QRCodeWriter direto dela, sem precisar
+    // declarar a dependência nós mesmos (declarar de novo só duplicava
+    // as classes e quebrava o build).
     implementation fileTree(dir: 'libs', include: ['*.aar'])
 }

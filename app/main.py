@@ -26,7 +26,7 @@ from fastapi import FastAPI, Depends, HTTPException
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
-from . import models, schemas, services
+from . import models, pagarme, schemas, services
 from .auth import router as auth_router
 from .database import Base, engine, get_db
 from .migrations import migrar_colunas_novas
@@ -34,6 +34,7 @@ from .nfce import extrair_cnpj_emitente
 from .qrcode_util import gerar_qr_svg
 from .rotas_gestao import router as rotas_gestao_router
 from .seed import seed
+from .tempo import agora_utc
 from .security import (
     exigir_totem_entrada,
     exigir_totem_saida,
@@ -307,3 +308,83 @@ def registrar_pagamento(
     db.commit()
     db.refresh(ticket)
     return ticket
+
+
+# ---------------------------------------------------------------------
+# PIX de verdade (Pagar.me) -- diferente de POST /saida/pagamento acima
+# (que confia no totem dizer "paguei"), aqui existe uma cobrança real:
+# cria (retorna QR), o totem fica consultando o status até a Pagar.me
+# confirmar que o cliente pagou. Ver app/pagarme.py.
+# ---------------------------------------------------------------------
+@app.post("/saida/pagamento-pix", response_model=schemas.CobrancaPixOut)
+def criar_pagamento_pix(
+    payload: schemas.CriarCobrancaPixRequest,
+    db: Session = Depends(get_db),
+    usuario: models.Usuario = Depends(exigir_totem_saida),
+):
+    unidade_id = resolver_unidade_operacional(db, usuario, payload.unidade_id)
+    ticket = db.query(models.Ticket).filter_by(
+        codigo_barras=payload.codigo_barras, unidade_id=unidade_id
+    ).first()
+    if not ticket:
+        raise HTTPException(404, "Ticket não encontrado")
+    if ticket.status != models.StatusTicket.tarifado:
+        raise HTTPException(409, f"Ticket não está aguardando pagamento (status: {ticket.status})")
+    if payload.valor < ticket.valor_calculado - 0.01:
+        raise HTTPException(
+            422,
+            f"Valor informado (R$ {payload.valor:.2f}) é menor que o valor devido "
+            f"(R$ {ticket.valor_calculado:.2f})",
+        )
+
+    try:
+        resultado = pagarme.criar_cobranca_pix(payload.valor, referencia=ticket.codigo_barras)
+    except pagarme.PagarMeNaoConfigurado as erro:
+        raise HTTPException(503, str(erro))
+    except Exception:
+        raise HTTPException(502, "Não foi possível gerar a cobrança PIX. Tente novamente.")
+
+    cobranca = models.CobrancaPix(
+        ticket_id=ticket.id,
+        valor=payload.valor,
+        pagarme_order_id=resultado["order_id"],
+        qr_code_texto=resultado["qr_code_texto"],
+        expira_em=resultado["expira_em"],
+    )
+    db.add(cobranca)
+    db.commit()
+    db.refresh(cobranca)
+    return cobranca
+
+
+@app.get("/saida/pagamento-pix/{cobranca_id}/status", response_model=schemas.CobrancaPixOut)
+def consultar_pagamento_pix(
+    cobranca_id: int, db: Session = Depends(get_db), usuario: models.Usuario = Depends(exigir_totem_saida),
+):
+    cobranca = db.get(models.CobrancaPix, cobranca_id)
+    if not cobranca:
+        raise HTTPException(404, "Cobrança não encontrada")
+
+    if cobranca.status == models.StatusCobrancaPix.pendente:
+        try:
+            status_gateway = pagarme.consultar_status(cobranca.pagarme_order_id)
+        except pagarme.PagarMeNaoConfigurado:
+            status_gateway = None
+        except Exception:
+            status_gateway = None
+
+        if status_gateway == "paid":
+            cobranca.status = models.StatusCobrancaPix.pago
+            cobranca.pago_em = agora_utc()
+            db.add(models.Transacao(
+                ticket_id=cobranca.ticket_id, forma_pagamento="pix", valor=cobranca.valor,
+            ))
+            cobranca.ticket.status = models.StatusTicket.pago
+            db.commit()
+            db.refresh(cobranca)
+        elif cobranca.expira_em and agora_utc() > cobranca.expira_em:
+            cobranca.status = models.StatusCobrancaPix.expirado
+            db.commit()
+            db.refresh(cobranca)
+
+    return cobranca

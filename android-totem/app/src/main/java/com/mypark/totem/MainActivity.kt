@@ -51,7 +51,10 @@ class MainActivity : AppCompatActivity() {
         // Button, e sim um LinearLayout clicável (ver activity_main.xml),
         // pra caber ícone grande em cima e texto pequeno embaixo.
         findViewById<View>(R.id.btn_entrada).setOnClickListener { abrirTotem(Config.URL_ENTRADA) }
-        findViewById<View>(R.id.btn_saida).setOnClickListener { abrirTotem(Config.URL_SAIDA) }
+        // Saída já foi reescrita 100% nativa (ver SaidaActivity) -- não
+        // passa mais por WebView. Entrada/Validação seguem pelo caminho
+        // antigo até também ganharem versão nativa.
+        findViewById<View>(R.id.btn_saida).setOnClickListener { abrirSaidaNativa() }
         findViewById<View>(R.id.btn_validacao).setOnClickListener { abrirTotem(Config.URL_VALIDACAO) }
 
         // Esta é a raiz da tarefa (não existe tela anterior dentro do
@@ -273,6 +276,24 @@ class MainActivity : AppCompatActivity() {
             "&unidade_operacional_id=$unidadeId&unidade_operacional_nome=${enc(unidadeOperacionalNome)}"
         val intent = Intent(this, TotemActivity::class.java)
         intent.putExtra(TotemActivity.EXTRA_URL, url)
+        startActivity(intent)
+    }
+
+    // Igual abrirTotem() acima, mas pra tela nativa (sem WebView, sem
+    // URL) -- a sessão vai direto como extras do Intent, ver Sessao.kt.
+    private fun abrirSaidaNativa() {
+        val t = token ?: return
+        val unidadeId = unidadeOperacionalId ?: return
+        val sessao = Sessao(
+            token = t,
+            papel = papel ?: "",
+            nome = nome ?: "",
+            podeLiberarManualmente = podeLiberarManualmente,
+            unidadeId = unidadeId,
+            unidadeNome = unidadeOperacionalNome ?: "",
+        )
+        val intent = Intent(this, SaidaActivity::class.java)
+        sessao.salvarEm(intent)
         startActivity(intent)
     }
 }

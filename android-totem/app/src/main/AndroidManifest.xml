@@ -29,5 +29,13 @@
             android:configChanges="orientation|screenSize|keyboardHidden"
             android:windowSoftInputMode="stateAlwaysHidden|adjustPan" />
 
+        <!-- Tela nativa do totem de Saída, sem WebView (ver SaidaActivity.kt) -->
+        <activity
+            android:name=".SaidaActivity"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:screenOrientation="portrait"
+            android:configChanges="orientation|screenSize|keyboardHidden" />
+
     </application>
 </manifest>

@@ -311,6 +311,35 @@ class Transacao(Base):
     ticket = relationship("Ticket", back_populates="transacoes")
 
 
+class StatusCobrancaPix(str, enum.Enum):
+    pendente = "pendente"    # aguardando o cliente pagar
+    pago = "pago"
+    expirado = "expirado"
+
+
+class CobrancaPix(Base):
+    """Uma cobrança PIX criada na Pagar.me pro totem de saída (ver
+    app/pagarme.py) -- diferente de Transacao (que só registra um
+    pagamento já confirmado em cartão/PIX manual), essa tabela existe
+    porque o PIX de verdade tem um meio-do-caminho: cobrança criada,
+    aguardando o cliente escanear e pagar. Quando confirma (ver
+    GET /saida/pagamento-pix/{id}/status), também gera a Transacao
+    correspondente, igual /saida/pagamento já fazia pros outros meios."""
+    __tablename__ = "cobrancas_pix"
+
+    id = Column(Integer, primary_key=True)
+    ticket_id = Column(Integer, ForeignKey("tickets.id"), nullable=False)
+    valor = Column(Float, nullable=False)
+    status = Column(Enum(StatusCobrancaPix), default=StatusCobrancaPix.pendente)
+    pagarme_order_id = Column(String, nullable=True)
+    qr_code_texto = Column(String, nullable=True)  # "copia e cola" do PIX
+    criado_em = Column(DateTime, default=agora_utc)
+    expira_em = Column(DateTime, nullable=True)
+    pago_em = Column(DateTime, nullable=True)
+
+    ticket = relationship("Ticket")
+
+
 class TipoCredenciado(str, enum.Enum):
     credenciado = "credenciado"  # acesso 100% liberado, sem custo, sem validade
     mensalista = "mensalista"    # acesso liberado enquanto a mensalidade estiver em dia
