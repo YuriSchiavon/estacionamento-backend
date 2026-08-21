@@ -1,4 +1,4 @@
-<title>Painel de Gestão — Estacionamento</title>
+﻿<title>Painel de Gestão — Estacionamento</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -203,6 +203,13 @@
     cursor:pointer;
     margin-right:6px;
   }
+  .tabela-wrap{
+    border:1px solid var(--border);
+    border-radius:10px;
+    overflow-x:auto;
+    margin-top:14px;
+  }
+  .tabela-wrap table{margin-top:0;}
   table{
     width:100%;
     border-collapse:collapse;
@@ -211,10 +218,20 @@
   }
   th, td{
     text-align:left;
-    padding:8px 10px;
+    padding:10px 12px;
     border-bottom:1px solid var(--border);
+    white-space:nowrap;
   }
-  th{color:var(--navy);font-size:12px;text-transform:uppercase;letter-spacing:.03em;}
+  th{
+    color:var(--navy);
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:.04em;
+    background:var(--bg);
+  }
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr:hover td{background:#F0F3F8;}
+  .col-acoes{white-space:nowrap;}
   .badge{
     display:inline-block;
     padding:2px 8px;
@@ -514,12 +531,14 @@
           </div>
           <div><button class="action" id="btn-patio">Buscar</button></div>
         </div>
+        <div class="tabela-wrap">
         <table>
           <thead>
             <tr><th>Código</th><th>Entrada</th><th>Saída</th><th>Status</th><th>Valor</th><th>Pago</th><th>Credenciado</th></tr>
           </thead>
           <tbody id="tabela-patio"></tbody>
         </table>
+        </div>
         <div class="empty" id="patio-vazio" style="display:none;">Nenhum ticket nesse filtro.</div>
       </section>
     </div>
@@ -532,12 +551,14 @@
           <div><label>Até</label><input type="datetime-local" id="rt-fim"></div>
           <div><button class="action" id="btn-relatorio-tickets">Buscar</button></div>
         </div>
+        <div class="tabela-wrap">
         <table>
           <thead>
             <tr><th>Código</th><th>Entrada</th><th>Saída</th><th>Status</th><th>Permanência</th><th>Valor</th><th>Ações</th></tr>
           </thead>
           <tbody id="tabela-tickets"></tbody>
         </table>
+        </div>
         <div class="empty" id="tickets-vazio" style="display:none;">Nenhum ticket no período.</div>
       </section>
     </div>
@@ -584,6 +605,7 @@
         <h2>Mensalistas cadastrados</h2>
         <div class="desc">Vencidos aparecem com validade em vermelho — use "Renovar" para dar mais dias.</div>
         <input type="text" id="filtro-mensalistas" placeholder="Buscar por nome ou placa..." style="max-width:320px; margin-bottom:12px;">
+        <div class="tabela-wrap">
         <table>
           <thead>
             <tr>
@@ -593,6 +615,7 @@
           </thead>
           <tbody id="tabela-mensalistas"></tbody>
         </table>
+        </div>
         <div class="empty" id="mensalistas-vazio" style="display:none;">Nenhum mensalista cadastrado ainda.</div>
       </section>
     </div>
@@ -638,6 +661,7 @@
       <section class="card">
         <h2>Credenciados cadastrados</h2>
         <input type="text" id="filtro-credenciados" placeholder="Buscar por nome ou placa..." style="max-width:320px; margin-bottom:12px;">
+        <div class="tabela-wrap">
         <table>
           <thead>
             <tr>
@@ -647,6 +671,7 @@
           </thead>
           <tbody id="tabela-credenciados"></tbody>
         </table>
+        </div>
         <div class="empty" id="credenciados-vazio" style="display:none;">Nenhum credenciado cadastrado ainda.</div>
       </section>
     </div>
@@ -837,12 +862,14 @@
         </div>
         <div class="msg" id="msg-usuario"></div>
         <div id="conta-usuario-criado"></div>
+        <div class="tabela-wrap">
         <table>
           <thead>
             <tr><th>Nome</th><th>Usuário</th><th>Papel</th><th>Status</th><th>Libera manual</th><th>Ações</th></tr>
           </thead>
           <tbody id="tabela-usuarios"></tbody>
         </table>
+        </div>
         <div class="empty" id="usuarios-vazio" style="display:none;">Nenhum usuário cadastrado ainda.</div>
       </section>
     </div>
@@ -881,21 +908,25 @@
         <h3>Carga horária no período</h3>
         <div class="resumo" id="resumo-jornada"></div>
         <div class="empty" id="jornada-aviso-aberto" style="display:none;"></div>
+        <div class="tabela-wrap">
         <table>
           <thead>
             <tr><th>Entrada</th><th>Saída</th><th>Intervalo</th><th>Horas trabalhadas</th></tr>
           </thead>
           <tbody id="tabela-turnos"></tbody>
         </table>
+        </div>
         <div class="empty" id="turnos-vazio" style="display:none;">Nenhum turno fechado no período.</div>
 
         <h3 style="margin-top:24px;">Batidas no período</h3>
+        <div class="tabela-wrap">
         <table>
           <thead>
             <tr><th>Colaborador</th><th>Tipo</th><th>Quando</th></tr>
           </thead>
           <tbody id="tabela-ponto"></tbody>
         </table>
+        </div>
         <div class="empty" id="ponto-vazio" style="display:none;">Nenhum registro de ponto no período.</div>
       </section>
     </div>
@@ -916,12 +947,14 @@
           </div>
           <div><button class="action" id="btn-auditoria">Atualizar</button></div>
         </div>
+        <div class="tabela-wrap">
         <table>
           <thead>
             <tr><th>Tipo</th><th>Descrição</th><th>Usuário</th><th>Quando</th></tr>
           </thead>
           <tbody id="tabela-auditoria"></tbody>
         </table>
+        </div>
         <div class="empty" id="auditoria-vazio" style="display:none;">Nenhum evento de auditoria registrado.</div>
       </section>
     </div>
@@ -998,10 +1031,12 @@
         </div>
         <div class="msg" id="msg-unidade"></div>
         <div id="contas-criadas"></div>
+        <div class="tabela-wrap">
         <table>
           <thead><tr><th>Nome</th><th>Status</th><th>Tolerância padrão</th><th>Mensalidade</th><th>Ações</th></tr></thead>
           <tbody id="tabela-unidades"></tbody>
         </table>
+        </div>
       </section>
     </div>
     </main>
